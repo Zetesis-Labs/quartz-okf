@@ -1,0 +1,65 @@
+.okf-blast {
+  &:empty {
+    display: none;
+  }
+
+  & > h3 {
+    font-size: 1rem;
+    margin: 0 0 0.4rem;
+  }
+
+  .okf-blast-section {
+    margin-bottom: 0.7rem;
+
+    h4 {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray);
+      margin: 0.4rem 0 0.3rem;
+      font-weight: 600;
+    }
+  }
+
+  .okf-blast-rel {
+    display: flex;
+    gap: 0.4rem;
+    margin: 0.25rem 0;
+    align-items: baseline;
+  }
+
+  .okf-blast-label {
+    flex: 0 0 auto;
+    min-width: 5.5rem;
+    font-size: 0.7rem;
+    color: var(--secondary);
+    font-weight: 600;
+  }
+
+  .okf-blast-targets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+  }
+
+  .okf-blast-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    text-decoration: none;
+    color: var(--dark);
+
+    &:hover {
+      color: var(--secondary);
+    }
+  }
+
+  .okf-blast-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex: 0 0 auto;
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@zetesis/quartz-okf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OKF for Quartz — the Quartz↔Open Knowledge Format integration: a renderer-independent contract plus Quartz plugins.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/Zetesis-Labs/quartz-okf",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zetesis-Labs/quartz-okf.git"
+  },
+  "workspaces": [
+    "core",
+    "plugins/*"
+  ],
+  "scripts": {
+    "test": "node --test core/test harness/test"
+  },
+  "keywords": [
+    "quartz",
+    "okf",
+    "open-knowledge-format",
+    "knowledge-graph"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}

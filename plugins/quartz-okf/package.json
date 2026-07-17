@@ -1,0 +1,95 @@
+{
+  "name": "@zetesis/quartz-okf",
+  "version": "0.1.0",
+  "description": "OKF semantics for Quartz: frontmatter validation, type index tags, typed topology edges and a machine-readable knowledge graph",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "quartz",
+    "quartz-plugin",
+    "okf",
+    "knowledge-graph",
+    "transformer",
+    "emitter"
+  ],
+  "quartz": {
+    "name": "quartz-okf",
+    "displayName": "OKF",
+    "category": [
+      "transformer",
+      "emitter"
+    ],
+    "version": "0.1.0",
+    "quartzVersion": ">=5.0.0",
+    "defaultOrder": 15,
+    "defaultEnabled": true,
+    "defaultOptions": {
+      "strict": true,
+      "injectTypeTag": true,
+      "typeTagPrefix": "type",
+      "requireFolderNoteAlias": true,
+      "emitGraph": true,
+      "graphOutput": "static/okf-graph.json",
+      "emitRaw": true,
+      "rawOutput": "raw",
+      "topologyHeading": "Topology"
+    },
+    "optionSchema": {
+      "strict": {
+        "type": "boolean",
+        "description": "Fail the build on OKF conformance errors (invalid type, folder note without alias)"
+      },
+      "types": {
+        "type": "array",
+        "description": "Closed set of allowed frontmatter types"
+      },
+      "edgeLabels": {
+        "type": "array",
+        "description": "Closed set of allowed Topology edge labels (violations warn, never fail)"
+      },
+      "injectTypeTag": {
+        "type": "boolean",
+        "description": "Inject a derived type/<type> tag so tag pages act as per-type indexes"
+      },
+      "typeTagPrefix": {
+        "type": "string",
+        "description": "Prefix for the derived type tag"
+      },
+      "requireFolderNoteAlias": {
+        "type": "boolean",
+        "description": "Require folder notes (<dir>/<dir>.md) to declare an alias equal to their name"
+      },
+      "emitGraph": {
+        "type": "boolean",
+        "description": "Emit the typed knowledge graph JSON"
+      },
+      "graphOutput": {
+        "type": "string",
+        "description": "Output path (relative to the site root) for the knowledge graph JSON"
+      },
+      "emitRaw": {
+        "type": "boolean",
+        "description": "Emit source markdown alongside the rendered site"
+      },
+      "rawOutput": {
+        "type": "string",
+        "description": "Output directory for raw markdown"
+      },
+      "topologyHeading": {
+        "type": "string",
+        "description": "Heading text of the section holding typed edges"
+      }
+    }
+  }
+}
