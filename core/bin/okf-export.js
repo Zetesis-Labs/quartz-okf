@@ -15,16 +15,21 @@ if (positional.length !== 2) {
 }
 
 // A consumer supplies its own branding (and, later, its own profile) via an
-// okf.config.js at its repository root. Absent that, the toolkit stays generic.
+// okf.config file at its repository root. Prefer .mjs so it loads as ESM even
+// when the consumer repo has no "type": "module". Absent it, stay generic.
 async function loadConsumerBranding(repo) {
-  const configPath = path.join(path.resolve(repo), "okf.config.js")
-  try {
-    await fs.access(configPath)
-  } catch {
-    return REFERENCE_BRANDING
+  const root = path.resolve(repo)
+  for (const name of ["okf.config.mjs", "okf.config.js"]) {
+    const configPath = path.join(root, name)
+    try {
+      await fs.access(configPath)
+    } catch {
+      continue
+    }
+    const config = await import(pathToFileURL(configPath).href)
+    return { ...REFERENCE_BRANDING, ...(config.branding ?? config.default?.branding ?? {}) }
   }
-  const config = await import(pathToFileURL(configPath).href)
-  return { ...REFERENCE_BRANDING, ...(config.branding ?? config.default?.branding ?? {}) }
+  return REFERENCE_BRANDING
 }
 
 const branding = await loadConsumerBranding(positional[0])
