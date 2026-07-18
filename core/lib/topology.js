@@ -45,6 +45,16 @@ export function extractSection(source, heading) {
   return section
 }
 
+// Standard internal markdown links are the exported (bundle) spelling of
+// wikilinks; parsing both keeps topology hygiene meaningful on the bundle.
+const MARKDOWN_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)\)/g
+
+function markdownLinkTarget(url) {
+  if (!url.startsWith("/") || url.startsWith("//")) return undefined
+  const target = url.slice(1).split("#")[0].replace(/\.md$/i, "")
+  return target || undefined
+}
+
 export function parseTopologyEdges(source, heading = "Topology") {
   const edges = []
   for (const line of extractSection(source, heading)) {
@@ -61,6 +71,13 @@ export function parseTopologyEdges(source, heading = "Topology") {
           target: wikilink[1].trim(),
           alias: wikilink[2]?.trim(),
         })
+      }
+      for (const link of value.matchAll(MARKDOWN_LINK_RE)) {
+        if (link.index > 0 && value[link.index - 1] === "!") continue
+        if (value[link.index - 1] === "[") continue
+        const target = markdownLinkTarget(link[2])
+        if (!target) continue
+        edges.push({ label: match[1].trim(), target, alias: link[1].trim() || undefined })
       }
     }
   }

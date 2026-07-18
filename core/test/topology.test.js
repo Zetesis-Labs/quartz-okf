@@ -74,3 +74,17 @@ test("skips fenced examples and inline code inside a real Topology section", () 
     ["Uses:real-target"],
   )
 })
+
+test("parses exported standard-link topology bullets like authored wikilinks", () => {
+  const doc = [
+    "# Topology",
+    "",
+    "* **Uses**: [Talos](/docs/technologies/talos), [ZFS](/docs/technologies/zfs.md)",
+    "* **About**: [Convention](/okf/okf-convention#rules)",
+    "* **Watches**: [external](https://example.com/page), ![diagram](/static/diagram.png)",
+  ].join("\n")
+  assert.deepEqual(
+    parseTopologyEdges(doc).map((edge) => `${edge.label}:${edge.target}`),
+    ["Uses:docs/technologies/talos", "Uses:docs/technologies/zfs", "About:okf/okf-convention"],
+  )
+})

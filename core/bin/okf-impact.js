@@ -25,7 +25,10 @@ const infraPaths = changedPaths.filter(
     !filePath.startsWith("okf/") &&
     !filePath.startsWith(".codex/") &&
     !filePath.startsWith(".agents/") &&
-    !filePath.startsWith(".github/"),
+    !filePath.startsWith(".github/") &&
+    // Consumer OKF configuration at the repository root is corpus plumbing,
+    // not infrastructure.
+    !/^okf\.config\.(mjs|js)$/.test(filePath),
 )
 const documents = (await loadDocuments(repo)).filter(
   (document) => !document.reserved && document.frontmatter?.type,
