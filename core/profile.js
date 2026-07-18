@@ -45,7 +45,24 @@ export const EDGE_LABELS = Object.freeze([
   "Peers with",
   "Watches",
   "Reached via",
+  "About",
+  "Affects",
 ])
+
+// Relations are declared once; the mirrored direction is derived by tooling.
+// Labels absent here (Member of, Depends on, About, ...) have no mirror and
+// surface on the target through inbound-edge views instead.
+export const INVERSE_LABELS = Object.freeze({
+  "Part of": "Contains",
+  Contains: "Part of",
+  "Runs on": "Hosts",
+  Hosts: "Runs on",
+  Uses: "Consumed by",
+  "Consumed by": "Uses",
+  "Peers with": "Peers with",
+})
+
+export const KNOWLEDGE_LABELS = Object.freeze(["About", "Affects"])
 
 export const EDGE_IRIS = Object.freeze(
   Object.fromEntries(
@@ -69,6 +86,8 @@ export const DEFAULT_RULE_LEVELS = Object.freeze({
   "hygiene/description-recommended": "warn",
   "hygiene/tags-shape": "warn",
   "hygiene/unresolved-edge": "off",
+  "hygiene/redundant-inverse": "warn",
+  "hygiene/knowledge-edges-recommended": "warn",
 })
 
 export const PROFILE = Object.freeze({
@@ -79,6 +98,8 @@ export const PROFILE = Object.freeze({
   structuralTypes: STRUCTURAL_TYPES,
   edgeLabels: EDGE_LABELS,
   edgeIris: EDGE_IRIS,
+  inverseLabels: INVERSE_LABELS,
+  knowledgeLabels: KNOWLEDGE_LABELS,
   topologyHeading: "Topology",
   ruleLevels: DEFAULT_RULE_LEVELS,
 })

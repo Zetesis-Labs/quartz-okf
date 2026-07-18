@@ -154,5 +154,67 @@ export function validateDocuments(documents, options = {}) {
       }
     }
   }
+  const knowledgeLevel =
+    levels["hygiene/knowledge-edges-recommended"] ??
+    DEFAULT_RULE_LEVELS["hygiene/knowledge-edges-recommended"] ??
+    "off"
+  if (knowledgeLevel !== "off") {
+    const resolve = buildResolver(validated)
+    const linked = new Set()
+    for (const document of validated) {
+      for (const edge of document.edges ?? []) {
+        const target = resolve(edge.target)
+        if (target) linked.add(target)
+      }
+    }
+    for (const document of validated) {
+      const type = document.frontmatter?.type
+      if (
+        !document.reserved &&
+        (document.edges ?? []).length === 0 &&
+        typeof type === "string" &&
+        profile.types.includes(type) &&
+        !profile.structuralTypes.includes(type) &&
+        !linked.has(document.id)
+      ) {
+        document.violations.push({
+          level: knowledgeLevel,
+          rule: "hygiene/knowledge-edges-recommended",
+          message:
+            "knowledge note is isolated (no Topology edges in either direction); link its subjects with About/Affects",
+        })
+      }
+    }
+  }
+  const redundantLevel =
+    levels["hygiene/redundant-inverse"] ??
+    DEFAULT_RULE_LEVELS["hygiene/redundant-inverse"] ??
+    "off"
+  const inverseLabels = profile.inverseLabels ?? {}
+  if (redundantLevel !== "off" && Object.keys(inverseLabels).length > 0) {
+    const resolve = buildResolver(validated)
+    const declared = new Set()
+    for (const document of validated) {
+      for (const edge of document.edges ?? []) {
+        const target = resolve(edge.target)
+        if (target) declared.add(`${document.id}\n${edge.label}\n${target}`)
+      }
+    }
+    for (const document of validated) {
+      for (const edge of document.edges ?? []) {
+        const inverse = inverseLabels[edge.label]
+        const target = resolve(edge.target)
+        if (!inverse || !target) continue
+        if (declared.has(`${target}\n${inverse}\n${document.id}`)) {
+          document.violations.push({
+            level: redundantLevel,
+            rule: "hygiene/redundant-inverse",
+            message: `edge "${edge.label}: ${target}" is also declared as "${inverse}" on the target; declare relations once — the mirror is derived`,
+            edge,
+          })
+        }
+      }
+    }
+  }
   return validated
 }

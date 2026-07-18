@@ -38,6 +38,26 @@ export function buildGraph(documents, options = {}) {
       edges.push(graphEdge)
     }
   }
+  const inverseLabels = profile.inverseLabels ?? {}
+  const declared = new Set(
+    edges.filter((edge) => edge.target).map((edge) => `${edge.source}\n${edge.label}\n${edge.target}`),
+  )
+  const derived = []
+  for (const edge of edges) {
+    const inverse = inverseLabels[edge.label]
+    if (!inverse || !edge.target) continue
+    const key = `${edge.target}\n${inverse}\n${edge.source}`
+    if (declared.has(key)) continue
+    declared.add(key)
+    derived.push({
+      source: edge.target,
+      target: edge.source,
+      label: inverse,
+      iri: profile.edgeIris[inverse],
+      derived: true,
+    })
+  }
+  edges.push(...derived)
   return {
     schema: profile.graphSchema,
     okf_version: profile.okfVersion,
@@ -51,6 +71,8 @@ export function buildGraph(documents, options = {}) {
     stats: {
       notes: nodes.length,
       edges: edges.length,
+      declaredEdges: edges.length - derived.length,
+      derivedEdges: derived.length,
       unresolvedEdges: unresolved.length,
     },
     nodes,

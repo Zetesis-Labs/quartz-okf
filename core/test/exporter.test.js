@@ -56,7 +56,7 @@ aliases: [service]
   )
   assert.deepEqual(errors, [])
   assert.equal(result.graph.stats.notes, 2)
-  assert.equal(result.graph.stats.edges, 1)
+  assert.equal(result.graph.stats.declaredEdges, 1)
   assert.equal(result.converted, 1)
   assert.match(await fs.readFile(path.join(output, "index.md"), "utf8"), /okf_version: "0.1"/)
   assert.match(await fs.readFile(path.join(output, "llms.txt"), "utf8"), /type=service/)

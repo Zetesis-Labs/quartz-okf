@@ -114,6 +114,8 @@ import {
       "Peers with": "network",
       "Reached via": "network",
       Watches: "observability",
+      About: "knowledge",
+      Affects: "knowledge",
     };
     var OKF_FAMILY_COLOR = {
       containment: { light: "#2a78d6", dark: "#3987e5" },
@@ -122,6 +124,7 @@ import {
       data: { light: "#4a3aa7", dark: "#9085e9" },
       network: { light: "#0891b2", dark: "#17a2bd" },
       observability: { light: "#eda100", dark: "#c98500" },
+      knowledge: { light: "#c2437c", dark: "#d95f96" },
     };
     var OKF_FAMILY_NAME = {
       containment: "contención",
@@ -130,6 +133,7 @@ import {
       data: "datos",
       network: "red",
       observability: "observación",
+      knowledge: "conocimiento",
     };
 
     var okfEdgeMapPromise = null;

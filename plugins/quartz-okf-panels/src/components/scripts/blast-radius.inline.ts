@@ -35,6 +35,20 @@
     report: { light: "#6b7fd7", dark: "#6f80e3" },
   };
 
+  // Labels whose mirror is derived by the toolkit; their inbound declarations
+  // already surface as derived outbound edges on this node, so the inbound
+  // section must skip them to avoid listing the same relation twice.
+  var INVERTIBLE = {
+    "Part of": true,
+    Contains: true,
+    "Runs on": true,
+    Hosts: true,
+    Uses: true,
+    "Consumed by": true,
+    "Peers with": true,
+  };
+  var KNOWLEDGE = { About: true, Affects: true };
+
   var graphPromise = null;
   function loadGraph() {
     if (graphPromise) return graphPromise;
@@ -124,14 +138,25 @@
         nodeMap[simplifySlug(graphData.nodes[i].slug)] = graphData.nodes[i];
       }
       var m = mode();
+      var inGroups = group(graphData.edges, slug, "in");
+      var knowledgeGroups = {};
+      for (var label in inGroups) {
+        if (KNOWLEDGE[label]) {
+          knowledgeGroups[label] = inGroups[label];
+          delete inGroups[label];
+        } else if (INVERTIBLE[label]) {
+          delete inGroups[label];
+        }
+      }
       var out = section("Depends on", group(graphData.edges, slug, "out"), nodeMap, m);
-      var inc = section("Required by", group(graphData.edges, slug, "in"), nodeMap, m);
-      if (!out && !inc) {
+      var inc = section("Required by", inGroups, nodeMap, m);
+      var knowledge = section("Related knowledge", knowledgeGroups, nodeMap, m);
+      if (!out && !inc && !knowledge) {
         container.style.display = "none";
         return;
       }
       container.style.display = "";
-      container.innerHTML = "<h3>Blast radius</h3>" + out + inc;
+      container.innerHTML = "<h3>Blast radius</h3>" + out + inc + knowledge;
     });
   }
 
