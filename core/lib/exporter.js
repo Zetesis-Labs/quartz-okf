@@ -268,7 +268,7 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
   if (untrackedInBundle.length) {
     console.warn(
       `[okf] warning: ${untrackedInBundle.length} untracked file(s) included in the bundle ` +
-        `(local drafts leak here; use --tracked-only for publication): ${untrackedInBundle.join(", ")}`,
+        `(--include-untracked lets local drafts leak): ${untrackedInBundle.join(", ")}`,
     )
   }
   await fs.writeFile(path.join(output, "okf-graph.json"), `${JSON.stringify(graph, null, 2)}\n`)

@@ -1,12 +1,32 @@
 export const WIKILINK_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g
 
+// Lines inside fenced code are documentation examples, not structure: a
+// fenced `# Topology` must neither open a section nor contribute edges.
+function fencedLineMask(lines) {
+  const mask = new Array(lines.length).fill(false)
+  let fence = null
+  for (let index = 0; index < lines.length; index += 1) {
+    const marker = lines[index].match(/^\s{0,3}(`{3,}|~{3,})/)
+    if (fence) {
+      mask[index] = true
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null
+    } else if (marker) {
+      mask[index] = true
+      fence = marker[1]
+    }
+  }
+  return mask
+}
+
 export function extractSection(source, heading) {
   const lines = source.replaceAll("\r\n", "\n").split("\n")
+  const fenced = fencedLineMask(lines)
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const headingRe = new RegExp(`^(#{1,6})\\s+${escaped}\\s*$`, "i")
   let start = -1
   let level = 0
   for (let index = 0; index < lines.length; index += 1) {
+    if (fenced[index]) continue
     const match = lines[index].match(headingRe)
     if (match) {
       start = index + 1
@@ -17,6 +37,7 @@ export function extractSection(source, heading) {
   if (start < 0) return []
   const section = []
   for (let index = start; index < lines.length; index += 1) {
+    if (fenced[index]) continue
     const nextHeading = lines[index].match(/^(#{1,6})\s+/)
     if (nextHeading && nextHeading[1].length <= level) break
     section.push(lines[index])
@@ -33,7 +54,7 @@ export function parseTopologyEdges(source, heading = "Topology") {
       const match = matches[index]
       const start = match.index + match[0].length
       const end = matches[index + 1]?.index ?? line.length
-      const value = line.slice(start, end)
+      const value = line.slice(start, end).replace(/`[^`\n]*`/g, "")
       for (const wikilink of value.matchAll(WIKILINK_RE)) {
         edges.push({
           label: match[1].trim(),

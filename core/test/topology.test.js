@@ -40,3 +40,37 @@ test("does not rewrite wikilinks inside inline or fenced code", () => {
   assert.equal(result.converted, 1)
   assert.equal(result.unresolved, 0)
 })
+
+test("ignores fenced Topology examples entirely", () => {
+  const doc = [
+    "# Convention",
+    "",
+    "```markdown",
+    "# Topology",
+    "",
+    "* **Part of**: [[pizarro]]",
+    "* **Uses**: [[cnpg]], [[eso]]",
+    "```",
+    "",
+    "More prose.",
+  ].join("\n")
+  assert.deepEqual(parseTopologyEdges(doc), [])
+})
+
+test("skips fenced examples and inline code inside a real Topology section", () => {
+  const doc = [
+    "# Topology",
+    "",
+    "* **Uses**: [[real-target]] (see `[[not-an-edge]]`)",
+    "",
+    "```markdown",
+    "* **Uses**: [[example-target]]",
+    "```",
+    "",
+    "# Next section",
+  ].join("\n")
+  assert.deepEqual(
+    parseTopologyEdges(doc).map((edge) => `${edge.label}:${edge.target}`),
+    ["Uses:real-target"],
+  )
+})

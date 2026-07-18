@@ -7,10 +7,14 @@ import { exportBundle } from "../lib/exporter.js"
 import { BRANDING as REFERENCE_BRANDING } from "../profile.js"
 
 const args = process.argv.slice(2)
-const trackedOnly = args.includes("--tracked-only")
-const positional = args.filter((arg) => arg !== "--tracked-only")
+// Tracked-only is the safe default: local drafts (gitignored or untracked)
+// must never leak into a bundle by omission. --tracked-only remains accepted.
+const trackedOnly = !args.includes("--include-untracked")
+const positional = args.filter(
+  (arg) => arg !== "--tracked-only" && arg !== "--include-untracked",
+)
 if (positional.length !== 2) {
-  console.error("usage: okf-export <repository> <output> [--tracked-only]")
+  console.error("usage: okf-export <repository> <output> [--include-untracked]")
   process.exit(2)
 }
 
