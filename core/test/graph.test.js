@@ -19,7 +19,7 @@ test("exports typed nodes, typed edges, and unresolved evidence", () => {
       id: "technology",
       path: "technology.md",
       reserved: false,
-      frontmatter: { type: "technology", title: "Technology" },
+      frontmatter: { type: "technology", title: "Technology", aliases: ["tech"] },
       edges: [],
     },
   ]
@@ -35,6 +35,8 @@ test("exports typed nodes, typed edges, and unresolved evidence", () => {
   assert.equal(graph.stats.unresolvedEdges, 1)
   assert.equal(graph.edges[0].target, "technology")
   assert.equal(graph.edges[0].iri.endsWith("#uses"), true)
+  assert.deepEqual(graph.nodes[1].aliases, ["tech"])
+  assert.equal("aliases" in graph.nodes[0], false)
   assert.deepEqual(graph.unresolved[0], {
     source: "cluster",
     target: "pending",

@@ -157,10 +157,32 @@ import {
             if (!map.has(target + "\n" + source)) map.set(target + "\n" + source, family);
             present[family] = true;
           }
-          return { map: map, present: present };
+          // The corpus links notes by alias or unique short name; the content
+          // index records that short spelling verbatim, which matches no page
+          // slug. Rebuild the resolver tiers (alias first, then unique
+          // basename) so graph links land on the canonical node.
+          var aliasMap = new Map();
+          var baseCount = new Map();
+          var nodes = (graphData && graphData.nodes) || [];
+          for (var n = 0; n < nodes.length; n++) {
+            var slug = simplifySlug(nodes[n].slug);
+            var base = slug.split("/").pop();
+            baseCount.set(base, (baseCount.get(base) || 0) + 1);
+          }
+          for (var n = 0; n < nodes.length; n++) {
+            var slug = simplifySlug(nodes[n].slug);
+            var base = slug.split("/").pop();
+            if (baseCount.get(base) === 1 && !aliasMap.has(base)) aliasMap.set(base, slug);
+          }
+          for (var n = 0; n < nodes.length; n++) {
+            var slug = simplifySlug(nodes[n].slug);
+            var aliases = nodes[n].aliases || [];
+            for (var a = 0; a < aliases.length; a++) aliasMap.set(String(aliases[a]), slug);
+          }
+          return { map: map, present: present, aliasMap: aliasMap };
         })
         .catch(function () {
-          return { map: new Map(), present: {} };
+          return { map: new Map(), present: {}, aliasMap: new Map() };
         });
       return okfEdgeMapPromise;
     }
@@ -303,6 +325,9 @@ import {
         var outgoing = details.links || [];
         for (var i = 0; i < outgoing.length; i++) {
           var dest = simplifySlug(outgoing[i]);
+          if (!validLinks.has(dest) && okfEdges.aliasMap.has(dest)) {
+            dest = okfEdges.aliasMap.get(dest);
+          }
           if (validLinks.has(dest)) {
             links.push({
               source: source,

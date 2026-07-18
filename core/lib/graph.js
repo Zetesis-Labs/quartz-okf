@@ -76,6 +76,8 @@ export function buildGraph(documents, options = {}) {
       description: frontmatter.description,
       path: document.path,
     }
+    const aliases = asArray(frontmatter.aliases).map(String)
+    if (aliases.length > 0) node.aliases = aliases
     const properties = projectProperties(frontmatter, profile)
     if (properties) node.properties = properties
     nodes.push(node)
