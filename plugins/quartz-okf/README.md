@@ -35,6 +35,29 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
       "type": "cluster",
       "tags": ["pizarro", "type/cluster"],
       "path": "tl-pizarro/pizarro.md"
+    },
+    {
+      "slug": "px-pitagoras",
+      "title": "Pitagoras",
+      "type": "node",
+      "tags": ["roma", "virtualization"],
+      "path": "px-pitagoras/px-pitagoras.md",
+      "properties": {
+        "node_kind": "physical",
+        "os": { "family": "proxmox-ve", "version": "8.4" },
+        "hardware": { "architecture": "amd64" }
+      }
+    }
+  ],
+  "propertyGroups": [
+    {
+      "id": "node-platform",
+      "label": "Platform",
+      "appliesTo": ["node", "router"],
+      "fields": [
+        { "path": ["node_kind"], "label": "Node kind" },
+        { "path": ["os", "family"], "label": "Operating system" }
+      ]
     }
   ],
   "edges": [
@@ -51,4 +74,10 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
 
 # Companion renderer
 
-Node coloring and the legend remain in `okf/quartz-graph-okf/`. Renderer-specific interaction work is gated: substantial UI evolution belongs in a future viewer consuming the stable graph export, not in a deeper graph-plugin fork.
+Node coloring and the legend remain in `okf/quartz-graph-okf/`. The companion
+panels plugin renders any node `properties` recursively and omits absent fields;
+when `propertyGroups` metadata is present it uses the profile-provided section
+and field labels. It does not contain profile-specific property names or values.
+Renderer-specific interaction work is gated: substantial UI evolution belongs
+in a future viewer consuming the stable graph export, not in a deeper
+graph-plugin fork.
