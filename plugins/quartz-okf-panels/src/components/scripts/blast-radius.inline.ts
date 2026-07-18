@@ -148,8 +148,8 @@
           delete inGroups[label];
         }
       }
-      var out = section("Depends on", group(graphData.edges, slug, "out"), nodeMap, m);
-      var inc = section("Required by", inGroups, nodeMap, m);
+      var out = section("Relations", group(graphData.edges, slug, "out"), nodeMap, m);
+      var inc = section("Referenced by", inGroups, nodeMap, m);
       var knowledge = section("Related knowledge", knowledgeGroups, nodeMap, m);
       if (!out && !inc && !knowledge) {
         container.style.display = "none";
