@@ -37,26 +37,23 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
       "path": "tl-pizarro/pizarro.md"
     },
     {
-      "slug": "px-pitagoras",
-      "title": "Pitagoras",
-      "type": "node",
-      "tags": ["roma", "virtualization"],
-      "path": "px-pitagoras/px-pitagoras.md",
+      "slug": "services/example",
+      "title": "Example service",
+      "type": "service",
+      "tags": ["example"],
+      "path": "services/example.md",
       "properties": {
-        "node_kind": "physical",
-        "os": { "family": "proxmox-ve", "version": "8.4" },
-        "hardware": { "architecture": "amd64" }
+        "runtime": { "tier": "edge" }
       }
     }
   ],
   "propertyGroups": [
     {
-      "id": "node-platform",
-      "label": "Platform",
-      "appliesTo": ["node", "router"],
+      "id": "service-runtime",
+      "label": "Runtime",
+      "appliesTo": ["service"],
       "fields": [
-        { "path": ["node_kind"], "label": "Node kind" },
-        { "path": ["os", "family"], "label": "Operating system" }
+        { "path": ["runtime", "tier"], "label": "Service tier" }
       ]
     }
   ],

@@ -15,7 +15,7 @@
     "plugins/*"
   ],
   "scripts": {
-    "test": "node --test core/test harness/test"
+    "test": "node --test core/test/*.test.js harness/test/*.test.js"
   },
   "keywords": [
     "quartz",

@@ -36,35 +36,54 @@ node core/bin/okf-check.js <out>            # core/profile/hygiene validation, e
 node core/bin/okf-impact.js <repo>          # documentation impact plan since last maintained head
 ```
 
-The export is a conformant OKF v0.1 bundle plus `okf-graph.json` (typed nodes, labeled edges, `unresolved`), `okf-manifest.json`, `llms.txt` and `llms-full.txt`.
+The export is a conformant OKF v0.1 bundle plus `okf-graph.json` (typed
+nodes, labeled edges, `unresolved`), the executable `okf-profile.json`,
+`okf-manifest.json`, `llms.txt` and `llms-full.txt`.
 
-### Additive node platform inventory
+### Profile-driven properties
 
-The Typed Topology `/v1` profile keeps a concept's function separate from its
-runtime substrate. Notes with `type: node` or `type: router` may declare:
+A consumer may extend the reference profile with flat authored fields,
+validation constraints and structured graph paths:
 
-```yaml
-node_kind: physical # physical | vm | vps | external
-os_family: proxmox-ve
-os_version: "8.4" # optional
-hardware_architecture: amd64 # optional; evidence-backed fields only
-hardware_memory: 64 GiB
+```js
+export const profile = {
+  propertyGroups: [
+    {
+      id: "service-runtime",
+      label: "Runtime",
+      appliesTo: ["service"],
+      rule: "hygiene/service-tier-recommended",
+      fields: [
+        {
+          source: "service_tier",
+          label: "Service tier",
+          required: true,
+          enum: ["edge", "core"],
+          graphPath: ["runtime", "tier"],
+        },
+      ],
+    },
+  ],
+  ruleLevels: { "hygiene/service-tier-recommended": "warn" },
+}
 ```
 
-`node_kind` and `os_family` are the minimum useful inventory. Missing or invalid
-values produce the additive `hygiene/node-kind-recommended` warning rather than
-breaking OKF or profile conformance. Present fields are exported under the
-node's `properties` object in `okf-graph/v1`; generic consumers may ignore that
-extension. The core does not contain node-specific logic: the reference profile
-declares flat fields, constraints and graph paths through generic
-`propertyGroups`, which another profile can replace. The graph also publishes a
-display-safe projection of those group definitions, allowing generic renderers
-to show profile labels without hard-coding property names.
+The core executes this data without knowing its domain. Present values are
+projected under the node's additive `properties` object in `okf-graph/v1`; the
+graph also publishes display-safe group metadata so generic renderers can use
+consumer-provided labels. `okf.config.mjs` is the single source for branding and
+the consumer profile overlay. Exported bundles carry `okf-profile.json`, so
+`okf-check` applies the same rules outside the source repository.
 
 ## Consuming from a repository
 
-A consumer keeps only its **corpus** (colocated `.md` notes), an optional `okf.config.js` (branding, and in future its own profile), and references this toolkit — the plugins as Quartz `github:` sources, the contract via the build harness. See `harness/` and each plugin's README.
+A consumer keeps only its **corpus** (colocated `.md` notes), an optional
+`okf.config.mjs` (branding and profile overlay), and references this toolkit —
+the plugins as Quartz `github:` sources, the contract via the build harness. See
+`harness/` and each plugin's README.
 
 ## Status
 
-Extracted from the Mileto GitOps repository, its first consumer. The profile-injection interface (a consumer overriding the reference profile) is being consolidated against that single consumer before a second one adopts it.
+Extracted from the Mileto GitOps repository, its first consumer. Consumer
+profiles are repository-owned overlays; the toolkit and Quartz plugins remain
+domain-neutral executors of the shared contract.

@@ -42,46 +42,6 @@ test("exports typed nodes, typed edges, and unresolved evidence", () => {
   })
 })
 
-test("exports additive node platform properties without changing graph v1", () => {
-  const documents = [
-    {
-      id: "host",
-      path: "host.md",
-      reserved: false,
-      frontmatter: {
-        type: "node",
-        title: "Host",
-        node_kind: "physical",
-        os_family: "proxmox-ve",
-        os_version: "8.4",
-        hardware_architecture: "amd64",
-        hardware_memory: "64 GiB",
-      },
-      edges: [],
-    },
-    {
-      id: "service",
-      path: "service.md",
-      reserved: false,
-      frontmatter: { type: "service", title: "Service" },
-      edges: [],
-    },
-  ]
-  const graph = buildGraph(documents)
-
-  assert.equal(graph.schema, "okf-graph/v1")
-  assert.deepEqual(graph.propertyGroups[0].fields[0], {
-    path: ["node_kind"],
-    label: "Node kind",
-  })
-  assert.deepEqual(graph.nodes[0].properties, {
-    node_kind: "physical",
-    os: { family: "proxmox-ve", version: "8.4" },
-    hardware: { architecture: "amd64", memory: "64 GiB" },
-  })
-  assert.equal("properties" in graph.nodes[1], false)
-})
-
 test("projects arbitrary profile fields without domain-specific core logic", () => {
   const profile = {
     ...PROFILE,
@@ -92,7 +52,13 @@ test("projects arbitrary profile fields without domain-specific core logic", () 
         fields: [
           {
             source: "service_tier",
+            label: "Service tier",
             graphPath: ["runtime", "tier"],
+          },
+          {
+            source: "runtime_family",
+            label: "Runtime",
+            graphPath: ["runtime", "software", "family"],
           },
         ],
       },
@@ -104,20 +70,34 @@ test("projects arbitrary profile fields without domain-specific core logic", () 
         id: "service",
         path: "service.md",
         reserved: false,
-        frontmatter: { type: "service", title: "Service", service_tier: "edge" },
+        frontmatter: {
+          type: "service",
+          title: "Service",
+          service_tier: "edge",
+          runtime_family: "example-runtime",
+        },
         edges: [],
       },
     ],
     { profile },
   )
 
-  assert.deepEqual(graph.nodes[0].properties, { runtime: { tier: "edge" } })
+  assert.equal(graph.schema, "okf-graph/v1")
+  assert.deepEqual(graph.nodes[0].properties, {
+    runtime: {
+      tier: "edge",
+      software: { family: "example-runtime" },
+    },
+  })
   assert.deepEqual(graph.propertyGroups, [
     {
       id: "service-runtime",
       label: "service-runtime",
       appliesTo: ["service"],
-      fields: [{ path: ["runtime", "tier"], label: "service_tier" }],
+      fields: [
+        { path: ["runtime", "tier"], label: "Service tier" },
+        { path: ["runtime", "software", "family"], label: "Runtime" },
+      ],
     },
   ])
 })

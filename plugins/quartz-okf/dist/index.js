@@ -4,14 +4,13 @@ import {
   PROFILE,
   buildGraph,
   isReserved,
+  mergeProfile,
   validateDocument,
 } from "../../lib/index.js"
 import { stringifyFrontmatter } from "../../lib/frontmatter.js"
 
 const DEFAULTS = {
   strict: true,
-  types: PROFILE.types,
-  edgeLabels: PROFILE.edgeLabels,
   injectTypeTag: true,
   typeTagPrefix: "type",
   requireFolderNoteAlias: true,
@@ -19,7 +18,6 @@ const DEFAULTS = {
   graphOutput: "static/okf-graph.json",
   emitRaw: true,
   rawOutput: "raw",
-  topologyHeading: "Topology",
 }
 
 function asArray(value) {
@@ -77,13 +75,14 @@ function toDocument(file) {
 }
 
 function profileFromOptions(options) {
+  const base = mergeProfile(PROFILE, options.profile)
   return {
-    ...PROFILE,
-    types: options.types,
-    edgeLabels: options.edgeLabels,
-    topologyHeading: options.topologyHeading,
+    ...base,
+    types: options.types ?? base.types,
+    edgeLabels: options.edgeLabels ?? base.edgeLabels,
+    topologyHeading: options.topologyHeading ?? base.topologyHeading,
     ruleLevels: {
-      ...PROFILE.ruleLevels,
+      ...base.ruleLevels,
       // Quartz turns authored README files into frontmatter-bearing index pages.
       // Bundle indexes are generated and checked separately by okf-export.
       "core/index-frontmatter": "off",
@@ -136,11 +135,12 @@ async function emitRawFiles(context, files, options) {
 }
 
 async function emitAll(context, content, options) {
+  const profile = profileFromOptions(options)
   const files = content.map(([, file]) => file).filter((file) => file?.data)
   const documents = files
     .filter(isAuthoredFile)
     .map((file) => file.data.okf ?? validateDocument(toDocument(file), {
-      profile: profileFromOptions(options),
+      profile,
     }))
 
   const violations = documents.flatMap((document) =>
@@ -160,6 +160,7 @@ async function emitAll(context, content, options) {
   const emitted = await emitRawFiles(context, files, options)
   if (!options.emitGraph) return emitted
   const graph = buildGraph(documents, {
+    profile,
     site: context.cfg?.configuration?.pageTitle,
   })
   const graphPath = path.join(context.argv.output, options.graphOutput)

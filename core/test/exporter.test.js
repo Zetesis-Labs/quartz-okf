@@ -4,8 +4,11 @@ import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import test from "node:test"
+import { loadConsumerConfig } from "../lib/consumer-config.js"
 import { exportBundle } from "../lib/exporter.js"
 import { loadDocuments } from "../lib/files.js"
+import { mergeProfile } from "../lib/profile.js"
+import { PROFILE } from "../profile.js"
 
 test("creates a deterministic conformant bundle and all machine exports", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "okf-export-test-"))
@@ -21,6 +24,7 @@ title: Example service
 description: A useful service.
 tags: [gitops, fleet]
 aliases: [service]
+service_tier: edge
 ---
 
 # Topology
@@ -49,16 +53,36 @@ aliases: [service]
       GIT_COMMITTER_DATE: "2026-07-17T00:00:00Z",
     },
   })
-  const result = await exportBundle(repo, output)
-  const documents = await loadDocuments(output)
+  const profile = mergeProfile(PROFILE, {
+    propertyGroups: [
+      {
+        id: "service-runtime",
+        appliesTo: ["service"],
+        fields: [
+          {
+            source: "service_tier",
+            graphPath: ["runtime", "tier"],
+          },
+        ],
+      },
+    ],
+  })
+  const result = await exportBundle(repo, output, { profile })
+  const exported = await loadConsumerConfig(output)
+  const documents = await loadDocuments(output, { profile: exported.profile })
   const errors = documents.flatMap((document) =>
     document.violations.filter((violation) => violation.level === "error"),
   )
   assert.deepEqual(errors, [])
   assert.equal(result.graph.stats.notes, 2)
   assert.equal(result.graph.stats.declaredEdges, 1)
+  assert.deepEqual(result.graph.nodes[0].properties, { runtime: { tier: "edge" } })
   assert.equal(result.converted, 1)
   assert.match(await fs.readFile(path.join(output, "index.md"), "utf8"), /okf_version: "0.1"/)
   assert.match(await fs.readFile(path.join(output, "llms.txt"), "utf8"), /type=service/)
   assert.equal(JSON.parse(await fs.readFile(path.join(output, "okf-manifest.json"))).stale, true)
+  assert.deepEqual(
+    JSON.parse(await fs.readFile(path.join(output, "okf-profile.json"))).propertyGroups,
+    profile.propertyGroups,
+  )
 })
