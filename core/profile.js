@@ -31,70 +31,9 @@ export const STRUCTURAL_TYPES = Object.freeze([
   "technology",
 ])
 
-// Profiles may declare flat authored fields, their validation constraints, and
-// their projection into the additive graph node `properties` object. The core
-// executes this data without knowing the domain semantics of any field.
-export const PROPERTY_GROUPS = Object.freeze([
-  {
-    id: "node-platform",
-    label: "Platform",
-    appliesTo: ["node", "router"],
-    rule: "hygiene/node-kind-recommended",
-    fields: [
-      {
-        source: "node_kind",
-        label: "Node kind",
-        required: true,
-        type: "string",
-        enum: ["physical", "vm", "vps", "external"],
-        graphPath: ["node_kind"],
-      },
-      {
-        source: "os_family",
-        label: "Operating system",
-        required: true,
-        type: "string",
-        graphPath: ["os", "family"],
-      },
-      {
-        source: "os_version",
-        label: "OS version",
-        type: "string",
-        graphPath: ["os", "version"],
-      },
-      {
-        source: "hardware_model",
-        label: "Hardware model",
-        type: "string",
-        graphPath: ["hardware", "model"],
-      },
-      {
-        source: "hardware_architecture",
-        label: "Architecture",
-        type: "string",
-        graphPath: ["hardware", "architecture"],
-      },
-      {
-        source: "hardware_cpu",
-        label: "CPU",
-        type: "string",
-        graphPath: ["hardware", "cpu"],
-      },
-      {
-        source: "hardware_memory",
-        label: "Memory",
-        type: "string",
-        graphPath: ["hardware", "memory"],
-      },
-      {
-        source: "hardware_storage",
-        label: "Storage",
-        type: "string",
-        graphPath: ["hardware", "storage"],
-      },
-    ],
-  },
-])
+// Consumer profiles may replace this with declarative frontmatter constraints
+// and graph projections. The reference profile deliberately remains neutral.
+export const PROPERTY_GROUPS = Object.freeze([])
 
 export const EDGE_LABELS = Object.freeze([
   "Part of",
@@ -150,7 +89,6 @@ export const DEFAULT_RULE_LEVELS = Object.freeze({
   "hygiene/title-recommended": "warn",
   "hygiene/description-recommended": "warn",
   "hygiene/tags-shape": "warn",
-  "hygiene/node-kind-recommended": "warn",
   "hygiene/unresolved-edge": "off",
   "hygiene/redundant-inverse": "warn",
   "hygiene/knowledge-edges-recommended": "warn",

@@ -59,7 +59,14 @@ function groupByDirectory(files) {
   return groups
 }
 
-function makeIndex(directory, concepts, directories, root = false, branding = DEFAULT_BRANDING) {
+function makeIndex(
+  directory,
+  concepts,
+  directories,
+  root = false,
+  branding = DEFAULT_BRANDING,
+  profile = PROFILE,
+) {
   const title = root ? branding.indexTitle : titleFromPath(directory)
   const lines = [`# ${title}`, ""]
   if (directories.length) {
@@ -81,7 +88,7 @@ function makeIndex(directory, concepts, directories, root = false, branding = DE
   }
   const body = `${lines.join("\n").trim()}\n`
   if (!root) return body
-  return `---\nokf_version: "${PROFILE.okfVersion}"\nokf_profile: "${PROFILE.id}"\n---\n\n${body}`
+  return `---\nokf_version: "${profile.okfVersion}"\nokf_profile: "${profile.id}"\n---\n\n${body}`
 }
 
 function makeLog(entries) {
@@ -155,6 +162,7 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
     throw new Error("output must not contain the repository")
   }
   const branding = { ...DEFAULT_BRANDING, ...(options.branding ?? {}) }
+  const profile = options.profile ?? PROFILE
   await emptyDirectory(output)
   const state = await readState(repo)
   const sourceHead = gitHead(repo)
@@ -202,7 +210,7 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
   }
 
   await copyAssets(repo, output)
-  let documents = await loadDocuments(output)
+  let documents = await loadDocuments(output, { profile })
   const graphDocuments = documents
   const resolve = buildResolver(documents)
   let converted = 0
@@ -219,7 +227,7 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
     }
   }
 
-  documents = await loadDocuments(output)
+  documents = await loadDocuments(output, { profile })
   const byDirectory = groupByDirectory(exportedPaths)
   const allDirectories = new Set(["."])
   for (const file of exportedPaths) {
@@ -236,24 +244,32 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
     const children = [...allDirectories].filter(
       (candidate) => candidate !== directory && path.posix.dirname(candidate) === directory,
     )
-    const index = makeIndex(directory, concepts, children, directory === ".", branding)
+    const index = makeIndex(
+      directory,
+      concepts,
+      children,
+      directory === ".",
+      branding,
+      profile,
+    )
     const destination = path.join(output, directory === "." ? "index.md" : directory, directory === "." ? "" : "index.md")
     await fs.mkdir(path.dirname(destination), { recursive: true })
     await fs.writeFile(destination, index)
   }
   await fs.writeFile(path.join(output, "log.md"), makeLog(gitLog(repo)))
 
-  documents = await loadDocuments(output)
+  documents = await loadDocuments(output, { profile })
   const graph = buildGraph(graphDocuments, {
+    profile,
     sourceHead,
     lastMaintainedHead,
     stale,
     site: options.site ?? branding.site,
   })
   const manifest = {
-    okf_version: PROFILE.okfVersion,
-    okf_profile: PROFILE.id,
-    schema: PROFILE.graphSchema,
+    okf_version: profile.okfVersion,
+    okf_profile: profile.id,
+    schema: profile.graphSchema,
     source_head: sourceHead,
     last_export_head: sourceHead,
     last_maintained_head: lastMaintainedHead,
@@ -272,6 +288,7 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
     )
   }
   await fs.writeFile(path.join(output, "okf-graph.json"), `${JSON.stringify(graph, null, 2)}\n`)
+  await fs.writeFile(path.join(output, "okf-profile.json"), `${JSON.stringify(profile, null, 2)}\n`)
   await fs.writeFile(path.join(output, "okf-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`)
   await fs.writeFile(path.join(output, "llms.txt"), makeLlms(documents, graph, branding))
   await fs.writeFile(path.join(output, "llms-full.txt"), makeLlmsFull(documents, graph, branding))

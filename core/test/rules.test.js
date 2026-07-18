@@ -62,57 +62,6 @@ test("can opt into unresolved-edge diagnostics without changing core conformance
   )
 })
 
-test("recommends minimum platform inventory for nodes and routers", () => {
-  const documents = [
-    {
-      id: "physical-host",
-      path: "physical-host.md",
-      body: "# Topology\n",
-      frontmatter: {
-        type: "node",
-        title: "Physical host",
-        description: "Test.",
-        node_kind: "physical",
-        os_family: "proxmox-ve",
-      },
-      parseError: null,
-    },
-    {
-      id: "router",
-      path: "router.md",
-      body: "# Topology\n",
-      frontmatter: {
-        type: "router",
-        title: "Router",
-        description: "Test.",
-        node_kind: "appliance",
-      },
-      parseError: null,
-    },
-    {
-      id: "service",
-      path: "service.md",
-      body: "# Purpose\n",
-      frontmatter: { type: "service", title: "Service", description: "Test." },
-      parseError: null,
-    },
-  ].map((document) => validateDocument(document))
-
-  assert.equal(
-    documents[0].violations.some((v) => v.rule === "hygiene/node-kind-recommended"),
-    false,
-  )
-  assert.match(
-    documents[1].violations.find((v) => v.rule === "hygiene/node-kind-recommended")
-      .message,
-    /use node_kind from: physical, vm, vps, external; declare os_family/,
-  )
-  assert.equal(
-    documents[2].violations.some((v) => v.rule === "hygiene/node-kind-recommended"),
-    false,
-  )
-})
-
 test("executes property groups without domain-specific core logic", () => {
   const profile = {
     ...PROFILE,
@@ -138,7 +87,19 @@ test("executes property groups without domain-specific core logic", () => {
       "hygiene/service-tier-recommended": "warn",
     },
   }
-  const result = validateDocument(
+  const documents = [
+    {
+      id: "valid-service",
+      path: "valid-service.md",
+      body: "# Purpose\n",
+      frontmatter: {
+        type: "service",
+        title: "Valid service",
+        description: "Test.",
+        service_tier: "edge",
+      },
+      parseError: null,
+    },
     {
       id: "service",
       path: "service.md",
@@ -151,13 +112,22 @@ test("executes property groups without domain-specific core logic", () => {
       },
       parseError: null,
     },
-    { profile },
-  )
+    {
+      id: "node",
+      path: "node.md",
+      body: "# Purpose\n",
+      frontmatter: { type: "node", title: "Node", description: "Test." },
+      parseError: null,
+    },
+  ].map((document) => validateDocument(document, { profile }))
 
   assert.match(
-    result.violations.find((v) => v.rule === "hygiene/service-tier-recommended").message,
+    documents[1].violations.find((v) => v.rule === "hygiene/service-tier-recommended")
+      .message,
     /use service_tier from: edge, core/,
   )
+  assert.equal(documents[0].violations.length, 0)
+  assert.equal(documents[2].violations.length, 0)
 })
 
 test("nudges isolated knowledge notes but not linked templates or structural notes", () => {

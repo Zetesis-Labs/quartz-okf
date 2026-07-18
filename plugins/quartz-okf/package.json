@@ -46,6 +46,10 @@
       "topologyHeading": "Topology"
     },
     "optionSchema": {
+      "profile": {
+        "type": "object",
+        "description": "Consumer profile overlay merged onto the reference profile"
+      },
       "strict": {
         "type": "boolean",
         "description": "Fail the build on OKF conformance errors (invalid type, folder note without alias)"

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path"
 import process from "node:process"
+import { loadConsumerConfig } from "../lib/consumer-config.js"
 import { loadDocuments } from "../lib/files.js"
 
 function usage() {
@@ -28,7 +29,8 @@ for (let index = 0; index < args.length; index += 1) {
 }
 
 const root = path.resolve(target)
-const documents = await loadDocuments(root, { ruleLevels })
+const consumer = await loadConsumerConfig(root)
+const documents = await loadDocuments(root, { profile: consumer.profile, ruleLevels })
 const violations = documents.flatMap((document) =>
   document.violations.map((violation) => ({ file: document.path, ...violation })),
 )
