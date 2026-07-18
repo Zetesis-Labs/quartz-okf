@@ -9,6 +9,40 @@ function violation(rule, message, configuredLevels, detail = {}) {
   return { level, rule, message, ...detail }
 }
 
+function missing(value) {
+  return value === undefined || value === null || (typeof value === "string" && value.trim() === "")
+}
+
+function validatePropertyGroups(frontmatter, profile, levels, add) {
+  for (const group of profile.propertyGroups ?? []) {
+    if (!(group.appliesTo ?? []).includes(frontmatter.type)) continue
+    const problems = []
+    for (const field of group.fields ?? []) {
+      const value = frontmatter[field.source]
+      if (missing(value)) {
+        if (field.required) problems.push(`declare ${field.source}`)
+        continue
+      }
+      if (field.type && typeof value !== field.type) {
+        problems.push(`${field.source} must be ${field.type}`)
+        continue
+      }
+      if (field.enum && !field.enum.includes(value)) {
+        problems.push(`use ${field.source} from: ${field.enum.join(", ")}`)
+      }
+    }
+    if (problems.length > 0) {
+      add(
+        violation(
+          group.rule,
+          `${group.label ?? group.id}: ${problems.join("; ")}`,
+          levels,
+        ),
+      )
+    }
+  }
+}
+
 export function isReserved(filePath) {
   const name = path.posix.basename(String(filePath).replaceAll("\\", "/"))
   return name === "index.md" || name === "log.md"
@@ -115,6 +149,7 @@ export function validateDocument(document, options = {}) {
       ),
     )
   }
+  validatePropertyGroups(frontmatter, profile, levels, add)
   const edges = parseTopologyEdges(document.body, profile.topologyHeading)
   for (const edge of edges) {
     if (!profile.edgeLabels.includes(edge.label)) {

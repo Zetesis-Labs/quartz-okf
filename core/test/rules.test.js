@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { validateDocument, validateDocuments } from "../lib/rules.js"
+import { PROFILE } from "../profile.js"
 
 test("separates core, profile, and hygiene violations", () => {
   const result = validateDocument({
@@ -61,6 +62,104 @@ test("can opt into unresolved-edge diagnostics without changing core conformance
   )
 })
 
+test("recommends minimum platform inventory for nodes and routers", () => {
+  const documents = [
+    {
+      id: "physical-host",
+      path: "physical-host.md",
+      body: "# Topology\n",
+      frontmatter: {
+        type: "node",
+        title: "Physical host",
+        description: "Test.",
+        node_kind: "physical",
+        os_family: "proxmox-ve",
+      },
+      parseError: null,
+    },
+    {
+      id: "router",
+      path: "router.md",
+      body: "# Topology\n",
+      frontmatter: {
+        type: "router",
+        title: "Router",
+        description: "Test.",
+        node_kind: "appliance",
+      },
+      parseError: null,
+    },
+    {
+      id: "service",
+      path: "service.md",
+      body: "# Purpose\n",
+      frontmatter: { type: "service", title: "Service", description: "Test." },
+      parseError: null,
+    },
+  ].map((document) => validateDocument(document))
+
+  assert.equal(
+    documents[0].violations.some((v) => v.rule === "hygiene/node-kind-recommended"),
+    false,
+  )
+  assert.match(
+    documents[1].violations.find((v) => v.rule === "hygiene/node-kind-recommended")
+      .message,
+    /use node_kind from: physical, vm, vps, external; declare os_family/,
+  )
+  assert.equal(
+    documents[2].violations.some((v) => v.rule === "hygiene/node-kind-recommended"),
+    false,
+  )
+})
+
+test("executes property groups without domain-specific core logic", () => {
+  const profile = {
+    ...PROFILE,
+    propertyGroups: [
+      {
+        id: "service-runtime",
+        label: "service runtime",
+        appliesTo: ["service"],
+        rule: "hygiene/service-tier-recommended",
+        fields: [
+          {
+            source: "service_tier",
+            required: true,
+            type: "string",
+            enum: ["edge", "core"],
+            graphPath: ["runtime", "tier"],
+          },
+        ],
+      },
+    ],
+    ruleLevels: {
+      ...PROFILE.ruleLevels,
+      "hygiene/service-tier-recommended": "warn",
+    },
+  }
+  const result = validateDocument(
+    {
+      id: "service",
+      path: "service.md",
+      body: "# Purpose\n",
+      frontmatter: {
+        type: "service",
+        title: "Service",
+        description: "Test.",
+        service_tier: "batch",
+      },
+      parseError: null,
+    },
+    { profile },
+  )
+
+  assert.match(
+    result.violations.find((v) => v.rule === "hygiene/service-tier-recommended").message,
+    /use service_tier from: edge, core/,
+  )
+})
+
 test("nudges isolated knowledge notes but not linked templates or structural notes", () => {
   const documents = validateDocuments([
     {
@@ -86,7 +185,13 @@ test("nudges isolated knowledge notes but not linked templates or structural not
       id: "host",
       path: "host.md",
       body: "# Topology\n\n* **Uses**: [[template]]\n",
-      frontmatter: { type: "node", title: "Host", description: "Test." },
+      frontmatter: {
+        type: "node",
+        title: "Host",
+        description: "Test.",
+        node_kind: "physical",
+        os_family: "linux",
+      },
       parseError: null,
     },
     {
@@ -111,7 +216,13 @@ test("flags manually declared inverse pairs on both endpoints", () => {
       id: "host",
       path: "host.md",
       body: "# Topology\n\n* **Uses**: [[tool]]\n",
-      frontmatter: { type: "node", title: "Host", description: "Test." },
+      frontmatter: {
+        type: "node",
+        title: "Host",
+        description: "Test.",
+        node_kind: "physical",
+        os_family: "linux",
+      },
       parseError: null,
     },
     {

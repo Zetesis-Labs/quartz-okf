@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { buildGraph } from "../lib/graph.js"
+import { PROFILE } from "../profile.js"
 
 test("exports typed nodes, typed edges, and unresolved evidence", () => {
   const documents = [
@@ -39,6 +40,117 @@ test("exports typed nodes, typed edges, and unresolved evidence", () => {
     target: "pending",
     label: "Depends on",
   })
+})
+
+test("exports additive node platform properties without changing graph v1", () => {
+  const documents = [
+    {
+      id: "host",
+      path: "host.md",
+      reserved: false,
+      frontmatter: {
+        type: "node",
+        title: "Host",
+        node_kind: "physical",
+        os_family: "proxmox-ve",
+        os_version: "8.4",
+        hardware_architecture: "amd64",
+        hardware_memory: "64 GiB",
+      },
+      edges: [],
+    },
+    {
+      id: "service",
+      path: "service.md",
+      reserved: false,
+      frontmatter: { type: "service", title: "Service" },
+      edges: [],
+    },
+  ]
+  const graph = buildGraph(documents)
+
+  assert.equal(graph.schema, "okf-graph/v1")
+  assert.deepEqual(graph.propertyGroups[0].fields[0], {
+    path: ["node_kind"],
+    label: "Node kind",
+  })
+  assert.deepEqual(graph.nodes[0].properties, {
+    node_kind: "physical",
+    os: { family: "proxmox-ve", version: "8.4" },
+    hardware: { architecture: "amd64", memory: "64 GiB" },
+  })
+  assert.equal("properties" in graph.nodes[1], false)
+})
+
+test("projects arbitrary profile fields without domain-specific core logic", () => {
+  const profile = {
+    ...PROFILE,
+    propertyGroups: [
+      {
+        id: "service-runtime",
+        appliesTo: ["service"],
+        fields: [
+          {
+            source: "service_tier",
+            graphPath: ["runtime", "tier"],
+          },
+        ],
+      },
+    ],
+  }
+  const graph = buildGraph(
+    [
+      {
+        id: "service",
+        path: "service.md",
+        reserved: false,
+        frontmatter: { type: "service", title: "Service", service_tier: "edge" },
+        edges: [],
+      },
+    ],
+    { profile },
+  )
+
+  assert.deepEqual(graph.nodes[0].properties, { runtime: { tier: "edge" } })
+  assert.deepEqual(graph.propertyGroups, [
+    {
+      id: "service-runtime",
+      label: "service-runtime",
+      appliesTo: ["service"],
+      fields: [{ path: ["runtime", "tier"], label: "service_tier" }],
+    },
+  ])
+})
+
+test("rejects unsafe profile graph paths", () => {
+  const profile = {
+    ...PROFILE,
+    propertyGroups: [
+      {
+        id: "unsafe",
+        appliesTo: ["service"],
+        fields: [{ source: "value", graphPath: ["__proto__", "polluted"] }],
+      },
+    ],
+  }
+
+  assert.throws(
+    () =>
+      buildGraph(
+        [
+          {
+            id: "service",
+            path: "service.md",
+            reserved: false,
+            frontmatter: { type: "service", value: "yes" },
+            edges: [],
+          },
+        ],
+        { profile },
+      ),
+    /unsafe profile graphPath segment/,
+  )
+  assert.equal({}.polluted, undefined)
 })
 
 test("derives inverse edges once and never mirrors an explicit declaration", () => {

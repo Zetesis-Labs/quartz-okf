@@ -89,6 +89,95 @@
     return out;
   }
 
+  function propertyLabel(path) {
+    var words = path.join(" ").replace(/[-_]+/g, " ").split(/\s+/);
+    for (var i = 0; i < words.length; i++) {
+      words[i] =
+        words[i].length <= 3
+          ? words[i].toUpperCase()
+          : words[i].charAt(0).toUpperCase() + words[i].slice(1);
+    }
+    return words.join(" ");
+  }
+
+  function flattenProperties(value, path, rows) {
+    if (value === null || value === undefined || value === "") return;
+    if (Array.isArray(value)) {
+      rows.push({ path: path, value: value.join(", ") });
+      return;
+    }
+    if (typeof value !== "object") {
+      rows.push({ path: path, value: String(value) });
+      return;
+    }
+    var keys = Object.keys(value).sort();
+    for (var i = 0; i < keys.length; i++) {
+      flattenProperties(value[keys[i]], path.concat(keys[i]), rows);
+    }
+  }
+
+  function readPath(value, path) {
+    var current = value;
+    for (var i = 0; i < path.length; i++) {
+      if (current === null || current === undefined || typeof current !== "object") {
+        return undefined;
+      }
+      current = current[path[i]];
+    }
+    return current;
+  }
+
+  function propertyRows(facts) {
+    var rows = "";
+    for (var i = 0; i < facts.length; i++) {
+      rows +=
+        '<div class="okf-blast-rel"><span class="okf-blast-label">' +
+        esc(facts[i].label || propertyLabel(facts[i].path)) +
+        '</span><span class="okf-property-value">' +
+        esc(facts[i].value) +
+        "</span></div>";
+    }
+    return rows;
+  }
+
+  function propertyPanel(node, groups) {
+    var properties = node && node.properties;
+    if (!properties) return "";
+    var sections = "";
+    for (var gi = 0; gi < (groups || []).length; gi++) {
+      var group = groups[gi];
+      if (group.appliesTo && group.appliesTo.indexOf(node.type) < 0) continue;
+      var configured = [];
+      for (var fi = 0; fi < (group.fields || []).length; fi++) {
+        var field = group.fields[fi];
+        var value = readPath(properties, field.path || []);
+        if (value === null || value === undefined || value === "") continue;
+        configured.push({
+          label: field.label,
+          path: field.path,
+          value: Array.isArray(value) ? value.join(", ") : String(value),
+        });
+      }
+      if (configured.length) {
+        sections +=
+          '<div class="okf-properties"><h3>' +
+          esc(group.label || group.id || "Properties") +
+          "</h3>" +
+          propertyRows(configured) +
+          "</div>";
+      }
+    }
+    if (sections) return sections;
+
+    var facts = [];
+    flattenProperties(properties, [], facts);
+    return facts.length
+      ? '<div class="okf-properties"><h3>Properties</h3>' +
+          propertyRows(facts) +
+          "</div>"
+      : "";
+  }
+
   function section(title, groups, nodeMap, m) {
     var labels = Object.keys(groups).sort();
     if (!labels.length) return "";
@@ -151,12 +240,15 @@
       var out = section("Relations", group(graphData.edges, slug, "out"), nodeMap, m);
       var inc = section("Referenced by", inGroups, nodeMap, m);
       var knowledge = section("Related knowledge", knowledgeGroups, nodeMap, m);
-      if (!out && !inc && !knowledge) {
+      var properties = propertyPanel(nodeMap[slug], graphData.propertyGroups);
+      if (!properties && !out && !inc && !knowledge) {
         container.style.display = "none";
         return;
       }
       container.style.display = "";
-      container.innerHTML = "<h3>Blast radius</h3>" + out + inc + knowledge;
+      var relations =
+        out || inc || knowledge ? "<h3>Blast radius</h3>" + out + inc + knowledge : "";
+      container.innerHTML = properties + relations;
     });
   }
 

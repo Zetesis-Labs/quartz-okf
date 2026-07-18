@@ -38,6 +38,29 @@ node core/bin/okf-impact.js <repo>          # documentation impact plan since la
 
 The export is a conformant OKF v0.1 bundle plus `okf-graph.json` (typed nodes, labeled edges, `unresolved`), `okf-manifest.json`, `llms.txt` and `llms-full.txt`.
 
+### Additive node platform inventory
+
+The Typed Topology `/v1` profile keeps a concept's function separate from its
+runtime substrate. Notes with `type: node` or `type: router` may declare:
+
+```yaml
+node_kind: physical # physical | vm | vps | external
+os_family: proxmox-ve
+os_version: "8.4" # optional
+hardware_architecture: amd64 # optional; evidence-backed fields only
+hardware_memory: 64 GiB
+```
+
+`node_kind` and `os_family` are the minimum useful inventory. Missing or invalid
+values produce the additive `hygiene/node-kind-recommended` warning rather than
+breaking OKF or profile conformance. Present fields are exported under the
+node's `properties` object in `okf-graph/v1`; generic consumers may ignore that
+extension. The core does not contain node-specific logic: the reference profile
+declares flat fields, constraints and graph paths through generic
+`propertyGroups`, which another profile can replace. The graph also publishes a
+display-safe projection of those group definitions, allowing generic renderers
+to show profile labels without hard-coding property names.
+
 ## Consuming from a repository
 
 A consumer keeps only its **corpus** (colocated `.md` notes), an optional `okf.config.js` (branding, and in future its own profile), and references this toolkit — the plugins as Quartz `github:` sources, the contract via the build harness. See `harness/` and each plugin's README.

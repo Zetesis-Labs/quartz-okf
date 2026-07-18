@@ -42,6 +42,7 @@ These rules constrain what a consumer produces; they do not change permissive OK
 | `hygiene/title-recommended` | warn | Concepts should have a human-readable title. |
 | `hygiene/description-recommended` | warn | Concepts should have a one-line description. |
 | `hygiene/tags-shape` | warn | Tags are a YAML list of lowercase kebab-case strings. |
+| `hygiene/node-kind-recommended` | warn | The Typed Topology profile recommends a supported `node_kind` and non-empty `os_family` for nodes and routers. |
 | `hygiene/unresolved-edge` | off | An unresolved topology target is intentional pending knowledge. |
 | `hygiene/redundant-inverse` | warn | A relation is declared on both endpoints; declare it once — the mirror is derived. |
 | `hygiene/knowledge-edges-recommended` | warn | A knowledge note (concept, decision, incident, runbook, report) should link its subjects with `About`/`Affects`. |
