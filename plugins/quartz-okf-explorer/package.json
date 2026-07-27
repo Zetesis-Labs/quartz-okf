@@ -1,0 +1,39 @@
+{
+  "name": "@zetesis/quartz-okf-explorer",
+  "version": "0.1.0",
+  "description": "Full-page explorer for an OKF typed graph: declarative view modes, node/edge filters and a tabbed reading panel",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md"],
+  "keywords": ["quartz", "quartz-plugin", "okf", "graph", "explorer"],
+  "scripts": { "build": "tsup" },
+  "dependencies": { "@quartz-community/types": "github:quartz-community/types" },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": { "node": ">=22", "npm": ">=10.9.2" },
+  "quartz": {
+    "name": "quartz-okf-explorer",
+    "displayName": "OKF Explorer",
+    "category": ["emitter"],
+    "version": "0.1.0",
+    "quartzVersion": ">=5.0.0",
+    "defaultOrder": 20,
+    "defaultEnabled": false,
+    "defaultOptions": {
+      "graphInput": "static/okf-graph.json",
+      "output": "static/explorer.html",
+      "injectAccess": true,
+      "accessTitle": "Grafo de conocimiento",
+      "mountSelector": ".right.sidebar"
+    }
+  }
+}

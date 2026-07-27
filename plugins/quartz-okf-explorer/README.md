@@ -1,0 +1,94 @@
+# @zetesis/quartz-okf-explorer
+
+Full-page explorer for an `okf-graph/v1` bundle: **declarative view modes**, filters by node
+type and by edge label, and a tabbed reading panel that opens notes without leaving the graph.
+
+Complements `@zetesis/quartz-graph-okf`, which renders the Obsidian-style *panel* graph next to
+a note. This one is the map you open to think: it takes the whole screen, keeps the typed
+topology visible, and lets a consumer declare **what questions the graph should answer**.
+
+## Why modes are data
+
+A graph view is only useful if it answers a question. The engine ships none: the consumer
+declares its modes in `okf.config.mjs`, and the plugin renders them. Two sites with the same
+engine can therefore ask completely different things of their corpus.
+
+```js
+// okf.config.mjs
+export const explorer = {
+  typeColors: { concept: "#4c7ecf", protocol: "#4caf7c", claim: "#c2544d" },
+  typeLabels: { concept: "concepto", protocol: "protocolo", claim: "tesis" },
+  knowledgeTypes: ["concept", "protocol", "topic", "claim"],
+  modes: [
+    {
+      id: "full",
+      label: "Grafo completo",
+      desc: "<b>El grafo entero, con sus relaciones tipadas.</b> …",
+      edges: "*",                       // every label in the profile
+    },
+    {
+      id: "grounding",
+      label: "Fundamentación",
+      desc: "<b>Cuántas obras sostienen cada nota.</b> …",
+      edges: ["Cites"],
+      colorBy: {
+        countEdge: "Cites",             // colour a node by how many of these it declares
+        scale: [
+          { max: 3, color: "#c2544d", label: "3 obras o menos" },
+          { max: 99, color: "#3fa34d", label: "7 o más" },
+        ],
+      },
+    },
+    {
+      id: "claims",
+      label: "Tesis",
+      desc: "…",
+      edges: ["Depends on"],
+      targetType: "claim",              // keep only edges landing on this type
+      sizeBy: { indegree: true },
+    },
+  ],
+}
+```
+
+### Mode fields
+
+| Field | Meaning |
+|---|---|
+| `id`, `label`, `desc` | identity and the help text shown while the mode is active |
+| `edges` | `"*"` or a list of edge labels to keep |
+| `sourceType` / `targetType` | restrict edges by the type at either end |
+| `colorBy.countEdge` + `scale` | colour nodes by how many edges of a label they declare |
+| `colorBy.property` + `map` | colour nodes by a profile property (`properties.x.y`) |
+| `sizeBy.indegree` / `sizeBy.countEdge` | what drives node radius |
+
+Anything not declared falls back to node type colours, so a mode can be one line.
+
+## What the reader gets
+
+- **Filters** for node type and edge label, each with a live count of what is on screen.
+- **A legend** that lists only what the current mode actually draws — colours of relations in
+  the full view, the grounding scale in a `colorBy` mode, node types otherwise.
+- **A reading panel with tabs.** Clicking a node opens its page in a *temporary* tab that the
+  next click replaces; pinning it (double click or the pin) keeps it. Each tab holds its own
+  frame, so scroll position survives switching.
+- **A stable camera.** The view never recentres on its own: fitting is a decision the reader
+  takes, from the button, a search result, or a `?focus=<slug>` entry link.
+- **Selection is visible.** The node being read carries its own ring and keeps its label even
+  when the rest dims.
+
+## Access from every note
+
+With `injectAccess: true` the plugin adds a small preview and an **Open the graph** button to
+`mountSelector`, and mounts the explorer in a maximised modal. The modal passes
+`?focus=<slug>`, so the reader enters the graph at the note they were on rather than in the
+middle of the whole map.
+
+Disable it and link `/static/explorer.html` yourself if the site wants another entry point.
+
+## Input
+
+Reads the `okf-graph/v1` document emitted by `@zetesis/quartz-okf` (`static/okf-graph.json`).
+That document already resolves aliases, carries `types`/`edgeLabels` from the profile, marks
+`derived` edges and reports `unresolved` ones — the explorer renders it, it does not re-derive
+it.
