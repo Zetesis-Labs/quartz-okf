@@ -6,3 +6,4 @@ package-lock.json
 # plain JS in its dist/ (no build step), so that one is NOT ignored.
 plugins/quartz-graph-okf/dist/
 plugins/quartz-okf-panels/dist/
+plugins/quartz-okf-explorer/dist/

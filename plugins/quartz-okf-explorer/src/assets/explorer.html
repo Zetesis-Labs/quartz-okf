@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Explorador del grafo</title>
+<style>
+  :root { color-scheme: light dark; }
+  html, body { height: 100%; }
+  body { margin: 0; font: 14px/1.45 -apple-system, "Segoe UI", sans-serif;
+         display: flex; flex-direction: column; overflow: hidden;
+         background: light-dark(#faf8f8, #161618); color: light-dark(#2b2b2b, #d4d4d4); }
+  #stage { display: flex; flex: 1; min-height: 0; }
+  #wrap { position: relative; flex: 1; min-width: 0; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.on-node { cursor: pointer; }
+  canvas.dragging { cursor: grabbing; }
+
+  /* panel de control flotante: todo el chrome vive aquí, el lienzo queda libre */
+  #panel { position: absolute; z-index: 6; left: .9rem; bottom: .9rem; width: 19rem;
+           max-height: calc(100% - 1.8rem); display: flex; flex-direction: column;
+           border-radius: 11px; overflow: hidden;
+           background: light-dark(rgba(255,255,255,.94), rgba(26,26,30,.94));
+           border: 1px solid light-dark(#e2e2e2, #35353c);
+           box-shadow: 0 6px 22px rgba(0,0,0,.13); backdrop-filter: blur(6px); }
+  #panel .ph { display: flex; align-items: center; gap: .5rem; padding: .5rem .7rem;
+               cursor: pointer; user-select: none; flex: 0 0 auto;
+               border-bottom: 1px solid light-dark(#ececec, #303036); }
+  #panel.collapsed .ph { border-bottom: 0; }
+  #panel .ph b { font-size: .88rem; }
+  #panel .ph .chev { margin-left: auto; opacity: .6; font-size: .78rem; }
+  /* min-height:0 es imprescindible: sin él un hijo flex no se encoge por debajo de su
+     contenido y el panel se corta por abajo en lugar de hacer scroll. */
+  #panel .pb { padding: .6rem .7rem .7rem; overflow-y: auto; display: flex;
+               flex-direction: column; gap: .55rem; min-height: 0; }
+  #panel.collapsed .pb { display: none; }
+  #panel a { color: light-dark(#284b63, #84a59d); text-decoration: none; }
+
+  fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: .25rem; flex-wrap: wrap; }
+  legend { display: none; }
+  label.pill { cursor: pointer; user-select: none; padding: .16rem .5rem; border-radius: 999px;
+               border: 1px solid light-dark(#ddd, #3d3d3d); font-size: .78rem;
+               transition: background .12s, border-color .12s; }
+  label.pill:has(input:checked) { background: light-dark(#eceff4, #26262b);
+                                  border-color: light-dark(#b9c2cf, #4a4a52); }
+  label.pill input { position: absolute; opacity: 0; pointer-events: none; }
+  .dot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; margin-right: .3em; }
+  .pill .cnt { color: light-dark(#9a9a9a, #7a7a7a); font-size: .72rem; margin-left: .18em; }
+
+  #desc { font-size: .76rem; line-height: 1.45; color: light-dark(#6d6d6d, #9a9a9a); }
+  #desc b { color: light-dark(#4a4a4a, #c0c0c0); }
+  #desc code { font-size: .95em; }
+
+  input[type=search] { width: 100%; box-sizing: border-box; padding: .3rem .6rem;
+                       border: 1px solid light-dark(#ccc, #444); border-radius: 999px;
+                       background: transparent; color: inherit; font: inherit; font-size: .82rem; }
+  input[type=search]:focus { outline: 2px solid light-dark(#b9c2cf, #4a4a52); outline-offset: 1px; }
+  /* los resultados van en el flujo del panel: dentro de un contenedor con scroll,
+     un desplegable absoluto quedaría recortado */
+  #results { display: none; margin-top: .35rem; max-height: 13rem; overflow-y: auto;
+             border: 1px solid light-dark(#e6e6e6, #35353c); border-radius: 8px; }
+  #results button { display: flex; gap: .4rem; align-items: baseline; width: 100%;
+                    padding: .3rem .5rem; background: none; border: 0; color: inherit;
+                    cursor: pointer; text-align: left; font: inherit; font-size: .78rem; }
+  #results button:hover { background: light-dark(#eef1f6, #2b2b31); }
+  #results .nm { font-weight: 600; }
+  #results .kind { margin-left: auto; font-size: .72rem; color: light-dark(#9a9a9a, #7a7a7a); }
+
+  #legend { display: none; flex-direction: column; gap: .16rem; font-size: .76rem;
+            line-height: 1.4; color: light-dark(#5d5d5d, #a0a0a0); }
+  #legend .lt { font-weight: 650; color: light-dark(#4a4a4a, #c0c0c0); }
+
+  .pf { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+  .btn { padding: .2rem .6rem; border-radius: 999px; cursor: pointer; color: inherit;
+         border: 1px solid light-dark(#ddd, #3d3d3d); background: transparent;
+         font: inherit; font-size: .78rem; text-decoration: none; }
+  .btn:hover { background: light-dark(#eceff4, #26262b); }
+  #stats { margin-left: auto; color: light-dark(#8a8a8a, #7a7a7a); font-size: .74rem; }
+
+  #crumb { display: none; position: absolute; z-index: 5; left: 0; right: 0; top: 0;
+           padding: .45rem 1rem; font-size: .82rem; line-height: 1.5;
+           max-height: 4.6rem; overflow-y: auto;
+           background: light-dark(rgba(250,248,248,.94), rgba(22,22,24,.94));
+           border-bottom: 1px solid light-dark(#e5e5e5, #333); backdrop-filter: blur(3px); }
+  #crumb .sel { font-weight: 700; }
+  #crumb b { font-weight: 600; color: light-dark(#5d5d5d, #b0b0b0); }
+  #crumb a { color: light-dark(#284b63, #84a59d); text-decoration: none; }
+  #crumb a:hover { text-decoration: underline; }
+  #crumb .sep { color: light-dark(#bbb, #555); margin: 0 .45rem; }
+
+  #tip { position: absolute; pointer-events: none; z-index: 7;
+         background: light-dark(#ffffff, #222226);
+         border: 1px solid light-dark(#e2e2e2, #3c3c42); border-radius: 8px; padding: .45rem .65rem;
+         font-size: .85rem; box-shadow: 0 4px 16px rgba(0,0,0,.18); display: none; max-width: 340px; }
+  #tip b { color: light-dark(#1d1d1d, #f0f0f0); }
+  #tip small { color: light-dark(#7a7a7a, #9a9a9a); }
+  #tip .pv { margin-top: .3rem; padding-top: .3rem; border-top: 1px solid light-dark(#eee, #3a3a40);
+             font-size: .78rem; line-height: 1.35; color: light-dark(#5d5d5d, #b0b0b0); }
+
+  #peek { display: none; flex: 0 0 42%; min-width: 22rem; max-width: 46rem;
+          border-left: 1px solid light-dark(#e0e0e0, #333); flex-direction: column;
+          background: light-dark(#ffffff, #1a1a1c); }
+  #peek.open { display: flex; }
+  #peek header { display: flex; align-items: stretch; gap: .4rem; padding: .35rem .5rem;
+                 border-bottom: 1px solid light-dark(#e8e8e8, #303035); min-height: 2.1rem; }
+  #peek .tabs { display: flex; gap: .25rem; overflow-x: auto; flex: 1; min-width: 0;
+                scrollbar-width: thin; }
+  #peek .tab { display: flex; align-items: center; gap: .35rem; padding: .2rem .5rem;
+               border-radius: 7px; cursor: pointer; font-size: .8rem; max-width: 14rem;
+               border: 1px solid transparent; color: light-dark(#5d5d5d, #a0a0a0);
+               white-space: nowrap; flex: 0 0 auto; }
+  #peek .tab:hover { background: light-dark(#f0f0f2, #26262b); }
+  #peek .tab.active { background: light-dark(#eceff4, #26262b);
+                      border-color: light-dark(#d8dde5, #3c3c44);
+                      color: light-dark(#1d1d1d, #f0f0f0); font-weight: 600; }
+  #peek .tab .nm { overflow: hidden; text-overflow: ellipsis; }
+  #peek .tab.temp .nm { font-style: italic; }
+  #peek .tab .pin { opacity: .35; font-size: .85em; padding: 0 .1rem; border-radius: 4px; }
+  #peek .tab .pin:hover { opacity: 1; background: light-dark(#dcdce0, #3a3a42); }
+  #peek .tab.pinned .pin { opacity: .9; }
+  #peek .tab .x { opacity: .5; font-size: .9em; padding: 0 .1rem; border-radius: 4px; }
+  #peek .tab .x:hover { opacity: 1; background: light-dark(#dcdce0, #3a3a42); }
+  #peek .tab .tdot { width: .55em; height: .55em; border-radius: 50%; flex: 0 0 auto; }
+  #peek .acts { display: flex; gap: .3rem; align-items: center; flex: 0 0 auto; }
+  #peek .frames { position: relative; flex: 1; min-height: 0; }
+  /* Una sola regla para los iframes: la anterior (`#peek iframe { flex: 1 }`) venía de
+     cuando había uno solo en flujo flex y competía con esta, dejándolos sin altura.
+     Se fija width/height además de la posición para no depender de cómo se resuelva
+     `inset` en un elemento reemplazado. */
+  #peek .frames iframe { position: absolute; inset: 0; width: 100%; height: 100%;
+                         border: 0; background: transparent; display: none; }
+  #peek .frames iframe.active { display: block; }
+  @media (max-width: 900px) {
+    #peek.open { position: absolute; inset: 0; flex: 1 1 auto; max-width: none; z-index: 40; }
+    #panel { width: auto; right: .9rem; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wrap">
+    <canvas id="c"></canvas>
+    <div id="crumb"></div>
+    <div id="panel">
+      <div class="ph">
+        <b id="ptitle">Grafo</b>
+        <a href="/" onclick="event.stopPropagation()">← wiki</a>
+        <span class="chev">▾</span>
+      </div>
+      <div class="pb">
+        <fieldset id="mode"><legend>Modo</legend></fieldset>
+        <div id="desc"></div>
+        <div id="qbox">
+          <input type="search" id="q" placeholder="Buscar nota…" autocomplete="off">
+          <div id="results"></div>
+        </div>
+        <fieldset id="kinds"><legend>Tipos</legend></fieldset>
+        <fieldset id="edges"><legend>Relaciones</legend></fieldset>
+        <div id="legend"></div>
+        <div class="pf">
+          <button class="btn" id="fit">Encajar</button>
+          <button class="btn" id="reset">Limpiar</button>
+          <span id="stats"></span>
+        </div>
+      </div>
+    </div>
+    <div id="tip"></div>
+  </div>
+  <aside id="peek">
+    <header>
+      <div class="tabs" role="tablist"></div>
+      <span class="acts">
+        <a class="btn" id="peek-open" href="#" target="_blank" rel="noopener">Abrir</a>
+        <button class="btn" id="peek-close" aria-label="Cerrar panel">✕</button>
+      </span>
+    </header>
+    <div class="frames"></div>
+  </aside>
+</div>
+
+<script src="/static/d3.v7.9.0.min.js"></script>
+<script>
+// Configuración del consumidor: el emitter la inyecta desde `explorer` de okf.config.mjs.
+// El motor no conoce ningún dominio; todo el vocabulario visible viene de aquí.
+const CFG = window.OKF_EXPLORER || {};
+const PALETTE = ["#4c7ecf", "#4caf7c", "#e08a3c", "#c2544d", "#9a6fbf", "#3fa3a3",
+                 "#b58b6a", "#8a8a8a", "#7f93ad", "#c9b04a"];
+
+const COLORS = CFG.typeColors || {};
+const TYPE_LABEL = CFG.typeLabels || {};
+const KNOWLEDGE = CFG.knowledgeTypes || [];
+const MODES = (CFG.modes && CFG.modes.length) ? CFG.modes : [
+  { id: "full", label: "Grafo completo", edges: "*",
+    desc: "<b>El grafo entero, con sus relaciones tipadas.</b>" },
+];
+// Colores de relación: los declara el consumidor o se reparten de la paleta, de modo que
+// un profile con otro vocabulario de edges sigue teniendo una leyenda coherente.
+const EDGE_COLORS = Object.assign({}, CFG.edgeColors);
+const EDGE_LABEL = {};
+
+const modeById = (id) => MODES.find(m => m.id === id) || MODES[0];
+const DESC = Object.fromEntries(MODES.map(m => [m.id, m.desc || ""]));
+
+fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => {
+  // okf-graph/v1 -> modelo interno. El bundle ya resuelve alias, deriva inversas y marca
+  // las aristas `derived`, así que aquí solo se indexa y se reparte color a los edges.
+  const labels = raw.edgeLabels || [...new Set((raw.edges || []).map(e => e.label))];
+  labels.forEach((lab, i) => {
+    EDGE_LABEL[lab] = lab;
+    if (!EDGE_COLORS[lab]) EDGE_COLORS[lab] = PALETTE[i % PALETTE.length];
+  });
+  (raw.types || []).forEach((ty, i) => {
+    if (!COLORS[ty]) COLORS[ty] = PALETTE[i % PALETTE.length];
+    if (!TYPE_LABEL[ty]) TYPE_LABEL[ty] = ty;
+  });
+
+  const nodes = {};
+  for (const n of raw.nodes || []) {
+    // okf-graph/v1 identifica los nodos por `slug`.
+    const id = n.slug || n.id;
+    nodes[id] = {
+      type: n.type || "unknown",
+      title: n.title || id,
+      desc: n.description || n.desc || "",
+      url: n.url || ("/" + id),
+      properties: n.properties || {},
+      counts: {},
+      indeg: 0,
+    };
+  }
+  const edges = [];
+  for (const e of raw.edges || []) {
+    if (!e.target || !nodes[e.source] || !nodes[e.target]) continue;
+    edges.push({ s: e.source, t: e.target, k: e.label, derived: Boolean(e.derived) });
+    nodes[e.source].counts[e.label] = (nodes[e.source].counts[e.label] || 0) + 1;
+    nodes[e.target].indeg += 1;
+  }
+  const data = { nodes, edges };
+
+  const canvas = document.getElementById("c"), tip = document.getElementById("tip");
+  const stats = document.getElementById("stats"), results = document.getElementById("results");
+  const q = document.getElementById("q"), legend = document.getElementById("legend");
+  const dpr = window.devicePixelRatio || 1;
+  let W, H; const ctx = canvas.getContext("2d");
+  function resize() {
+    W = canvas.clientWidth; H = canvas.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  // Redimensionar no reencuadra: mover la cámara es decisión del lector, con «Encajar».
+  window.addEventListener("resize", () => { resize(); tick(); });
+  // El canvas también cambia de alto cuando aparece la barra de relaciones, cambia la
+  // leyenda o la descripción del modo ocupa otra línea. Sin observarlo, canvas.width/height
+  // se quedan con el valor anterior, el navegador escala el bitmap y el puntero deja de
+  // coincidir en vertical con lo dibujado.
+  new ResizeObserver(() => { resize(); tick(); }).observe(canvas);
+
+  const N = data.nodes;
+
+  function sizeOf(n) {
+    const sb = modeById(curMode).sizeBy;
+    if (sb) {
+      if (sb.countEdge) return 4 + Math.min(9, (n.counts[sb.countEdge] || 0) * 0.8);
+      if (sb.indegree) return 4.5 + Math.min(9, (n.indeg || 0) * 0.22);
+    }
+    return 4.2 + Math.min(6, (n.indeg || 0) * 0.22);
+  }
+  function scaleOf(value, scale) {
+    return scale.find(s => value <= (s.max ?? Infinity)) || scale[scale.length - 1];
+  }
+  function readPath(obj, path) {
+    return String(path).split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
+  }
+  function fillOf(n) {
+    const cb = modeById(curMode).colorBy;
+    if (cb) {
+      if (cb.countEdge && (!KNOWLEDGE.length || KNOWLEDGE.includes(n.type))) {
+        return scaleOf(n.counts[cb.countEdge] || 0, cb.scale || []).color || "#888";
+      }
+      if (cb.property) {
+        const v = readPath(n.properties, cb.property);
+        if (v != null && cb.map && cb.map[v]) return cb.map[v].color || cb.map[v];
+      }
+    }
+    return COLORS[n.type] || "#888";
+  }
+
+  // pills de tipo, con el recuento del modo actual
+  function renderKinds(counts) {
+    const box = document.getElementById("kinds");
+    const prev = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
+    box.innerHTML = "";
+    for (const [t, c] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
+      const on = prev.size ? prev.has(t) : true;
+      const l = document.createElement("label"); l.className = "pill";
+      l.innerHTML = `<input type="checkbox" value="${t}" ${on ? "checked" : ""}>` +
+        `<span class="dot" style="background:${COLORS[t]}"></span>${TYPE_LABEL[t] || t}` +
+        `<span class="cnt">${c}</span>`;
+      l.querySelector("input").addEventListener("change", () => restart(false));
+      box.appendChild(l);
+    }
+  }
+  function renderEdges(counts) {
+    const box = document.getElementById("edges");
+    box.style.display = curMode === "completo" ? "flex" : "none";
+    if (curMode !== "completo") { box.innerHTML = ""; return; }
+    const prev = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
+    const had = box.querySelector("input") !== null;
+    box.innerHTML = "";
+    for (const [k, c] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
+      const on = had ? prev.has(k) : true;
+      const l = document.createElement("label"); l.className = "pill";
+      l.innerHTML = `<input type="checkbox" value="${k}" ${on ? "checked" : ""}>` +
+        `<span class="dot" style="background:${EDGE_COLORS[k]}"></span>${EDGE_LABEL[k] || k}` +
+        `<span class="cnt">${c}</span>`;
+      l.querySelector("input").addEventListener("change", () => restart(false));
+      box.appendChild(l);
+    }
+  }
+
+  // Las pastillas de modo salen de la configuración, no del marcado.
+  {
+    const box = document.getElementById("mode");
+    box.innerHTML = MODES.map((m, i) =>
+      `<label class="pill"><input type="radio" name="m" value="${m.id}"` +
+      `${i === 0 ? " checked" : ""}>${m.label}</label>`).join("");
+  }
+
+  // El panel entero se pliega con un clic en su cabecera; la preferencia persiste.
+  const PANEL_KEY = "okf:explorer:panel";
+  const LEGEND_KEY = "okf:explorer:legend";
+  let legendOpen = localStorage.getItem(LEGEND_KEY) !== "0";
+  const panel = document.getElementById("panel");
+  panel.classList.toggle("collapsed", localStorage.getItem(PANEL_KEY) === "0");
+  panel.querySelector(".ph").addEventListener("click", () => {
+    const open = panel.classList.toggle("collapsed") === false;
+    localStorage.setItem(PANEL_KEY, open ? "1" : "0");
+    panel.querySelector(".chev").textContent = open ? "▾" : "▸";
+  });
+  panel.querySelector(".chev").textContent =
+    panel.classList.contains("collapsed") ? "▸" : "▾";
+
+  function renderLegend() {
+    const row = (color, label) =>
+      `<span><span class="dot" style="background:${color}"></span>${label}</span>`;
+    const m = modeById(curMode);
+    let html = "";
+    if (m.colorBy && m.colorBy.scale) {
+      html = `<span class="lt">${m.legendTitle || m.label}</span>` +
+        m.colorBy.scale.map(s => row(s.color, s.label)).join("");
+    } else if (m.colorBy && m.colorBy.map) {
+      html = `<span class="lt">${m.legendTitle || m.label}</span>` +
+        Object.entries(m.colorBy.map).map(([k, v]) =>
+          row(v.color || v, v.label || k)).join("");
+    } else if (m.edges === "*" || !m.edges) {
+      const seen = new Set((graph ? graph.links : []).map(l => l.kind));
+      html = '<span class="lt">Relaciones</span>' +
+        Object.keys(EDGE_COLORS).filter(k => seen.has(k))
+          .map(k => row(EDGE_COLORS[k], EDGE_LABEL[k] || k)).join("");
+    } else {
+      const seen = [...new Set((graph ? graph.nodes : []).map(n => n.type))];
+      html = '<span class="lt">Tipos</span>' +
+        seen.map(k => row(COLORS[k], TYPE_LABEL[k] || k)).join("");
+    }
+    legend.innerHTML = html;
+    legend.style.display = html ? "flex" : "none";
+    legend.classList.toggle("collapsed", !legendOpen);
+    const title = legend.querySelector(".lt");
+    if (title) {
+      title.insertAdjacentHTML("beforeend",
+        `<span class="chev">${legendOpen ? "▾" : "▸"}</span>`);
+      title.addEventListener("click", () => {
+        legendOpen = !legendOpen;
+        localStorage.setItem(LEGEND_KEY, legendOpen ? "1" : "0");
+        renderLegend();
+      });
+    }
+  }
+
+  function build(modeId, kinds) {
+    const m = modeById(modeId);
+    const keep = new Set(), edges = [];
+    const wanted = m.edges === "*" || !m.edges ? null : new Set([].concat(m.edges));
+
+    for (const e of data.edges) {
+      if (wanted && !wanted.has(e.k)) continue;
+      if (m.sourceType && N[e.s].type !== m.sourceType) continue;
+      if (m.targetType && N[e.t].type !== m.targetType) continue;
+      keep.add(e.s); keep.add(e.t); edges.push(e);
+    }
+
+    // Las pastillas de relación solo tienen sentido cuando el modo no fija ya los edges.
+    const edgeCounts = {};
+    for (const e of edges) edgeCounts[e.k] = (edgeCounts[e.k] || 0) + 1;
+    const multi = !wanted || wanted.size > 1;
+    renderEdges(multi ? edgeCounts : {});
+    if (multi) {
+      const box = document.getElementById("edges");
+      const active = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
+      if (active.size && box.querySelector("input")) {
+        for (let i = edges.length - 1; i >= 0; i--) if (!active.has(edges[i].k)) edges.splice(i, 1);
+        keep.clear();
+        for (const e of edges) { keep.add(e.s); keep.add(e.t); }
+      }
+    }
+
+    const counts = {};
+    for (const s of keep) counts[N[s].type] = (counts[N[s].type] || 0) + 1;
+    renderKinds(counts);
+    const active = kinds || new Set(Object.keys(counts));
+
+    const idx = new Map(), nodes = [];
+    for (const s of keep) {
+      if (!active.has(N[s].type)) continue;
+      const n = Object.assign({ id: s }, N[s]);
+      idx.set(s, n); nodes.push(n);
+    }
+    const links = edges.filter(e => idx.has(e.s) && idx.has(e.t))
+      .map(e => ({ source: e.s, target: e.t, kind: e.k, derived: e.derived }));
+    const adj = new Map();
+    const touch = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
+    for (const l of links) { touch(l.source, l.target); touch(l.target, l.source); }
+    return { nodes, links, adj, idx };
+  }
+
+  let sim, graph, transform = d3.zoomIdentity, hover = null, selected = null, query = "";
+  let curMode = MODES[0].id;
+
+  let firstFit = true;
+  function restart(refit = true) {
+    curMode = (document.querySelector('#mode input:checked') || { value: MODES[0].id }).value;
+    document.getElementById("desc").innerHTML = DESC[curMode];
+    const kinds = new Set([...document.querySelectorAll('#kinds input:checked')].map(i => i.value));
+    graph = build(curMode, kinds.size ? kinds : null);
+    renderLegend();
+    if (selected) selected = graph.idx.get(selected.id) || null;
+    stats.textContent = `${graph.nodes.length} nodos · ${graph.links.length} enlaces`;
+    if (sim) sim.stop();
+    sim = d3.forceSimulation(graph.nodes)
+      .force("link", d3.forceLink(graph.links).id(d => d.id)
+        .distance(l => l.kind === "cites" ? 46 : 34)
+        .strength(l => l.kind === "cites" ? 0.22 : 0.5))
+      .force("charge", d3.forceManyBody().strength(-70))
+      .force("x", d3.forceX(W / 2).strength(0.05))
+      .force("y", d3.forceY(H / 2).strength(0.05))
+      .force("collide", d3.forceCollide(d => sizeOf(d) + 2.5))
+      .on("tick", tick)
+      // Solo al abrir: después, cada cambio de modo o de filtro respeta el encuadre
+      // que tenga el lector en ese momento.
+      .on("end", () => { if (refit && firstFit) { firstFit = false; fit(); } });
+  }
+
+  const matches = n => query && (n.title.toLowerCase().includes(query) || n.id.toLowerCase().includes(query));
+  const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
+
+  function drawLabel(n, dark, k, bold) {
+    const r = sizeOf(n);
+    ctx.font = `${bold ? "600 " : ""}${11 / k}px -apple-system, sans-serif`;
+    ctx.lineWidth = 3.2 / k; ctx.lineJoin = "round";
+    ctx.strokeStyle = dark ? "rgba(22,22,24,.85)" : "rgba(250,248,248,.85)";
+    const label = n.title.length > 42 ? n.title.slice(0, 41) + "…" : n.title;
+    const x = n.x + r + 4 / k, y = n.y + 3.5 / k;
+    ctx.strokeText(label, x, y);
+    ctx.fillStyle = dark ? "#e8e8e8" : "#222";
+    ctx.fillText(label, x, y);
+  }
+
+  function tick() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.save(); ctx.translate(transform.x, transform.y); ctx.scale(transform.k, transform.k);
+    const dark = isDark(), k = transform.k;
+    const focus = hover || selected;
+    const near = focus ? graph.adj.get(focus.id) : null;
+    const dimming = !!focus || !!query;
+
+    for (const l of graph.links) {
+      const inFocus = focus && (l.source === focus || l.target === focus);
+      ctx.globalAlpha = focus ? (inFocus ? 0.85 : 0.05) : query ? 0.1
+        : 0.34;
+      ctx.lineWidth = (inFocus ? 1.5 : 0.7) / k;
+      ctx.strokeStyle = inFocus
+        ? (dark ? "#ccc" : "#555")
+        : (EDGE_COLORS[l.kind] || (dark ? "#4a4a4a" : "#c0c0c0"));
+      ctx.beginPath(); ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); ctx.stroke();
+      if (inFocus) {
+        const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y;
+        const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+        const tipX = l.target.x - ux * (sizeOf(l.target) + 2.5 / k);
+        const tipY = l.target.y - uy * (sizeOf(l.target) + 2.5 / k);
+        const s = 5.5 / k;
+        ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.moveTo(tipX, tipY);
+        ctx.lineTo(tipX - ux * s - uy * s * 0.55, tipY - uy * s + ux * s * 0.55);
+        ctx.lineTo(tipX - ux * s + uy * s * 0.55, tipY - uy * s - ux * s * 0.55);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    for (const n of graph.nodes) {
+      const r = sizeOf(n), hit = matches(n);
+      const isFocus = n === focus, isNear = near && near.has(n.id);
+      const isSel = n === selected;
+      ctx.globalAlpha = focus ? (isFocus || isNear ? 1 : 0.12) : query ? (hit ? 1 : 0.12) : 1;
+      ctx.beginPath(); ctx.arc(n.x, n.y, isFocus || hit ? r * 1.45 : r, 0, 7);
+      ctx.fillStyle = fillOf(n); ctx.fill();
+      ctx.lineWidth = (isFocus ? 2.2 : 1.2) / k;
+      ctx.strokeStyle = isFocus ? (dark ? "#f0f0f0" : "#333")
+                                : dark ? "rgba(22,22,24,.9)" : "rgba(255,255,255,.9)";
+      ctx.stroke();
+      // El nodo abierto en el panel lleva un anillo propio, visible aunque el puntero
+      // esté en otra parte: es la referencia de dónde se está leyendo.
+      if (isSel) {
+        const rr = (isFocus || hit ? r * 1.45 : r) + 4.5 / k;
+        ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(n.x, n.y, rr, 0, 7);
+        ctx.lineWidth = 2.4 / k;
+        ctx.strokeStyle = dark ? "#f2c14e" : "#c98a00";
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(n.x, n.y, rr + 2.6 / k, 0, 7);
+        ctx.lineWidth = 1 / k;
+        ctx.strokeStyle = dark ? "rgba(242,193,78,.35)" : "rgba(201,138,0,.3)";
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    for (const n of graph.nodes) {
+      const hit = matches(n), isFocus = n === focus, isNear = near && near.has(n.id);
+      if (dimming && !(isFocus || isNear || hit || n === selected)) continue;
+      const always = isFocus || hit || n === selected || sizeOf(n) > 8;
+      const big = sizeOf(n) > 7;
+      if (always || (isNear && k > 0.6) || k > 2.2 || (big && k > 0.9)) drawLabel(n, dark, k, always);
+    }
+    ctx.restore();
+  }
+
+  const nodeAt = (px, py) => {
+    const [x, y] = transform.invert([px, py]);
+    return sim.find(x, y, 14 / transform.k);
+  };
+
+  function showTip(n, px, py) {
+    const fund = KNOWLEDGE.includes(n.type)
+      ? `<small>${n.cites} obra${n.cites === 1 ? "" : "s"} · ${n.indeg} entrante${n.indeg === 1 ? "" : "s"}</small>`
+      : n.type === "author" ? `<small>${n.works || 0} obra${n.works === 1 ? "" : "s"}</small>`
+      : `<small>${n.indeg} nota${n.indeg === 1 ? "" : "s"} lo citan</small>`;
+    tip.innerHTML = `<b>${n.title}</b> <small>· ${TYPE_LABEL[n.type] || n.type}</small><br>${fund}` +
+      (n.desc ? `<div class="pv">${n.desc}</div>` : "");
+    tip.style.display = "block";
+    const r = tip.getBoundingClientRect();
+    tip.style.left = Math.max(8, Math.min(px + 14, W - r.width - 8)) + "px";
+    tip.style.top = Math.max(8, Math.min(py + 12, H - r.height - 8)) + "px";
+  }
+
+  canvas.addEventListener("mousemove", ev => {
+    if (dragging) { tick(); return; }
+    const px = ev.offsetX, py = ev.offsetY;
+    const n = nodeAt(px, py);
+    canvas.classList.toggle("on-node", !!n);
+    if (n !== hover) { hover = n; tick(); }
+    if (n) showTip(n, px, py); else tip.style.display = "none";
+  });
+  canvas.addEventListener("mouseleave", () => { hover = null; tip.style.display = "none"; tick(); });
+  // ---- panel lateral con pestañas: varias notas abiertas sin salir del grafo -----
+  const peek = document.getElementById("peek");
+  const peekTabs = peek.querySelector(".tabs");
+  const peekFrames = peek.querySelector(".frames");
+  const peekOpen = document.getElementById("peek-open");
+  // Pestañas al estilo del editor: al abrir una nota se usa una pestaña TEMPORAL, que
+  // la siguiente reemplaza. Solo se acumulan las ancladas — doble clic o chincheta.
+  const tabs = [];          // [{ id, title, type, url, pinned }]
+  let activeTab = null;     // id de la pestaña visible
+
+  function frameFor(id) {
+    return peekFrames.querySelector(`iframe[data-id="${CSS.escape(id)}"]`);
+  }
+
+  function renderTabs() {
+    peekTabs.innerHTML = "";
+    for (const tb of tabs) {
+      const el = document.createElement("div");
+      el.className = "tab" + (tb.id === activeTab ? " active" : "");
+      el.setAttribute("role", "tab");
+      el.className += tb.pinned ? " pinned" : " temp";
+      el.title = tb.pinned ? tb.title : tb.title + " — pestaña temporal, doble clic para anclar";
+      el.innerHTML =
+        `<span class="tdot" style="background:${COLORS[tb.type] || "#888"}"></span>` +
+        `<span class="nm">${tb.title}</span>` +
+        `<span class="pin" aria-label="${tb.pinned ? "Desanclar" : "Anclar"}">${tb.pinned ? "📌" : "📍"}</span>` +
+        `<span class="x" aria-label="Cerrar">✕</span>`;
+      el.addEventListener("click", (e) => {
+        if (e.target.classList.contains("x")) { closeTab(tb.id); return; }
+        if (e.target.classList.contains("pin")) { tb.pinned = !tb.pinned; renderTabs(); return; }
+        activate(tb.id);
+      });
+      el.addEventListener("dblclick", () => { tb.pinned = true; renderTabs(); });
+      peekTabs.appendChild(el);
+    }
+    const cur = tabs.find(x => x.id === activeTab);
+    peekOpen.href = cur ? cur.url : "#";
+  }
+
+  function activate(id) {
+    activeTab = id;
+    peekFrames.querySelectorAll("iframe").forEach(f =>
+      f.classList.toggle("active", f.dataset.id === id));
+    renderTabs();
+    // El grafo marca la nota que se está leyendo.
+    const n = graph.idx.get(id);
+    if (n) { selected = n; renderCrumb(); tick(); }
+  }
+
+  function trimQuartz(f) {
+    // Mismo origen: se recorta el layout para que el panel muestre solo el contenido.
+    try {
+      const d = f.contentDocument;
+      if (!d) return;
+      const css = d.createElement("style");
+      css.textContent = `
+        .left.sidebar, .right.sidebar, .page-footer, .mobile-only { display: none !important; }
+        .center { margin: 0 !important; padding: 1rem 1.4rem 3rem !important; max-width: none !important; }`;
+      d.head.appendChild(css);
+    } catch (_) { /* si el navegador lo impide, se ve la página completa */ }
+  }
+
+  function addFrame(n) {
+    const f = document.createElement("iframe");
+    f.dataset.id = n.id;
+    f.setAttribute("title", n.title);
+    f.src = n.url;
+    f.addEventListener("load", () => trimQuartz(f));
+    peekFrames.appendChild(f);
+  }
+
+  function showPeek(n) {
+    const existing = tabs.find(tb => tb.id === n.id);
+    if (!existing) {
+      // La temporal anterior se descarta: solo puede haber una a la vez.
+      const tmpIdx = tabs.findIndex(tb => !tb.pinned);
+      if (tmpIdx >= 0) {
+        const old = tabs[tmpIdx];
+        const f = frameFor(old.id);
+        if (f) f.remove();
+        tabs.splice(tmpIdx, 1, { id: n.id, title: n.title, type: n.type, url: n.url, pinned: false });
+      } else {
+        tabs.push({ id: n.id, title: n.title, type: n.type, url: n.url, pinned: false });
+      }
+      addFrame(n);
+    }
+    const first = !peek.classList.contains("open");
+    peek.classList.add("open");
+    activate(n.id);
+    if (first) { resize(); tick(); }
+  }
+
+  function closeTab(id) {
+    const i = tabs.findIndex(tb => tb.id === id);
+    if (i < 0) return;
+    tabs.splice(i, 1);
+    const f = frameFor(id);
+    if (f) f.remove();
+    if (!tabs.length) { closePeek(); return; }
+    activate(tabs[Math.min(i, tabs.length - 1)].id);
+  }
+
+  function closePeek() {
+    peek.classList.remove("open");
+    tabs.length = 0; activeTab = null;
+    peekFrames.innerHTML = "";
+    renderTabs();
+    resize(); tick();
+  }
+  document.getElementById("peek-close").addEventListener("click", closePeek);
+
+  // Clic en un nodo = abrir su nota. El resaltado de vecindad lo hace el hover, y la
+  // selección persistente —con su barra de relaciones— la fija el buscador: así el clic
+  // no mueve la cámara por sorpresa.
+  canvas.addEventListener("click", ev => {
+    if (dragMoved) { dragMoved = false; return; }
+    const n = nodeAt(ev.offsetX, ev.offsetY);
+    if (!n) {
+      if (selected) { selected = null; renderCrumb(); tick(); }
+      return;
+    }
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey) { window.open(n.url, "_blank"); return; }
+    showPeek(n);
+  });
+  // Doble clic: abre la nota ya anclada, sin pasar por la pestaña temporal.
+  canvas.addEventListener("dblclick", ev => {
+    const n = nodeAt(ev.offsetX, ev.offsetY);
+    if (!n) return;
+    showPeek(n);
+    const tb = tabs.find(x => x.id === n.id);
+    if (tb) { tb.pinned = true; renderTabs(); }
+  });
+
+  // El filter deja pasar el pan solo si el puntero NO está sobre un nodo: así el
+  // arrastre de nodos y el desplazamiento del lienzo no compiten.
+  const zoomBehavior = d3.zoom().scaleExtent([0.15, 8])
+    .filter(e => e.type === "wheel" || !nodeAt(e.offsetX, e.offsetY))
+    .on("zoom", ev => { transform = ev.transform; tick(); });
+
+  let dragMoved = false;
+  const dragBehavior = d3.drag()
+    .container(canvas)
+    .subject(e => nodeAt(e.x, e.y))
+    .on("start", e => {
+      if (!e.subject) return;
+      dragging = true; dragMoved = false; hover = e.subject;
+      canvas.classList.add("dragging");
+      if (!e.active) sim.alphaTarget(0.25).restart();
+      e.subject.fx = e.subject.x; e.subject.fy = e.subject.y;
+    })
+    .on("drag", e => {
+      if (!e.subject) return;
+      dragMoved = true;
+      e.subject.fx = transform.invertX(e.x); e.subject.fy = transform.invertY(e.y);
+    })
+    .on("end", e => {
+      dragging = false; canvas.classList.remove("dragging");
+      if (!e.active) sim.alphaTarget(0);
+      if (e.subject) { e.subject.fx = null; e.subject.fy = null; }
+    });
+
+  d3.select(canvas).call(dragBehavior).call(zoomBehavior);
+
+  function fit(nodes, scale) {
+    const set = nodes && nodes.length ? nodes : (graph ? graph.nodes : []);
+    if (!set.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of set) {
+      x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y);
+      x1 = Math.max(x1, n.x); y1 = Math.max(y1, n.y);
+    }
+    const pad = 80, w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1);
+    const k = Math.max(0.15, Math.min(scale || 2.4, (W - pad) / w, (H - pad) / h));
+    const to = d3.zoomIdentity
+      .translate(W / 2 - k * (x0 + x1) / 2, H / 2 - k * (y0 + y1) / 2).scale(k);
+    d3.select(canvas).transition().duration(450).call(zoomBehavior.transform, to);
+  }
+
+  // Seleccionar no mueve la cámara. `zoomTo` la mueve solo cuando el lector lo pide
+  // —buscador o botón—, nunca como efecto secundario de navegar por el grafo.
+  function select(n, zoomTo = false) {
+    selected = n;
+    renderCrumb();
+    if (zoomTo) {
+      const hood = [n, ...[...(graph.adj.get(n.id) || [])]
+        .map(id => graph.idx.get(id)).filter(Boolean)];
+      fit(hood, 2.6);
+    }
+    tick();
+  }
+
+  function clearAll() {
+    if (tabs.length) closePeek();
+    selected = null; hover = null; query = ""; q.value = "";
+    results.style.display = "none"; tip.style.display = "none";
+    renderCrumb(); tick();
+  }
+
+  // Sustituto del breadcrumb jerárquico de singular: aquí el grafo no es un árbol,
+  // así que lo útil es enumerar las relaciones declaradas del nodo elegido.
+  function renderCrumb() {
+    const el = document.getElementById("crumb");
+    if (!selected) { el.style.display = "none"; el.innerHTML = ""; return; }
+    const byKind = {};
+    for (const l of graph.links) {
+      const out = l.source === selected, inc = l.target === selected;
+      if (!out && !inc) continue;
+      const other = out ? l.target : l.source;
+      const key = (out ? "" : "← ") + (EDGE_LABEL[l.kind] || l.kind);
+      (byKind[key] = byKind[key] || []).push(other);
+    }
+    const parts = Object.entries(byKind).map(([k, ns]) =>
+      `<b>${k}</b> ` + ns.slice(0, 6).map(n =>
+        `<a href="${n.url}">${n.title.length > 34 ? n.title.slice(0, 33) + "…" : n.title}</a>`
+      ).join(", ") + (ns.length > 6 ? ` +${ns.length - 6}` : ""));
+    el.innerHTML = `<span class="sel">${selected.title}</span>` +
+      (parts.length ? '<span class="sep">·</span>' + parts.join('<span class="sep">·</span>') : "");
+    el.style.display = "block";
+  }
+  document.getElementById("fit").addEventListener("click", () => fit());
+  document.getElementById("reset").addEventListener("click", clearAll);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => tick());
+  document.addEventListener("keydown", ev => {
+    if (ev.key === "Escape" && document.activeElement !== q && tabs.length) closePeek();
+  });
+
+  const KIND_ORDER = ["guide", "claim", "topic", "concept", "protocol", "instrument", "book", "author"];
+  q.addEventListener("input", () => {
+    query = q.value.trim().toLowerCase();
+    const hits = query
+      ? graph.nodes.filter(matches).sort((a, b) =>
+          KIND_ORDER.indexOf(a.type) - KIND_ORDER.indexOf(b.type) ||
+          a.title.localeCompare(b.title, "es")).slice(0, 20)
+      : [];
+    results.innerHTML = hits.map((n, i) =>
+      `<button data-i="${i}"><span class="nm">${n.title}</span>` +
+      `<span class="kind">${TYPE_LABEL[n.type] || n.type}</span></button>`).join("");
+    results.style.display = hits.length ? "block" : "none";
+    results.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      const n = hits[+b.dataset.i];
+      q.value = ""; query = ""; results.style.display = "none";
+      select(n, true);
+    }));
+    tick();
+  });
+  q.addEventListener("keydown", ev => {
+    if (ev.key === "Enter") {
+      const first = results.querySelector("button");
+      if (first) first.click();
+      else if (query) fit(graph.nodes.filter(matches), 2.6);
+    }
+    if (ev.key === "Escape") clearAll();
+  });
+  document.addEventListener("click", ev => {
+    if (!ev.target.closest("#qbox")) results.style.display = "none";
+  }, true);
+  document.querySelectorAll('#mode input').forEach(i =>
+    i.addEventListener("change", () => { selected = null; renderCrumb(); restart(); }));
+
+  document.getElementById("ptitle").textContent = CFG.title || "Grafo";
+  document.title = CFG.title || "Explorador del grafo";
+  resize(); restart();
+
+  // ?focus=<slug> centra el grafo en una nota: es como lo abre el modal desde una
+  // página, para que el lector no tenga que buscarla al llegar.
+  const focus = new URLSearchParams(location.search).get("focus");
+  if (focus) {
+    const target = graph.idx.get(focus) ||
+      graph.nodes.find(n => n.id.split("/").pop() === focus.split("/").pop());
+    if (target) {
+      // La simulación aún no ha colocado los nodos: se espera a que se estabilice.
+      sim.on("end", () => { select(target, true); sim.on("end", null); });
+      setTimeout(() => { if (target.x !== undefined) select(target, true); }, 1200);
+    }
+  }
+});
+</script>
+</body>
+</html>
