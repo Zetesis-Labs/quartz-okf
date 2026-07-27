@@ -7,23 +7,45 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md"],
-  "keywords": ["quartz", "quartz-plugin", "okf", "graph", "explorer"],
-  "scripts": { "build": "tsup" },
-  "dependencies": { "@quartz-community/types": "github:quartz-community/types" },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "quartz",
+    "quartz-plugin",
+    "okf",
+    "graph",
+    "explorer"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "prepare": "tsup"
+  },
+  "dependencies": {
+    "@quartz-community/types": "github:quartz-community/types"
+  },
   "devDependencies": {
     "@types/node": "^24.10.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },
-  "engines": { "node": ">=22", "npm": ">=10.9.2" },
+  "engines": {
+    "node": ">=22",
+    "npm": ">=10.9.2"
+  },
   "quartz": {
     "name": "quartz-okf-explorer",
     "displayName": "OKF Explorer",
-    "category": ["emitter"],
+    "category": [
+      "emitter"
+    ],
     "version": "0.1.0",
     "quartzVersion": ">=5.0.0",
     "defaultOrder": 20,
