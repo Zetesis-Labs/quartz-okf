@@ -515,6 +515,8 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   }
 
   let sim, graph, transform = d3.zoomIdentity, hover = null, selected = null, query = "";
+  // Si el lector mueve la cámara, nada vuelve a moverla por él.
+  let camaraTocada = false;
   let curMode = MODES[0].id;
 
   let firstFit = true;
@@ -807,7 +809,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   // arrastre de nodos y el desplazamiento del lienzo no compiten.
   const zoomBehavior = d3.zoom().scaleExtent([0.15, 8])
     .filter(e => e.type === "wheel" || !nodeAt(e.offsetX, e.offsetY))
-    .on("zoom", ev => { transform = ev.transform; tick(); });
+    .on("zoom", ev => { transform = ev.transform; if (ev.sourceEvent) camaraTocada = true; tick(); });
 
   let dragMoved = false;
   const dragBehavior = d3.drag()
@@ -815,7 +817,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     .subject(e => nodeAt(e.x, e.y))
     .on("start", e => {
       if (!e.subject) return;
-      dragging = true; dragMoved = false; hover = e.subject;
+      dragging = true; dragMoved = false; camaraTocada = true; hover = e.subject;
       canvas.classList.add("dragging");
       if (!e.active) sim.alphaTarget(0.25).restart();
       e.subject.fx = e.subject.x; e.subject.fy = e.subject.y;
@@ -971,11 +973,16 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
       graph.nodes.find(n => n.id.toLowerCase() === clave) ||
       graph.nodes.find(n => n.id.toLowerCase().split("/").pop() === hoja);
     if (target) {
-      // d3 coloca los nodos al construir la simulación, así que se puede seleccionar ya:
-      // el lector entra con su nota marcada y no tiene que buscarla. Al estabilizarse se
-      // reencuadra, porque para entonces la vecindad ya ocupa su sitio definitivo.
-      select(target, true);
-      sim.on("end", () => { select(target, true); sim.on("end", null); });
+      // Marcar y encuadrar son dos momentos distintos. Se marca ya, para que el lector
+      // entre con su nota señalada; encuadrar ahora sería inútil porque d3 acaba de
+      // colocar los nodos en una espiral inicial y la vecindad se irá a otra parte,
+      // dejando la cámara mirando al vacío. El encuadre espera a que la simulación se
+      // asiente —y se cancela si para entonces el lector ya movió la cámara él mismo—.
+      select(target);
+      sim.on("end.focus", () => {
+        sim.on("end.focus", null);
+        if (!camaraTocada) select(target, true);
+      });
     }
   }
 });
