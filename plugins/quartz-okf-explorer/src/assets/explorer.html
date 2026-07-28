@@ -306,6 +306,9 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
       if (cb.property) {
         const v = readPath(n.properties, cb.property);
         if (v != null && cb.map && cb.map[v]) return cb.map[v].color || cb.map[v];
+        // Un nodo al que la clasificación no llega no es un nodo de valor desconocido:
+        // suele ser un agregador, y el modo puede querer distinguirlo del resto.
+        if (cb.fallback) return cb.fallback;
       }
     }
     return COLORS[n.type] || "#888";

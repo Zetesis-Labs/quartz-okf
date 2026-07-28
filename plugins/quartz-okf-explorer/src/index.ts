@@ -37,6 +37,8 @@ export interface ExplorerMode {
      */
     property?: string
     map?: Record<string, string | { color: string; label?: string }>
+    /** Colour for nodes the property does not reach — typically aggregators. */
+    fallback?: string
   }
   sizeBy?: { indegree?: boolean; countEdge?: string }
 }
