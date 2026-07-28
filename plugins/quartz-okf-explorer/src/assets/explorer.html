@@ -222,6 +222,9 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     nodes[id] = {
       type: n.type || "unknown",
       title: n.title || id,
+      // Lo que se dibuja junto al nodo. Un corpus con identificadores cortos —un código,
+      // una signatura— quiere verlos ahí; el título largo se reserva para la ficha.
+      label: n.label || n.title || id,
       desc: n.description || n.desc || "",
       url: n.url || ("/" + id),
       properties: n.properties || {},
@@ -257,7 +260,30 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
 
   const N = data.nodes;
 
+  // Radio del nodo. Un grafo jerárquico no se lee por grado de entrada sino por rango: una
+  // raíz es grande porque es la raíz, no porque tenga muchos hijos. `radius` permite fijarlo
+  // desde el tipo o desde una propiedad; el grado de entrada queda como recurso por defecto
+  // para corpus sin jerarquía declarada.
+  // Tensión del muelle por etiqueta de relación. Es lo que da forma: una jerarquía se lee
+  // cuando sus aristas son cortas y firmes y las transversales, largas y flojas. Qué
+  // relación es cuál lo sabe el consumidor, no el motor.
+  const LAYOUT = Object.assign({ charge: -70, gravity: 0.05 }, CFG.layout || {});
+  const LINKS = LAYOUT.link || {};
+  const LINK_DEF = Object.assign({ distance: 34, strength: 0.5 }, LINKS["*"] || {});
+  function linkForce(l) {
+    return LINKS[l.kind] ? Object.assign({}, LINK_DEF, LINKS[l.kind]) : LINK_DEF;
+  }
+
+  const RADIUS = CFG.radius || null;
   function sizeOf(n) {
+    if (RADIUS) {
+      if (RADIUS.byType && RADIUS.byType[n.type] != null) return RADIUS.byType[n.type];
+      if (RADIUS.property && RADIUS.map) {
+        const v = readPath(n.properties, RADIUS.property);
+        if (v != null && RADIUS.map[v] != null) return RADIUS.map[v];
+      }
+      if (RADIUS.default != null) return RADIUS.default;
+    }
     const sb = modeById(curMode).sizeBy;
     if (sb) {
       if (sb.countEdge) return 4 + Math.min(9, (n.counts[sb.countEdge] || 0) * 0.8);
@@ -464,11 +490,11 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     if (sim) sim.stop();
     sim = d3.forceSimulation(graph.nodes)
       .force("link", d3.forceLink(graph.links).id(d => d.id)
-        .distance(l => l.kind === "cites" ? 46 : 34)
-        .strength(l => l.kind === "cites" ? 0.22 : 0.5))
-      .force("charge", d3.forceManyBody().strength(-70))
-      .force("x", d3.forceX(W / 2).strength(0.05))
-      .force("y", d3.forceY(H / 2).strength(0.05))
+        .distance(l => linkForce(l).distance)
+        .strength(l => linkForce(l).strength))
+      .force("charge", d3.forceManyBody().strength(LAYOUT.charge))
+      .force("x", d3.forceX(W / 2).strength(LAYOUT.gravity))
+      .force("y", d3.forceY(H / 2).strength(LAYOUT.gravity))
       .force("collide", d3.forceCollide(d => sizeOf(d) + 2.5))
       .on("tick", tick)
       // Solo al abrir: después, cada cambio de modo o de filtro respeta el encuadre
@@ -476,7 +502,8 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
       .on("end", () => { if (refit && firstFit) { firstFit = false; fit(); } });
   }
 
-  const matches = n => query && (n.title.toLowerCase().includes(query) || n.id.toLowerCase().includes(query));
+  const matches = n => query && (n.title.toLowerCase().includes(query) ||
+    n.label.toLowerCase().includes(query) || n.id.toLowerCase().includes(query));
   const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
 
   function drawLabel(n, dark, k, bold) {
@@ -484,7 +511,7 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     ctx.font = `${bold ? "600 " : ""}${11 / k}px -apple-system, sans-serif`;
     ctx.lineWidth = 3.2 / k; ctx.lineJoin = "round";
     ctx.strokeStyle = dark ? "rgba(22,22,24,.85)" : "rgba(250,248,248,.85)";
-    const label = n.title.length > 42 ? n.title.slice(0, 41) + "…" : n.title;
+    const label = n.label.length > 42 ? n.label.slice(0, 41) + "…" : n.label;
     const x = n.x + r + 4 / k, y = n.y + 3.5 / k;
     ctx.strokeText(label, x, y);
     ctx.fillStyle = dark ? "#e8e8e8" : "#222";
@@ -813,7 +840,9 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     if (ev.key === "Escape" && document.activeElement !== q && tabs.length) closePeek();
   });
 
-  const KIND_ORDER = ["guide", "claim", "topic", "concept", "protocol", "instrument", "book", "author"];
+  // Prioridad de los resultados de búsqueda. Qué tipo interesa antes es cosa del corpus:
+  // en una biblioteca la síntesis va delante de la ficha; en un catálogo, al revés.
+  const KIND_ORDER = CFG.typeOrder || CFG.knowledgeTypes || [];
   q.addEventListener("input", () => {
     query = q.value.trim().toLowerCase();
     const hits = query

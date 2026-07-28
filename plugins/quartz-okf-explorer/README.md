@@ -86,6 +86,34 @@ middle of the whole map.
 
 Disable it and link `/static/explorer.html` yourself if the site wants another entry point.
 
+## Shape
+
+Modes decide *what* is on screen; these decide *how it reads*. Both are engine-neutral —
+the consumer knows which relation is a spine and which is a cross-link, the engine does not.
+
+```js
+export const explorer = {
+  // Short identifiers next to each node; the long title goes to the tooltip and the panel.
+  // Comes from the graph document: a node may carry `label` besides `title`.
+  layout: {
+    charge: -55,
+    link: {
+      "*": { distance: 30, strength: 0.65 },   // the spine: short and firm
+      Cita: { distance: 62, strength: 0.15 },  // cross-links: long and slack
+    },
+  },
+  radius: {
+    byType: { herm: 14, note: 5.5 },           // wins over the property map
+    property: "rank",
+    map: { root: 10, mid: 6.5, leaf: 3.8 },
+  },
+  typeOrder: ["guide", "claim", "topic"],      // priority in the search results
+}
+```
+
+Without `layout`/`radius` the graph falls back to in-degree sizing and uniform springs,
+which suits a corpus with no declared hierarchy.
+
 ## Input
 
 Reads the `okf-graph/v1` document emitted by `@zetesis/quartz-okf` (`static/okf-graph.json`).

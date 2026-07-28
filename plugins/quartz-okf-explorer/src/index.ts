@@ -57,6 +57,29 @@ export interface ExplorerOptions {
   typeLabels?: Record<string, string>
   edgeColors?: Record<string, string>
   knowledgeTypes?: string[]
+  /** Priority of node types in the search results. Falls back to `knowledgeTypes`. */
+  typeOrder?: string[]
+  /**
+   * Spring tension per edge label — what actually gives the graph its shape. A hierarchy
+   * reads as one when its edges are short and firm while the cross-cutting ones are long
+   * and slack. `"*"` sets the default for labels not named.
+   */
+  layout?: {
+    charge?: number
+    gravity?: number
+    link?: Record<string, { distance?: number; strength?: number }>
+  }
+  /**
+   * Node radius. A hierarchical graph is not read by in-degree but by rank: a root is big
+   * because it is the root, not because it has many children. `byType` wins over
+   * `property` + `map`; without either, the mode's `sizeBy` applies.
+   */
+  radius?: {
+    byType?: Record<string, number>
+    property?: string
+    map?: Record<string, number>
+    default?: number
+  }
   modes?: ExplorerMode[]
 }
 
@@ -116,6 +139,9 @@ export const OkfExplorer = (userOpts?: ExplorerOptions) => {
         typeLabels: opts.typeLabels ?? {},
         edgeColors: opts.edgeColors ?? {},
         knowledgeTypes: opts.knowledgeTypes ?? [],
+        typeOrder: opts.typeOrder ?? null,
+        layout: opts.layout ?? null,
+        radius: opts.radius ?? null,
         modes: opts.modes ?? [],
       }
 
