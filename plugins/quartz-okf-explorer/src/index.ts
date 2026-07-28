@@ -37,8 +37,12 @@ export interface ExplorerMode {
      */
     property?: string
     map?: Record<string, string | { color: string; label?: string }>
-    /** Colour for nodes the property does not reach — typically aggregators. */
-    fallback?: string
+    /**
+     * Colour for nodes the property does not reach — typically aggregators. A plain string
+     * paints every one of them; a map keyed by node type paints only those, leaving the
+     * rest on their type colour (a synthetic root is not an unclassified node).
+     */
+    fallback?: string | Record<string, string>
   }
   sizeBy?: { indegree?: boolean; countEdge?: string }
 }

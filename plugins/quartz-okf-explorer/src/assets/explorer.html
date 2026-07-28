@@ -307,8 +307,12 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
         const v = readPath(n.properties, cb.property);
         if (v != null && cb.map && cb.map[v]) return cb.map[v].color || cb.map[v];
         // Un nodo al que la clasificación no llega no es un nodo de valor desconocido:
-        // suele ser un agregador, y el modo puede querer distinguirlo del resto.
-        if (cb.fallback) return cb.fallback;
+        // suele ser un agregador, y el modo puede querer distinguirlo del resto. Se acota
+        // por tipo cuando solo algunos deben teñirse —una raíz sintética no es un hueco—.
+        if (cb.fallback) {
+          const fb = typeof cb.fallback === "string" ? cb.fallback : cb.fallback[n.type];
+          if (fb) return fb;
+        }
       }
     }
     return COLORS[n.type] || "#888";
