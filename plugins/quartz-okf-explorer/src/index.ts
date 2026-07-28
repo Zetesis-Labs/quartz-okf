@@ -29,6 +29,12 @@ export interface ExplorerMode {
   colorBy?: {
     countEdge?: string
     scale?: ExplorerScale[]
+    /**
+     * Path into the node's `properties` (e.g. `"state"`, `"sla.tier"`). When combined with
+     * `map`, it also drives the filter pills: the mode groups by this value instead of by
+     * node type — in a mode that already fixes a single type, filtering by type says nothing.
+     * Nodes without the property get no pill and stay visible.
+     */
     property?: string
     map?: Record<string, string | { color: string; label?: string }>
   }

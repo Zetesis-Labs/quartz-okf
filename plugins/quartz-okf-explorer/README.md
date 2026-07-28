@@ -59,7 +59,7 @@ export const explorer = {
 | `edges` | `"*"` or a list of edge labels to keep |
 | `sourceType` / `targetType` | restrict edges by the type at either end |
 | `colorBy.countEdge` + `scale` | colour nodes by how many edges of a label they declare |
-| `colorBy.property` + `map` | colour nodes by a profile property (`properties.x.y`) |
+| `colorBy.property` + `map` | colour nodes by a profile property (`properties.x.y`) — **and group the filter pills by it**, so the reader isolates states rather than types |
 | `sizeBy.indegree` / `sizeBy.countEdge` | what drives node radius |
 
 Anything not declared falls back to node type colours, so a mode can be one line.

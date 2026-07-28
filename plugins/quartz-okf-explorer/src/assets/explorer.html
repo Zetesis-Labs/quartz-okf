@@ -285,25 +285,31 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     return COLORS[n.type] || "#888";
   }
 
-  // pills de tipo, con el recuento del modo actual
-  function renderKinds(counts) {
+  // Pastillas de grupo, con el recuento del modo actual. El grupo es el tipo de nodo,
+  // salvo que el modo coloree por una propiedad: entonces agrupa por ella (ver build).
+  function renderKinds(counts, meta) {
     const box = document.getElementById("kinds");
     const prev = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
     box.innerHTML = "";
     for (const [t, c] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
       const on = prev.size ? prev.has(t) : true;
+      const g = (meta && meta[t]) || { color: COLORS[t], label: TYPE_LABEL[t] || t };
       const l = document.createElement("label"); l.className = "pill";
       l.innerHTML = `<input type="checkbox" value="${t}" ${on ? "checked" : ""}>` +
-        `<span class="dot" style="background:${COLORS[t]}"></span>${TYPE_LABEL[t] || t}` +
+        `<span class="dot" style="background:${g.color}"></span>${g.label}` +
         `<span class="cnt">${c}</span>`;
       l.querySelector("input").addEventListener("change", () => restart(false));
       box.appendChild(l);
     }
   }
+  // Las pastillas de relación aparecen cuando el modo deja más de una etiqueta a la vista;
+  // si el modo ya fija una sola, no hay nada que filtrar. build() lo decide y pasa {} para
+  // ocultarlas: el motor no puede depender de que un modo se llame de una forma concreta.
   function renderEdges(counts) {
     const box = document.getElementById("edges");
-    box.style.display = curMode === "completo" ? "flex" : "none";
-    if (curMode !== "completo") { box.innerHTML = ""; return; }
+    const any = Object.keys(counts).length > 0;
+    box.style.display = any ? "flex" : "none";
+    if (!any) { box.innerHTML = ""; return; }
     const prev = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
     const had = box.querySelector("input") !== null;
     box.innerHTML = "";
@@ -404,14 +410,34 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
       }
     }
 
+    // Las pastillas agrupan por lo que el modo colorea. En un modo que ya fija un único
+    // tipo de nodo, filtrar por tipo no diría nada; lo que el lector quiere aislar es el
+    // valor que da el color —un estado de cobertura, una fase, una madurez—.
+    const cb = m.colorBy || {};
+    const byProp = Boolean(cb.property && cb.map);
+    const groupOf = (s) => (byProp ? readPath(N[s].properties, cb.property) : N[s].type);
+
     const counts = {};
-    for (const s of keep) counts[N[s].type] = (counts[N[s].type] || 0) + 1;
-    renderKinds(counts);
+    for (const s of keep) {
+      const g = groupOf(s);
+      // Sin valor no hay pastilla: ese nodo no se puede filtrar y queda siempre visible.
+      if (g == null) continue;
+      counts[g] = (counts[g] || 0) + 1;
+    }
+    const meta = {};
+    for (const g of Object.keys(counts)) {
+      const v = byProp ? cb.map[g] : null;
+      meta[g] = byProp
+        ? { color: (v && (v.color || v)) || "#888", label: (v && v.label) || g }
+        : { color: COLORS[g] || "#888", label: TYPE_LABEL[g] || g };
+    }
+    renderKinds(counts, meta);
     const active = kinds || new Set(Object.keys(counts));
 
     const idx = new Map(), nodes = [];
     for (const s of keep) {
-      if (!active.has(N[s].type)) continue;
+      const g = groupOf(s);
+      if (g != null && !active.has(g)) continue;
       const n = Object.assign({ id: s }, N[s]);
       idx.set(s, n); nodes.push(n);
     }
@@ -818,7 +844,14 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     if (!ev.target.closest("#qbox")) results.style.display = "none";
   }, true);
   document.querySelectorAll('#mode input').forEach(i =>
-    i.addEventListener("change", () => { selected = null; renderCrumb(); restart(); }));
+    i.addEventListener("change", () => {
+      selected = null;
+      // Las pastillas se reconstruyen desde cero: si el modo nuevo agrupa por otra cosa
+      // —un estado en vez de un tipo—, conservar lo marcado dejaría el grafo vacío.
+      document.getElementById("kinds").innerHTML = "";
+      renderCrumb();
+      restart();
+    }));
 
   document.getElementById("ptitle").textContent = CFG.title || "Grafo";
   document.title = CFG.title || "Explorador del grafo";
