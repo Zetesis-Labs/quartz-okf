@@ -109,7 +109,15 @@
   }
 
   function currentSlug() {
-    const p = location.pathname.replace(/^\/+|\/+$|\.html$/g, "")
+    // `location.pathname` llega percent-encoded y los slugs del grafo llevan los acentos
+    // tal cual: sin decodificar, ninguna nota con caracteres no ASCII llega a coincidir.
+    let p
+    try {
+      p = decodeURIComponent(location.pathname)
+    } catch (_) {
+      p = location.pathname
+    }
+    p = p.replace(/^\/+|\/+$|\.html$/g, "")
     return p && p !== "index" ? p : ""
   }
 

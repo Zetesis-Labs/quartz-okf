@@ -963,27 +963,83 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   // ?focus=<slug> centra el grafo en una nota: es como lo abre el modal desde una
   // página, para que el lector no tenga que buscarla al llegar.
   const focus = new URLSearchParams(location.search).get("focus");
-  if (focus) {
-    // El slug de la URL y el del grafo no siempre coinciden en mayúsculas —el bundle los
-    // normaliza y las páginas no—, así que se compara sin distinguirlas y, si falla, por
-    // el último segmento.
-    const clave = focus.replace(/^\/+|\/+$/g, "").toLowerCase();
-    const hoja = clave.split("/").pop();
-    const target = graph.idx.get(focus) ||
-      graph.nodes.find(n => n.id.toLowerCase() === clave) ||
-      graph.nodes.find(n => n.id.toLowerCase().split("/").pop() === hoja);
-    if (target) {
-      // Marcar y encuadrar son dos momentos distintos. Se marca ya, para que el lector
-      // entre con su nota señalada; encuadrar ahora sería inútil porque d3 acaba de
-      // colocar los nodos en una espiral inicial y la vecindad se irá a otra parte,
-      // dejando la cámara mirando al vacío. El encuadre espera a que la simulación se
-      // asiente —y se cancela si para entonces el lector ya movió la cámara él mismo—.
-      select(target);
-      sim.on("end.focus", () => {
-        sim.on("end.focus", null);
-        if (!camaraTocada) select(target, true);
-      });
+  if (focus) entrarConFoco(focus);
+
+  // Claves con las que se intenta emparejar el slug de la URL con el del grafo. El bundle
+  // normaliza los slugs y las páginas no, así que se compara sin distinguir mayúsculas; y
+  // un enlace antiguo puede traerlo aún percent-encoded, de ahí la variante decodificada.
+  function clavesDe(valor) {
+    const formas = [valor];
+    try {
+      const d = decodeURIComponent(valor);
+      if (d !== valor) formas.push(d);
+    } catch (_) { /* valor con % suelto: se usa tal cual */ }
+    const claves = [];
+    for (const f of formas) {
+      const c = f.replace(/^\/+|\/+$/g, "").toLowerCase();
+      claves.push(c);
     }
+    return claves;
+  }
+
+  function buscarNodo(claves) {
+    for (const c of claves) {
+      const exacto = graph.nodes.find(n => n.id.toLowerCase() === c);
+      if (exacto) return exacto;
+    }
+    for (const c of claves) {
+      const hoja = c.split("/").pop();
+      const porHoja = graph.nodes.find(n => n.id.toLowerCase().split("/").pop() === hoja);
+      if (porHoja) return porHoja;
+    }
+    return null;
+  }
+
+  // Entrar con una nota enfocada. Los modos pueden vivir sobre corpus distintos y filtrar
+  // lo que dibujan, así que la nota no tiene por qué existir en el modo de partida: se
+  // recorren en el orden declarado y se abre en el primero que la contenga. Si ninguno lo
+  // hace, se vuelve al inicial y el grafo se abre sin selección.
+  async function entrarConFoco(valor) {
+    const claves = clavesDe(valor);
+    const encontrado = buscarNodo(claves);
+    if (encontrado) return marcarYEncuadrar(encontrado);
+
+    const radios = [...document.querySelectorAll("#mode input")];
+    const inicial = radios.find(r => r.checked) || radios[0];
+    for (const r of radios) {
+      if (r === inicial) continue;
+      await activarModo(r);
+      const n = buscarNodo(claves);
+      if (n) return marcarYEncuadrar(n);
+    }
+    if (inicial) await activarModo(inicial);
+  }
+
+  async function activarModo(radio) {
+    const m = modeById(radio.value);
+    const url = grafoDe(m);
+    if (url !== urlActual) {
+      data = await cargarGrafo(url);
+      N = data.nodes;
+      urlActual = url;
+    }
+    radio.checked = true;
+    document.getElementById("kinds").innerHTML = "";
+    document.getElementById("edges").innerHTML = "";
+    restart(false);
+  }
+
+  // Marcar y encuadrar son dos momentos distintos. Se marca ya, para que el lector entre
+  // con su nota señalada; encuadrar ahora sería inútil porque d3 acaba de colocar los
+  // nodos en su espiral inicial y la vecindad se irá a otra parte, dejando la cámara
+  // mirando al vacío. El encuadre espera a que la simulación se asiente, y se cancela si
+  // para entonces el lector ya movió la cámara él mismo.
+  function marcarYEncuadrar(n) {
+    select(n);
+    sim.on("end.focus", () => {
+      sim.on("end.focus", null);
+      if (!camaraTocada) select(n, true);
+    });
   }
 });
 </script>
