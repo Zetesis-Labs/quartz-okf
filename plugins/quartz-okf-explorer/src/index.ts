@@ -74,6 +74,13 @@ export interface ExplorerOptions {
     charge?: number
     gravity?: number
     link?: Record<string, { distance?: number; strength?: number }>
+    /**
+     * Concentric rings by node type — the fraction of the available radius each type
+     * settles at (0 centre, 1 edge). A typed graph with hundreds of nodes is unreadable
+     * as a ball because every type competes for the middle; in rings the eye reads from
+     * the inside out. Types left undeclared keep floating freely.
+     */
+    radial?: { strength?: number; scale?: number; byType: Record<string, number> }
   }
   /**
    * Node radius. A hierarchical graph is not read by in-degree but by rank: a root is big

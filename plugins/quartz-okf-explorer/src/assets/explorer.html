@@ -274,6 +274,16 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     return LINKS[l.kind] ? Object.assign({}, LINK_DEF, LINKS[l.kind]) : LINK_DEF;
   }
 
+  // Anillo de cada tipo, en fracción del radio disponible: 0 es el centro, 1 el borde.
+  const RING = LAYOUT.radial && LAYOUT.radial.byType
+    ? Object.assign({ strength: 0.7 }, LAYOUT.radial)
+    : null;
+  function ringOf(n) {
+    if (!RING) return null;
+    const f = RING.byType[n.type];
+    return f == null ? null : f * Math.min(W, H) * 0.5 * (RING.scale ?? 0.94);
+  }
+
   const RADIUS = CFG.radius || null;
   function sizeOf(n) {
     if (RADIUS) {
@@ -503,6 +513,12 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
       .force("x", d3.forceX(W / 2).strength(LAYOUT.gravity))
       .force("y", d3.forceY(H / 2).strength(LAYOUT.gravity))
       .force("collide", d3.forceCollide(d => sizeOf(d) + 2.5))
+      // Reparto radial: cada tipo se asienta en su propio anillo. Un grafo tipado con
+      // cientos de nodos es ilegible como bola —todo compite por el centro—; en anillos
+      // el ojo lee de dentro afuera y las relaciones cruzan capas en vez de amontonarse.
+      .force("radial", RING
+        ? d3.forceRadial(n => ringOf(n), W / 2, H / 2).strength(n => (ringOf(n) == null ? 0 : RING.strength))
+        : null)
       .on("tick", tick)
       // Solo al abrir: después, cada cambio de modo o de filtro respeta el encuadre
       // que tenga el lector en ese momento.
