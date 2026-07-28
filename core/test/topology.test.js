@@ -88,3 +88,19 @@ test("parses exported standard-link topology bullets like authored wikilinks", (
     ["Uses:docs/technologies/talos", "Uses:docs/technologies/zfs", "About:okf/okf-convention"],
   )
 })
+
+test("la topología termina en el primer encabezado, aunque sea de nivel inferior", () => {
+  // La convención escribe `# Topology` y el cuerpo en `##`. Leído como capítulo, el cuerpo
+  // queda dentro y cualquier viñeta en negrita de la prosa se vuelve una relación inventada.
+  const source = [
+    "# Topology",
+    "",
+    "* **Cites**: [[libros/Una-obra]]",
+    "",
+    "## Qué leer",
+    "",
+    "- **Obra de referencia**: [[libros/Otra-obra]], leída con la corrección de arriba.",
+  ].join("\n")
+  const edges = parseTopologyEdges(source)
+  assert.deepEqual(edges.map((e) => e.label), ["Cites"])
+})

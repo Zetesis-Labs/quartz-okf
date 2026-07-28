@@ -18,7 +18,7 @@ function fencedLineMask(lines) {
   return mask
 }
 
-export function extractSection(source, heading) {
+export function extractSection(source, heading, stopAtAnyHeading = false) {
   const lines = source.replaceAll("\r\n", "\n").split("\n")
   const fenced = fencedLineMask(lines)
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -39,7 +39,12 @@ export function extractSection(source, heading) {
   for (let index = start; index < lines.length; index += 1) {
     if (fenced[index]) continue
     const nextHeading = lines[index].match(/^(#{1,6})\s+/)
-    if (nextHeading && nextHeading[1].length <= level) break
+    // La topología es un bloque de declaraciones, no un capítulo: termina en el primer
+    // encabezado que venga, sea del nivel que sea. Por semántica de Markdown un `#` contiene
+    // a los `##` que le siguen, y la convención escribe `# Topology` seguido del cuerpo en
+    // `##`: leerla como capítulo se traga la nota entera y convierte cualquier viñeta en
+    // negrita de la prosa en una relación tipada inventada.
+    if (nextHeading && (stopAtAnyHeading || nextHeading[1].length <= level)) break
     section.push(lines[index])
   }
   return section
@@ -57,7 +62,7 @@ function markdownLinkTarget(url) {
 
 export function parseTopologyEdges(source, heading = "Topology") {
   const edges = []
-  for (const line of extractSection(source, heading)) {
+  for (const line of extractSection(source, heading, true)) {
     if (!/^\s*[*-]\s+/.test(line)) continue
     const matches = [...line.matchAll(/\*\*([^*]+?)\*\*\s*:/g)]
     for (let index = 0; index < matches.length; index += 1) {
