@@ -962,12 +962,20 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   // página, para que el lector no tenga que buscarla al llegar.
   const focus = new URLSearchParams(location.search).get("focus");
   if (focus) {
+    // El slug de la URL y el del grafo no siempre coinciden en mayúsculas —el bundle los
+    // normaliza y las páginas no—, así que se compara sin distinguirlas y, si falla, por
+    // el último segmento.
+    const clave = focus.replace(/^\/+|\/+$/g, "").toLowerCase();
+    const hoja = clave.split("/").pop();
     const target = graph.idx.get(focus) ||
-      graph.nodes.find(n => n.id.split("/").pop() === focus.split("/").pop());
+      graph.nodes.find(n => n.id.toLowerCase() === clave) ||
+      graph.nodes.find(n => n.id.toLowerCase().split("/").pop() === hoja);
     if (target) {
-      // La simulación aún no ha colocado los nodos: se espera a que se estabilice.
+      // d3 coloca los nodos al construir la simulación, así que se puede seleccionar ya:
+      // el lector entra con su nota marcada y no tiene que buscarla. Al estabilizarse se
+      // reencuadra, porque para entonces la vecindad ya ocupa su sitio definitivo.
+      select(target, true);
       sim.on("end", () => { select(target, true); sim.on("end", null); });
-      setTimeout(() => { if (target.x !== undefined) select(target, true); }, 1200);
     }
   }
 });
