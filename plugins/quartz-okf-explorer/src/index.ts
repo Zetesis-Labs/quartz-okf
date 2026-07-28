@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url"
  *
  * The engine carries no vocabulary: colours, labels and — above all — the view modes come
  * from the consumer's `explorer` block in `okf.config.mjs`, which is inlined into the page
- * as `window.OKF_EXPLORER`. Two sites sharing this plugin can therefore ask entirely
+ * inlined into the page script itself. Two sites sharing this plugin can therefore ask entirely
  * different questions of their corpus.
  */
 export interface ExplorerScale {
@@ -100,6 +100,8 @@ export interface ExplorerOptions {
    * `properties.level`); `{path|singular|plural}` picks the word from the number.
    */
   tooltip?: Record<string, string>
+  /** Where the back link returns to, and what that place is called. */
+  backTo?: { href?: string; label?: string }
   modes?: ExplorerMode[]
 }
 
@@ -163,12 +165,16 @@ export const OkfExplorer = (userOpts?: ExplorerOptions) => {
         layout: opts.layout ?? null,
         radius: opts.radius ?? null,
         tooltip: opts.tooltip ?? null,
+        backTo: opts.backTo ?? null,
         modes: opts.modes ?? [],
       }
 
+      // Incrustada en el propio script del motor: el router SPA de Quartz reemplaza el
+      // cuerpo con micromorph sin re-ejecutar sus scripts, así que un `<script>` aparte
+      // con la configuración se pierde al llegar navegando desde otra página.
       const page = (await readAsset("explorer.html")).replace(
-        "<script src=",
-        `<script>window.OKF_EXPLORER = ${JSON.stringify(config)}</script>\n<script src=`,
+        "__OKF_EXPLORER_CONFIG__",
+        JSON.stringify(config),
       )
       const pagePath = path.join(out, opts.output)
       await fs.mkdir(path.dirname(pagePath), { recursive: true })

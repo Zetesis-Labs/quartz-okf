@@ -145,7 +145,7 @@
     <div id="panel">
       <div class="ph">
         <b id="ptitle">Grafo</b>
-        <a href="/" onclick="event.stopPropagation()">← wiki</a>
+        <a id="pback" href="/" onclick="event.stopPropagation()">←</a>
         <span class="chev">▾</span>
       </div>
       <div class="pb">
@@ -183,7 +183,11 @@
 <script>
 // Configuración del consumidor: el emitter la inyecta desde `explorer` de okf.config.mjs.
 // El motor no conoce ningún dominio; todo el vocabulario visible viene de aquí.
-const CFG = window.OKF_EXPLORER || {};
+// La configuración va incrustada aquí, no en un `window.OKF_EXPLORER` que ponga otro
+// script: el router SPA de Quartz reemplaza el cuerpo con micromorph y los scripts del
+// cuerpo no se re-ejecutan, así que un segundo script se pierde al llegar navegando y el
+// explorador arrancaba con los valores por defecto —otro grafo, otros modos, otro título—.
+const CFG = __OKF_EXPLORER_CONFIG__;
 const PALETTE = ["#4c7ecf", "#4caf7c", "#e08a3c", "#c2544d", "#9a6fbf", "#3fa3a3",
                  "#b58b6a", "#8a8a8a", "#7f93ad", "#c9b04a"];
 
@@ -917,6 +921,10 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     }));
 
   document.getElementById("ptitle").textContent = CFG.title || "Grafo";
+  // Adónde vuelve el lector y cómo se llama ese sitio lo sabe el consumidor.
+  const back = document.getElementById("pback");
+  back.href = (CFG.backTo && CFG.backTo.href) || "/";
+  back.textContent = "← " + ((CFG.backTo && CFG.backTo.label) || "inicio");
   document.title = CFG.title || "Explorador del grafo";
   resize(); restart();
 
