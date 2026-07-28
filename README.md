@@ -20,7 +20,10 @@ plugins/              Quartz v5 plugins
 │                     typed graph + raw markdown export
 ├── quartz-graph-okf/ graph view: nodes colored by type, edges by relation family,
 │                     legends (fork of @quartz-community/graph)
-└── quartz-okf-panels/ per-note blast-radius panel from the typed graph
+├── quartz-okf-panels/ per-note blast-radius panel from the typed graph
+└── quartz-okf-explorer/ full-page explorer: declarative view modes, filters and a
+                      tabbed reading panel. Modes, layout, radius and wording are
+                      the consumer's — the engine ships no vocabulary
 
 harness/              site build support: content collection, Quartz pin, finalizer
 ```
