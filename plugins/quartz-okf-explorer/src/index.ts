@@ -24,6 +24,8 @@ export interface ExplorerMode {
   legendTitle?: string
   /** `"*"` (default) or the edge labels this mode keeps. */
   edges?: "*" | string[]
+  /** Another  document this mode asks about, instead of the shared one. */
+  graph?: string
   sourceType?: string
   targetType?: string
   colorBy?: {

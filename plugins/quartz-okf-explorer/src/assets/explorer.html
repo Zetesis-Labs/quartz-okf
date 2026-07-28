@@ -206,7 +206,13 @@ const EDGE_LABEL = {};
 const modeById = (id) => MODES.find(m => m.id === id) || MODES[0];
 const DESC = Object.fromEntries(MODES.map(m => [m.id, m.desc || ""]));
 
-fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => {
+// Un modo puede preguntar sobre otro corpus: declara su propio `graph` y el motor lo carga
+// la primera vez que se usa. El del bloque `graphInput` es el de partida.
+const GRAFO_BASE = CFG.graphUrl || "/static/okf-graph.json";
+const grafoDe = (m) => (m && m.graph ? (m.graph[0] === "/" ? m.graph : "/" + m.graph) : GRAFO_BASE);
+const CACHE_GRAFOS = new Map();
+
+function indexar(raw) {
   // okf-graph/v1 -> modelo interno. El bundle ya resuelve alias, deriva inversas y marca
   // las aristas `derived`, así que aquí solo se indexa y se reparte color a los edges.
   const labels = raw.edgeLabels || [...new Set((raw.edges || []).map(e => e.label))];
@@ -243,7 +249,18 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     nodes[e.source].counts[e.label] = (nodes[e.source].counts[e.label] || 0) + 1;
     nodes[e.target].indeg += 1;
   }
-  const data = { nodes, edges };
+  return { nodes, edges };
+}
+
+async function cargarGrafo(url) {
+  if (!CACHE_GRAFOS.has(url)) {
+    CACHE_GRAFOS.set(url, fetch(url).then(r => r.json()).then(indexar));
+  }
+  return CACHE_GRAFOS.get(url);
+}
+
+cargarGrafo(GRAFO_BASE).then(inicial => {
+  let data = inicial;
 
   const canvas = document.getElementById("c"), tip = document.getElementById("tip");
   const stats = document.getElementById("stats"), results = document.getElementById("results");
@@ -262,7 +279,8 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
   // coincidir en vertical con lo dibujado.
   new ResizeObserver(() => { resize(); tick(); }).observe(canvas);
 
-  const N = data.nodes;
+  let N = data.nodes;
+  let urlActual = GRAFO_BASE;
 
   // Radio del nodo. Un grafo jerárquico no se lee por grado de entrada sino por rango: una
   // raíz es grande porque es la raíz, no porque tenga muchos hijos. `radius` permite fijarlo
@@ -911,11 +929,23 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     if (!ev.target.closest("#qbox")) results.style.display = "none";
   }, true);
   document.querySelectorAll('#mode input').forEach(i =>
-    i.addEventListener("change", () => {
+    i.addEventListener("change", async () => {
+      // Un modo puede vivir sobre otro corpus: se carga la primera vez que se pide y
+      // queda en caché, así que volver a él es inmediato.
+      const m = modeById((document.querySelector('#mode input:checked') || {}).value);
+      const url = grafoDe(m);
+      if (url !== urlActual) {
+        stats.textContent = "cargando…";
+        data = await cargarGrafo(url);
+        N = data.nodes;
+        urlActual = url;
+      }
       selected = null;
       // Las pastillas se reconstruyen desde cero: si el modo nuevo agrupa por otra cosa
-      // —un estado en vez de un tipo—, conservar lo marcado dejaría el grafo vacío.
+      // —un estado en vez de un tipo, o los tipos de otro corpus—, conservar lo marcado
+      // dejaría el grafo vacío.
       document.getElementById("kinds").innerHTML = "";
+      document.getElementById("edges").innerHTML = "";
       renderCrumb();
       restart();
     }));
