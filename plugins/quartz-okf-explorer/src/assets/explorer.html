@@ -599,11 +599,22 @@ fetch(CFG.graphUrl || "/static/okf-graph.json").then(r => r.json()).then(raw => 
     return sim.find(x, y, 14 / transform.k);
   };
 
+  // Qué se cuenta de un nodo depende del corpus: obras que lo citan, enlaces, capacidades
+  // que agrupa. La plantilla la pone el consumidor por tipo (o "*"), con `{ruta}` sobre el
+  // nodo y `{ruta|singular|plural}` cuando el número manda en la palabra.
+  const TOOLTIP = CFG.tooltip || {};
+  function fill(tpl, n) {
+    return tpl.replace(/\{([^}|]+)(?:\|([^|}]*)\|([^}]*))?\}/g, (_, ruta, sing, plur) => {
+      const v = readPath(n, ruta.trim());
+      const val = v == null ? "" : v;
+      if (sing == null) return String(val);
+      return `${val} ${Number(val) === 1 ? sing : plur}`;
+    });
+  }
+
   function showTip(n, px, py) {
-    const fund = KNOWLEDGE.includes(n.type)
-      ? `<small>${n.cites} obra${n.cites === 1 ? "" : "s"} · ${n.indeg} entrante${n.indeg === 1 ? "" : "s"}</small>`
-      : n.type === "author" ? `<small>${n.works || 0} obra${n.works === 1 ? "" : "s"}</small>`
-      : `<small>${n.indeg} nota${n.indeg === 1 ? "" : "s"} lo citan</small>`;
+    const tpl = TOOLTIP[n.type] || TOOLTIP["*"];
+    const fund = `<small>${tpl ? fill(tpl, n) : `${n.indeg} entrante${n.indeg === 1 ? "" : "s"}`}</small>`;
     tip.innerHTML = `<b>${n.title}</b> <small>· ${TYPE_LABEL[n.type] || n.type}</small><br>${fund}` +
       (n.desc ? `<div class="pv">${n.desc}</div>` : "");
     tip.style.display = "block";

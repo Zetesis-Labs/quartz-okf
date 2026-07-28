@@ -86,6 +86,13 @@ export interface ExplorerOptions {
     map?: Record<string, number>
     default?: number
   }
+  /**
+   * Second line of the hover card, per node type (`"*"` as the fallback). What is worth
+   * counting depends on the corpus — works that cite it, links, capabilities it groups —
+   * so the engine ships no wording. `{path}` reads the node (`indeg`, `counts.Cites`,
+   * `properties.level`); `{path|singular|plural}` picks the word from the number.
+   */
+  tooltip?: Record<string, string>
   modes?: ExplorerMode[]
 }
 
@@ -148,6 +155,7 @@ export const OkfExplorer = (userOpts?: ExplorerOptions) => {
         typeOrder: opts.typeOrder ?? null,
         layout: opts.layout ?? null,
         radius: opts.radius ?? null,
+        tooltip: opts.tooltip ?? null,
         modes: opts.modes ?? [],
       }
 
