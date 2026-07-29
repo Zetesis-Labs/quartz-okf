@@ -812,25 +812,35 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     .on("zoom", ev => { transform = ev.transform; if (ev.sourceEvent) camaraTocada = true; tick(); });
 
   let dragMoved = false;
+  // d3.drag rebasa e.x/e.y respecto a las coordenadas del subject. Si el subject llega en
+  // coordenadas de mundo mientras el puntero va en pantalla, el nodo se mueve con un
+  // desfase que crece con el zoom. Se devuelve el subject proyectado a pantalla y el nodo
+  // dentro: así e.x sigue en pantalla, invertX() da mundo, y el punto de agarre se
+  // mantiene bajo el ratón.
   const dragBehavior = d3.drag()
     .container(canvas)
-    .subject(e => nodeAt(e.x, e.y))
+    .subject(e => {
+      const n = nodeAt(e.x, e.y);
+      return n ? { node: n, x: transform.applyX(n.x), y: transform.applyY(n.y) } : null;
+    })
     .on("start", e => {
       if (!e.subject) return;
-      dragging = true; dragMoved = false; camaraTocada = true; hover = e.subject;
+      const n = e.subject.node;
+      dragging = true; dragMoved = false; camaraTocada = true; hover = n;
       canvas.classList.add("dragging");
       if (!e.active) sim.alphaTarget(0.25).restart();
-      e.subject.fx = e.subject.x; e.subject.fy = e.subject.y;
+      n.fx = n.x; n.fy = n.y;
     })
     .on("drag", e => {
       if (!e.subject) return;
       dragMoved = true;
-      e.subject.fx = transform.invertX(e.x); e.subject.fy = transform.invertY(e.y);
+      e.subject.node.fx = transform.invertX(e.x);
+      e.subject.node.fy = transform.invertY(e.y);
     })
     .on("end", e => {
       dragging = false; canvas.classList.remove("dragging");
       if (!e.active) sim.alphaTarget(0);
-      if (e.subject) { e.subject.fx = null; e.subject.fy = null; }
+      if (e.subject) { e.subject.node.fx = null; e.subject.node.fy = null; }
     });
 
   d3.select(canvas).call(dragBehavior).call(zoomBehavior);
