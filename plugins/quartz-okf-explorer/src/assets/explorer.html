@@ -271,25 +271,37 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   let sim = null;
   let W, H; const ctx = canvas.getContext("2d");
   function resize() {
-    W = canvas.clientWidth; H = canvas.clientHeight;
+    const ancho = canvas.clientWidth, alto = canvas.clientHeight;
+    const dx = W == null ? 0 : (ancho - W) / 2, dy = H == null ? 0 : (alto - H) / 2;
+    W = ancho; H = alto;
     // devicePixelRatio se lee en cada redimensión, no una sola vez al cargar: cambia al
     // usar el zoom del navegador y al arrastrar la ventana a una pantalla con otra escala.
     // Capturado al inicio, el bitmap se queda con la escala vieja y el puntero deja de
-    // coincidir con lo dibujado — el grafo «deja de funcionar al ampliar».
+    // coincidir con lo dibujado.
     const dpr = window.devicePixelRatio || 1;
     canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    recentrar();
+    if (dx || dy) recentrar(dx, dy);
   }
   // Las fuerzas de centrado guardan W/2 y H/2 como números fijos al construirse: sin
-  // reasignarlas, al agrandar la ventana el grafo sigue tirando del centro anterior y
-  // queda apelotonado a un lado. `ringOf` sí sigue a W/H porque forceRadial acepta función.
-  function recentrar() {
+  // reasignarlas, al agrandar la ventana el grafo sigue tirando del centro anterior.
+  // Pero NO se recalienta la simulación para conseguirlo: el ResizeObserver del lienzo
+  // salta también cuando aparece la barra de relaciones o cambia la leyenda —o sea, al
+  // pasar el ratón—, y relanzar el layout en cada gesto reordenaba el grafo entero
+  // delante del lector y lo hacía sentirse lento hasta que dejaba de tocar nada.
+  // Se traslada lo ya colocado por la mitad de lo que creció el lienzo, que es
+  // instantáneo y deja el dibujo donde el lector lo tenía.
+  function recentrar(dx, dy) {
     if (!sim) return;
     const fx = sim.force("x"), fy = sim.force("y"), fr = sim.force("radial");
     if (fx) fx.x(W / 2);
     if (fy) fy.y(H / 2);
     if (fr) fr.x(W / 2).y(H / 2);
-    sim.alpha(Math.max(sim.alpha(), 0.12)).restart();
+    if (!graph) return;
+    for (const n of graph.nodes) {
+      n.x += dx; n.y += dy;
+      if (n.fx != null) n.fx += dx;
+      if (n.fy != null) n.fy += dy;
+    }
   }
   // Redimensionar no reencuadra: mover la cámara es decisión del lector, con «Encajar».
   window.addEventListener("resize", () => { resize(); tick(); });
