@@ -884,6 +884,12 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     .filter(e => e.type === "wheel" || !nodeAt(e.offsetX, e.offsetY))
     .on("zoom", ev => { transform = ev.transform; if (ev.sourceEvent) camaraTocada = true; tick(); });
 
+  // `dragging` se asignaba en el arranque del arrastre sin declararse nunca: en modo no
+  // estricto eso crea un global al asignarlo, pero el manejador de mousemove lo LEE antes,
+  // y leer una variable inexistente es ReferenceError. Resultado: cada movimiento del ratón
+  // sobre el lienzo lanzaba una excepción hasta el primer arrastre, y con ella se perdían
+  // el resaltado, el tooltip y el cursor.
+  let dragging = false;
   let dragMoved = false;
   // d3.drag rebasa e.x/e.y respecto a las coordenadas del subject. Si el subject llega en
   // coordenadas de mundo mientras el puntero va en pantalla, el nodo se mueve con un
