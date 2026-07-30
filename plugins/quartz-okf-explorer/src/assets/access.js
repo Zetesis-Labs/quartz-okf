@@ -77,6 +77,38 @@
     document.head.appendChild(s)
   }
 
+  // El modal debe secuestrar el scroll: con solo `body { overflow: hidden }` la página de
+  // detrás seguía desplazándose, porque según el tema el contenedor que scrollea es <html>
+  // y porque la rueda que el iframe no consume encadena hacia fuera. Se bloquean los dos
+  // elementos y se compensa el ancho de la barra para que el fondo no dé un salto lateral.
+  let previo = null
+  function secuestrarPagina() {
+    if (previo) return
+    const d = document.documentElement, b = document.body
+    previo = { htmlOv: d.style.overflow, bodyOv: b.style.overflow, pad: b.style.paddingRight }
+    const barra = window.innerWidth - d.clientWidth
+    d.style.overflow = "hidden"
+    b.style.overflow = "hidden"
+    if (barra > 0) b.style.paddingRight = barra + "px"
+    document.addEventListener("wheel", frenar, { passive: false })
+    document.addEventListener("touchmove", frenar, { passive: false })
+  }
+  function soltarPagina() {
+    if (!previo) return
+    document.documentElement.style.overflow = previo.htmlOv
+    document.body.style.overflow = previo.bodyOv
+    document.body.style.paddingRight = previo.pad
+    previo = null
+    document.removeEventListener("wheel", frenar, { passive: false })
+    document.removeEventListener("touchmove", frenar, { passive: false })
+  }
+  // Con el modal abierto, cualquier rueda que llegue al documento padre —es decir, la que
+  // el iframe no ha consumido— se descarta en vez de mover el fondo.
+  function frenar(e) {
+    const m = document.getElementById("okf-explorer-modal")
+    if (m && m.classList.contains("open")) e.preventDefault()
+  }
+
   function modal() {
     let m = document.getElementById("okf-explorer-modal")
     if (m) return m
@@ -95,12 +127,12 @@
       </div>`
     document.body.appendChild(m)
     const close = () => {
+      soltarPagina()
       m.classList.remove("open", "wide")
       const b = m.querySelector(".full")
       if (b) { b.setAttribute("aria-pressed", "false"); b.textContent = "Ampliar" }
       const f = m.querySelector("iframe")
       if (f) f.remove()
-      document.body.style.overflow = ""
     }
     const full = m.querySelector(".full")
     full.addEventListener("click", () => {
@@ -135,7 +167,7 @@
     f.addEventListener("load", () => m.classList.add("listo"))
     box.appendChild(f)
     m.classList.add("open")
-    document.body.style.overflow = "hidden"
+    secuestrarPagina()
   }
 
   function currentSlug() {

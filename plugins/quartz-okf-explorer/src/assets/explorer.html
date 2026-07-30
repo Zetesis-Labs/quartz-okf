@@ -35,7 +35,7 @@
   #panel .ph .chev { margin-left: auto; opacity: .6; font-size: .78rem; }
   /* min-height:0 es imprescindible: sin él un hijo flex no se encoge por debajo de su
      contenido y el panel se corta por abajo en lugar de hacer scroll. */
-  #panel .pb { padding: .6rem .7rem .7rem; overflow-y: auto; display: flex;
+  #panel .pb { padding: .6rem .7rem .7rem; overflow-y: auto; overscroll-behavior: contain; display: flex;
                flex-direction: column; gap: .55rem; min-height: 0; }
   #panel.collapsed .pb { display: none; }
   #panel a { color: light-dark(#284b63, #84a59d); text-decoration: none; }
@@ -61,7 +61,7 @@
   input[type=search]:focus { outline: 2px solid light-dark(#b9c2cf, #4a4a52); outline-offset: 1px; }
   /* los resultados van en el flujo del panel: dentro de un contenedor con scroll,
      un desplegable absoluto quedaría recortado */
-  #results { display: none; margin-top: .35rem; max-height: 13rem; overflow-y: auto;
+  #results { display: none; margin-top: .35rem; max-height: 13rem; overflow-y: auto; overscroll-behavior: contain;
              border: 1px solid light-dark(#e6e6e6, #35353c); border-radius: 8px; }
   #results button { display: flex; gap: .4rem; align-items: baseline; width: 100%;
                     padding: .3rem .5rem; background: none; border: 0; color: inherit;
@@ -83,7 +83,7 @@
 
   #crumb { display: none; position: absolute; z-index: 5; left: 0; right: 0; top: 0;
            padding: .45rem 1rem; font-size: .82rem; line-height: 1.5;
-           max-height: 4.6rem; overflow-y: auto;
+           max-height: 4.6rem; overflow-y: auto; overscroll-behavior: contain;
            background: light-dark(rgba(250,248,248,.94), rgba(22,22,24,.94));
            border-bottom: 1px solid light-dark(#e5e5e5, #333); backdrop-filter: blur(3px); }
   #crumb .sel { font-weight: 700; }
@@ -107,7 +107,7 @@
   #peek.open { display: flex; }
   #peek header { display: flex; align-items: stretch; gap: .4rem; padding: .35rem .5rem;
                  border-bottom: 1px solid light-dark(#e8e8e8, #303035); min-height: 2.1rem; }
-  #peek .tabs { display: flex; gap: .25rem; overflow-x: auto; flex: 1; min-width: 0;
+  #peek .tabs { display: flex; gap: .25rem; overflow-x: auto; overscroll-behavior: contain; flex: 1; min-width: 0;
                 scrollbar-width: thin; }
   #peek .tab { display: flex; align-items: center; gap: .35rem; padding: .2rem .5rem;
                border-radius: 7px; cursor: pointer; font-size: .8rem; max-width: 14rem;
@@ -866,6 +866,11 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
 
   // El filter deja pasar el pan solo si el puntero NO está sobre un nodo: así el
   // arrastre de nodos y el desplazamiento del lienzo no compiten.
+  // d3 hace preventDefault en la rueda que consume, pero si el zoom está en su tope no la
+  // consume y el evento se escapa: dentro del modal eso mueve la página de detrás. El
+  // lienzo se queda con TODA la rueda que reciba, la use o no.
+  canvas.addEventListener("wheel", e => e.preventDefault(), { passive: false });
+
   const zoomBehavior = d3.zoom().scaleExtent([0.15, 8])
     // Firefox entrega la rueda en LÍNEAS (deltaMode 1) y Chrome en píxeles (0), y d3
     // aplica a cada modo un factor distinto. Peor aún: cuántas líneas vale una muesca lo
