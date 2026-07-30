@@ -593,30 +593,69 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     const near = focus ? graph.adj.get(focus.id) : null;
     const dimming = !!focus || !!query;
 
+    // Un beginPath()+stroke() por arista costaba ~1800 llamadas de dibujo por fotograma
+    // con el corpus de PAFE. Firefox penaliza cada stroke() bastante más que Chrome, así
+    // que durante el zoom —que redibuja en cada evento de rueda— se atascaba.
+    // Los enlaces sin foco comparten alfa y grosor y solo cambian de color por tipo: se
+    // agrupan en un camino por color y se trazan de una vez, dejando en ~7 las llamadas.
+    // Los enfocados son pocos y siguen dibujándose uno a uno, que es donde va la flecha.
+    const lotes = new Map();
+    const enfocados = [];
     for (const l of graph.links) {
-      const inFocus = focus && (l.source === focus || l.target === focus);
-      ctx.globalAlpha = focus ? (inFocus ? 0.85 : 0.05) : query ? 0.1
-        : 0.34;
-      ctx.lineWidth = (inFocus ? 1.5 : 0.7) / k;
-      ctx.strokeStyle = inFocus
-        ? (dark ? "#ccc" : "#555")
-        : (EDGE_COLORS[l.kind] || (dark ? "#4a4a4a" : "#c0c0c0"));
+      if (focus && (l.source === focus || l.target === focus)) { enfocados.push(l); continue; }
+      const color = EDGE_COLORS[l.kind] || (dark ? "#4a4a4a" : "#c0c0c0");
+      let camino = lotes.get(color);
+      if (!camino) lotes.set(color, camino = new Path2D());
+      camino.moveTo(l.source.x, l.source.y);
+      camino.lineTo(l.target.x, l.target.y);
+    }
+    ctx.globalAlpha = focus ? 0.05 : query ? 0.1 : 0.34;
+    ctx.lineWidth = 0.7 / k;
+    for (const [color, camino] of lotes) { ctx.strokeStyle = color; ctx.stroke(camino); }
+
+    for (const l of enfocados) {
+      ctx.globalAlpha = 0.85;
+      ctx.lineWidth = 1.5 / k;
+      ctx.strokeStyle = dark ? "#ccc" : "#555";
       ctx.beginPath(); ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); ctx.stroke();
-      if (inFocus) {
-        const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y;
-        const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
-        const tipX = l.target.x - ux * (sizeOf(l.target) + 2.5 / k);
-        const tipY = l.target.y - uy * (sizeOf(l.target) + 2.5 / k);
-        const s = 5.5 / k;
-        ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.moveTo(tipX, tipY);
-        ctx.lineTo(tipX - ux * s - uy * s * 0.55, tipY - uy * s + ux * s * 0.55);
-        ctx.lineTo(tipX - ux * s + uy * s * 0.55, tipY - uy * s - ux * s * 0.55);
-        ctx.closePath(); ctx.fill();
-      }
+      const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y;
+      const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+      const tipX = l.target.x - ux * (sizeOf(l.target) + 2.5 / k);
+      const tipY = l.target.y - uy * (sizeOf(l.target) + 2.5 / k);
+      const sz = 5.5 / k;
+      ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX - ux * sz - uy * sz * 0.55, tipY - uy * sz + ux * sz * 0.55);
+      ctx.lineTo(tipX - ux * sz + uy * sz * 0.55, tipY - uy * sz - ux * sz * 0.55);
+      ctx.closePath(); ctx.fill();
     }
     ctx.globalAlpha = 1;
 
+    // Mismo criterio que con las aristas: en el caso corriente todos los nodos comparten
+    // alfa y color de borde, y solo cambia el relleno por tipo. Se agrupan los círculos en
+    // un camino por relleno —y todos en uno más para el borde— y se pinta de una vez.
+    // Los que llevan estado propio (foco, coincidencia de búsqueda, seleccionado, o alfa
+    // atenuada) son pocos y siguen dibujándose uno a uno.
+    const rellenos = new Map();
+    const bordes = new Path2D();
+    const sueltos = [];
     for (const n of graph.nodes) {
+      const hit = matches(n), isFocus = n === focus;
+      const isNear = near && near.has(n.id), isSel = n === selected;
+      const alfa = focus ? (isFocus || isNear ? 1 : 0.12) : query ? (hit ? 1 : 0.12) : 1;
+      if (isFocus || hit || isSel || alfa !== 1) { sueltos.push(n); continue; }
+      const r = sizeOf(n), color = fillOf(n);
+      let camino = rellenos.get(color);
+      if (!camino) rellenos.set(color, camino = new Path2D());
+      camino.moveTo(n.x + r, n.y); camino.arc(n.x, n.y, r, 0, 7);
+      bordes.moveTo(n.x + r, n.y); bordes.arc(n.x, n.y, r, 0, 7);
+    }
+    ctx.globalAlpha = 1;
+    for (const [color, camino] of rellenos) { ctx.fillStyle = color; ctx.fill(camino); }
+    ctx.lineWidth = 1.2 / k;
+    ctx.strokeStyle = dark ? "rgba(22,22,24,.9)" : "rgba(255,255,255,.9)";
+    ctx.stroke(bordes);
+
+    for (const n of sueltos) {
       const r = sizeOf(n), hit = matches(n);
       const isFocus = n === focus, isNear = near && near.has(n.id);
       const isSel = n === selected;
