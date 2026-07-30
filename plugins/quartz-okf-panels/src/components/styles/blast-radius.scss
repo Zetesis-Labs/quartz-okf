@@ -8,6 +8,40 @@
     margin: 0 0 0.4rem;
   }
 
+  // El bloque de relaciones va plegado: es contexto de consulta y, desplegado, le roba
+  // al índice el alto del panel derecho.
+  .okf-blast-fold {
+    > summary {
+      cursor: pointer;
+      list-style: none; // el triángulo lo pintamos nosotros, para alinearlo con el h3
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+
+      &::before {
+        content: "›";
+        display: inline-block;
+        font-size: 1.05rem;
+        line-height: 1;
+        color: var(--gray);
+        transition: transform 0.15s ease;
+      }
+
+      h3 {
+        font-size: 1rem;
+        margin: 0 0 0.4rem;
+      }
+    }
+
+    &[open] > summary::before {
+      transform: rotate(90deg);
+    }
+  }
+
   .okf-properties {
     margin-bottom: 0.9rem;
 

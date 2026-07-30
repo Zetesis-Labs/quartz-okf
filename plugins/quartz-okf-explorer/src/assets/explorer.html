@@ -10,6 +10,9 @@
   html, body { height: 100%; }
   body { margin: 0; font: 14px/1.45 -apple-system, "Segoe UI", sans-serif;
          display: flex; flex-direction: column; overflow: hidden;
+         /* Dentro del modal esto va en un iframe: sin contener el rebase, Firefox
+            encadena la rueda a la página de detrás y el fondo se mueve al hacer zoom. */
+         overscroll-behavior: none;
          background: light-dark(#faf8f8, #161618); color: light-dark(#2b2b2b, #d4d4d4); }
   #stage { display: flex; flex: 1; min-height: 0; }
   #wrap { position: relative; flex: 1; min-width: 0; min-height: 0; }
@@ -825,6 +828,20 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   // El filter deja pasar el pan solo si el puntero NO está sobre un nodo: así el
   // arrastre de nodos y el desplazamiento del lienzo no compiten.
   const zoomBehavior = d3.zoom().scaleExtent([0.15, 8])
+    // Firefox entrega la rueda en LÍNEAS (deltaMode 1) y Chrome en píxeles (0). Los
+    // factores por defecto de d3 los tratan por separado, y con un gesto fino de trackpad
+    // el paso de Firefox sale hasta seis veces mayor: el zoom se siente a saltos y el
+    // lector lo describe como que «el grafo no funciona al ampliar». Se normaliza todo a
+    // píxeles y se aplica un único factor, con tope para que un golpe de rueda brusco no
+    // cruce media escala de golpe.
+    .wheelDelta(e => {
+      // 33 px por línea: una muesca de rueda son 3 líneas en Firefox y ~100 px en
+      // Chrome, así que el mismo click acaba dando el mismo paso en los dos.
+      const px = e.deltaMode === 1 ? e.deltaY * 33
+               : e.deltaMode === 2 ? e.deltaY * (H || 600)
+               : e.deltaY;
+      return -Math.max(-120, Math.min(120, px)) * 0.002 * (e.ctrlKey ? 10 : 1);
+    })
     .filter(e => e.type === "wheel" || !nodeAt(e.offsetX, e.offsetY))
     .on("zoom", ev => { transform = ev.transform; if (ev.sourceEvent) camaraTocada = true; tick(); });
 

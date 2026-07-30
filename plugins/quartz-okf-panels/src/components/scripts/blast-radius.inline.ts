@@ -246,8 +246,16 @@
         return;
       }
       container.style.display = "";
+      // Plegado y cerrado por defecto: el panel es contexto de consulta, no lectura
+      // principal, y desplegado le roba al índice el alto del panel derecho. El <h3> se
+      // mantiene literal dentro del <summary> para que la traducción del cromo que hacen
+      // los consumidores en su build siga encontrando la cadena.
       var relations =
-        out || inc || knowledge ? "<h3>Blast radius</h3>" + out + inc + knowledge : "";
+        out || inc || knowledge
+          ? '<details class="okf-blast-fold"><summary><h3>Blast radius</h3></summary>' +
+            out + inc + knowledge +
+            "</details>"
+          : "";
       container.innerHTML = properties + relations;
     });
   }
