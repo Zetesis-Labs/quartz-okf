@@ -41,6 +41,7 @@
       background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
     .okf-explorer-modal.open { display: block; }
     .okf-explorer-modal .box { position: absolute; inset: 1.5rem; border-radius: 12px; overflow: hidden;
+      transition: inset .18s ease, border-radius .18s ease;
       background: var(--light); box-shadow: 0 18px 60px rgba(0,0,0,.4);
       display: flex; flex-direction: column; }
     .okf-explorer-modal .bar { display: flex; align-items: center; gap: .6rem; padding: .45rem .7rem;
@@ -52,6 +53,16 @@
       font: inherit; font-size: .8rem; cursor: pointer; text-decoration: none; }
     .okf-explorer-modal .bar a:hover, .okf-explorer-modal .bar button:hover { background: var(--lightgray); }
     .okf-explorer-modal iframe { flex: 1; width: 100%; border: 0; }
+    /* El grafo tarda: sin señal, el modal se abre en blanco y parece roto. */
+    .okf-explorer-modal .cargando { flex: 1; display: grid; place-items: center; gap: .6rem;
+      color: var(--gray); font-size: .85rem; }
+    .okf-explorer-modal .cargando .sp { width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid var(--lightgray); border-top-color: var(--secondary);
+      animation: okf-giro .8s linear infinite; }
+    @keyframes okf-giro { to { transform: rotate(360deg) } }
+    .okf-explorer-modal.listo .cargando { display: none }
+    /* Ampliado: el mismo modal a sangre, sin salir de la página ni abrir pestaña. */
+    .okf-explorer-modal.wide .box { inset: 0; border-radius: 0; }
     @media (max-width: 700px) { .okf-explorer-modal .box { inset: .5rem; } }`
 
   function ensureStyles() {
@@ -73,18 +84,26 @@
         <div class="bar">
           <b>__TITLE__</b>
           <span class="sp">
-            <a class="full" href="${URL_GRAFO}" target="_blank" rel="noopener">Pantalla completa</a>
+            <button class="full" type="button" aria-pressed="false">Ampliar</button>
             <button class="close" aria-label="Cerrar">✕</button>
           </span>
         </div>
       </div>`
     document.body.appendChild(m)
     const close = () => {
-      m.classList.remove("open")
+      m.classList.remove("open", "wide")
+      const b = m.querySelector(".full")
+      if (b) { b.setAttribute("aria-pressed", "false"); b.textContent = "Ampliar" }
       const f = m.querySelector("iframe")
       if (f) f.remove()
       document.body.style.overflow = ""
     }
+    const full = m.querySelector(".full")
+    full.addEventListener("click", () => {
+      const wide = m.classList.toggle("wide")
+      full.setAttribute("aria-pressed", String(wide))
+      full.textContent = wide ? "Reducir" : "Ampliar"
+    })
     m.querySelector(".close").addEventListener("click", close)
     m.addEventListener("click", (e) => { if (e.target === m) close() })
     document.addEventListener("keydown", (e) => {
@@ -97,12 +116,19 @@
     const m = modal()
     const box = m.querySelector(".box")
     const url = slug ? `${URL_GRAFO}?focus=${encodeURIComponent(slug)}` : URL_GRAFO
-    m.querySelector(".full").href = url
     const old = box.querySelector("iframe")
     if (old) old.remove()
+    const prev = box.querySelector(".cargando")
+    if (prev) prev.remove()
+    m.classList.remove("listo")
+    const wait = document.createElement("div")
+    wait.className = "cargando"
+    wait.innerHTML = '<div class="sp"></div><div>Cargando el grafo…</div>'
+    box.appendChild(wait)
     const f = document.createElement("iframe")
     f.src = url
     f.title = "__TITLE__"
+    f.addEventListener("load", () => m.classList.add("listo"))
     box.appendChild(f)
     m.classList.add("open")
     document.body.style.overflow = "hidden"
@@ -132,7 +158,9 @@
       host = document.createElement("div")
       right.insertBefore(host, right.firstChild)
     }
-    if (host.dataset.okfExplorer === "1") return
+    // El router SPA reutiliza nodos con micromorph: el contenedor puede conservar la marca
+    // y haber perdido el contenido. Sin comprobarlo, el widget se quedaría vacío para siempre.
+    if (host.dataset.okfExplorer === "1" && host.querySelector("button.open")) return
     host.dataset.okfExplorer = "1"
     host.classList.add("okf-explorer-access")
     host.innerHTML = `
@@ -141,7 +169,7 @@
       <div class="cta">
         <button class="open" type="button">Abrir el grafo</button>
       </div>
-      <div class="hint" data-okf-stats></div>`
+      <div class="hint" data-okf-stats>cargando…</div>`
     const open = () => openModal(currentSlug())
     host.querySelector(".prev").addEventListener("click", open)
     host.querySelector(".prev").addEventListener("keydown", (e) => {
@@ -150,7 +178,7 @@
     host.querySelector("button.open").addEventListener("click", open)
     // El recuento sale del propio grafo: no se codifica en el plugin.
     const stats = host.querySelector("[data-okf-stats]")
-    if (stats && !stats.textContent) {
+    if (stats) {
       fetch("/static/okf-graph.json").then(r => r.json()).then(g => {
         const n = (g.stats && g.stats.notes) || (g.nodes || []).length
         const e = (g.stats && g.stats.edges) || (g.edges || []).length
