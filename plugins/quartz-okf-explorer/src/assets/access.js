@@ -21,9 +21,13 @@
   const styles = `
     .okf-explorer-access { display: flex; flex-direction: column; gap: .5rem; }
     .okf-explorer-access h3 { margin: 0; }
-    .okf-explorer-access .prev { border: 1px solid var(--lightgray); border-radius: 8px;
-      padding: .3rem; background: var(--light); cursor: pointer; }
-    .okf-explorer-access .prev:hover { border-color: var(--gray); }
+    .okf-explorer-access .prev { position: relative; border: 1px solid var(--lightgray);
+      border-radius: 8px; padding: .3rem; background: var(--light); cursor: pointer; }
+    .okf-explorer-access .prev:hover, .okf-explorer-access .prev:focus-visible { border-color: var(--secondary); }
+    .okf-explorer-access .prev::after { content: "Abrir el grafo"; position: absolute; inset: 0;
+      display: grid; place-items: center; border-radius: 7px; font-size: .8rem; font-weight: 600;
+      color: var(--light); background: rgba(0,0,0,.45); opacity: 0; transition: opacity .15s ease; }
+    .okf-explorer-access .prev:hover::after, .okf-explorer-access .prev:focus-visible::after { opacity: 1; }
     .okf-explorer-access svg { display: block; width: 100%; height: auto; }
     .okf-explorer-access svg line { stroke: var(--gray); stroke-width: 1.4; }
     .okf-explorer-access svg circle { stroke: var(--light); stroke-width: 1.5; }
