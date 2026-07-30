@@ -828,19 +828,19 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   // El filter deja pasar el pan solo si el puntero NO está sobre un nodo: así el
   // arrastre de nodos y el desplazamiento del lienzo no compiten.
   const zoomBehavior = d3.zoom().scaleExtent([0.15, 8])
-    // Firefox entrega la rueda en LÍNEAS (deltaMode 1) y Chrome en píxeles (0). Los
-    // factores por defecto de d3 los tratan por separado, y con un gesto fino de trackpad
-    // el paso de Firefox sale hasta seis veces mayor: el zoom se siente a saltos y el
-    // lector lo describe como que «el grafo no funciona al ampliar». Se normaliza todo a
-    // píxeles y se aplica un único factor, con tope para que un golpe de rueda brusco no
-    // cruce media escala de golpe.
+    // Firefox entrega la rueda en LÍNEAS (deltaMode 1) y Chrome en píxeles (0), y d3
+    // aplica a cada modo un factor distinto. Peor aún: cuántas líneas vale una muesca lo
+    // decide el sistema —puede ser 1 o 3—, así que convertir líneas a píxeles con una
+    // constante deja el paso a merced de esa configuración; con 1 línea por muesca sale
+    // un tercio del de Chrome y el zoom se siente lento.
+    // En modo línea, por tanto, no se mide: cada evento ES una muesca y vale exactamente
+    // lo que una muesca en Chrome. El modo píxel —trackpad en los dos navegadores— sigue
+    // siendo proporcional, que es lo que le da su suavidad.
     .wheelDelta(e => {
-      // 33 px por línea: una muesca de rueda son 3 líneas en Firefox y ~100 px en
-      // Chrome, así que el mismo click acaba dando el mismo paso en los dos.
-      const px = e.deltaMode === 1 ? e.deltaY * 33
-               : e.deltaMode === 2 ? e.deltaY * (H || 600)
-               : e.deltaY;
-      return -Math.max(-120, Math.min(120, px)) * 0.002 * (e.ctrlKey ? 10 : 1);
+      const mult = e.ctrlKey ? 10 : 1;
+      if (e.deltaMode === 1) return -Math.sign(e.deltaY) * 0.2 * mult;
+      const px = e.deltaMode === 2 ? e.deltaY * (H || 600) : e.deltaY;
+      return -Math.max(-120, Math.min(120, px)) * 0.002 * mult;
     })
     .filter(e => e.type === "wheel" || !nodeAt(e.offsetX, e.offsetY))
     .on("zoom", ev => { transform = ev.transform; if (ev.sourceEvent) camaraTocada = true; tick(); });
