@@ -201,6 +201,11 @@ FR-010; the superseded wording is kept in `research.md` for the record.
   labels and view modes for as long as the reader stays, push a browser-history entry
   (`?graph=<id>`) so the browser's back button returns to the parent, and restore the
   parent with the portal selected and the previous mode.
+- **FR-016** *(rev. b)*: While inside a subgraph the explorer MUST show, at the top of
+  the canvas and before the relation bar of the selected node, the trail of graphs
+  entered (`‹ parent › … › current`); every earlier level MUST be a link that returns
+  to that graph in one action, and `‹` MUST go one level up. The trail MUST NOT be
+  shown in the root graph.
 - **FR-011**: The explorer MUST render federated nodes with a visible mark and route
   clicks to their absolute `url` through the existing reading panel and modifier-click
   behavior.

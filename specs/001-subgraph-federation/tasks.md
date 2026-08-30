@@ -228,6 +228,9 @@ decisions in `research.md` §Revision (b); requirements FR-001/003/006–010/014
 - [X] T039 Verify the acceptance walk (quickstart §3.5) on the rebuilt parent with the
       child server stopped, and record it in the PR.
 - [X] T040 Cut the revision commits per scope and fold them into the PR (T028).
+- [X] T041 Trail of graphs at the top of the canvas (FR-016): levels as links, `‹` one
+      level up, multi-level return without visiting intermediate graphs; the in-panel
+      path bar is gone.
 
 ---
 
