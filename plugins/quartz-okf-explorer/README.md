@@ -122,17 +122,24 @@ carries two kinds of marked nodes, and the explorer reads the marks — no confi
 - **Portals** (`node.subgraph`) are drawn with a second ring in their type colour and keep
   their label at every zoom. The tooltip reads how many notes the child holds and how many
   are previewed (a consumer rewords it through `tooltip.<type>`, e.g.
-  `"{subgraph.notes|note|notes} · {subgraph.previewed} previewed"`). Their reading panel
-  offers **Explorar subgrafo**, which swaps the canvas to the child graph published
-  same-origin at `static/okf-subgraphs/<id>.json`.
+  `"{subgraph.notes|note|notes} · {subgraph.previewed} previewed"`) and says how to enter.
+  **Double-click** a portal to enter its graph; the same action sits in the relation bar
+  when the portal is selected and in the header of its reading panel (**Explorar
+  subgrafo**). Entering swaps the canvas to the child graph published same-origin at
+  `static/okf-subgraphs/<id>.json`, resets the camera and fits it as soon as the layout
+  takes shape.
 - **Federated notes** (`node.federated`) wear a dashed ring and a badge with their subgraph
-  id in the tooltip and the search results; clicking one opens the child's own page in the
-  panel (absolute `url`), modifier-click opens it in a new tab.
+  id in the tooltip and the search results. Their pages are mounted in this site
+  (`/<id>/<slug>`), so the reading panel shows them like any other note; modifier-click
+  opens them in a new tab. Their types and relations take the child's colours and labels
+  when the consumer did not declare them (`display` on the graph root).
 
-Inside a subgraph the consumer's modes are hidden — they filter by the parent's vocabulary —
-and the panel shows the path `parent › child` with **← Volver**, which restores the parent
-graph with the portal selected. `?graph=<id>` opens the explorer already inside a subgraph;
-the copied graph knows its parent (`federatedFrom`) so the way back still works.
+Inside a subgraph the explorer is the child's: its colours, labels and **its own view
+modes** replace the consumer's for as long as you stay, and the panel shows the path
+`parent › child` with **← Volver**. Entering pushes `?graph=<id>` to the browser history,
+so the browser's back button also returns to the parent, with the portal selected and the
+previous mode restored. `?graph=<id>` opens the explorer already inside a subgraph; the
+copied graph knows its parent (`federatedFrom`) so the way back still works.
 
 ## Input
 

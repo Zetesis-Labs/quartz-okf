@@ -239,6 +239,12 @@ const CACHE_GRAFOS = new Map();
 function indexar(raw) {
   // okf-graph/v1 -> modelo interno. El bundle ya resuelve alias, deriva inversas y marca
   // las aristas `derived`, así que aquí solo se indexa y se reparte color a los edges.
+  // Un grafo federado trae el vocabulario visible de sus hijos: sirve de relleno para
+  // los tipos y relaciones que el consumidor no declaró, nunca por encima de lo suyo.
+  const relleno = raw.display || {};
+  for (const [t, c] of Object.entries(relleno.typeColors || {})) if (!COLORS[t]) COLORS[t] = c;
+  for (const [t, l] of Object.entries(relleno.typeLabels || {})) if (!TYPE_LABEL[t]) TYPE_LABEL[t] = l;
+  for (const [k, c] of Object.entries(relleno.edgeColors || {})) if (!EDGE_COLORS[k]) EDGE_COLORS[k] = c;
   const labels = raw.edgeLabels || [...new Set((raw.edges || []).map(e => e.label))];
   labels.forEach((lab, i) => {
     EDGE_LABEL[lab] = lab;
@@ -277,7 +283,8 @@ function indexar(raw) {
     nodes[e.source].counts[e.label] = (nodes[e.source].counts[e.label] || 0) + 1;
     nodes[e.target].indeg += 1;
   }
-  return { nodes, edges, title: raw.site || "", federatedFrom: raw.federatedFrom || null };
+  return { nodes, edges, title: raw.site || "", federatedFrom: raw.federatedFrom || null,
+           display: raw.display || null };
 }
 
 async function cargarGrafo(url) {
@@ -338,6 +345,9 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
 
   let N = data.nodes;
   let urlActual = GRAFO_BASE;
+  // Prioridad de los resultados de búsqueda. Qué tipo interesa antes es cosa del corpus:
+  // en una biblioteca la síntesis va delante de la ficha; en un catálogo, al revés.
+  let KIND_ORDER = CFG.typeOrder || CFG.knowledgeTypes || [];
   // Pila de grafos: cada entrada es el grafo del que se entró a un subgrafo y el nodo
   // que se estaba mirando, para volver exactamente ahí.
   const pila = [];
@@ -450,12 +460,16 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     }
   }
 
-  // Las pastillas de modo salen de la configuración, no del marcado.
-  {
+  // Las pastillas de modo salen de la configuración, no del marcado. Se vuelven a
+  // pintar al entrar en un subgrafo, que trae sus propios modos.
+  function renderModes(activeId) {
     const box = document.getElementById("mode");
-    box.innerHTML = MODES.map((m, i) =>
+    const active = MODES.some(m => m.id === activeId) ? activeId : MODES[0].id;
+    box.innerHTML = MODES.map(m =>
       `<label class="pill"><input type="radio" name="m" value="${m.id}"` +
-      `${i === 0 ? " checked" : ""}>${m.label}</label>`).join("");
+      `${m.id === active ? " checked" : ""}>${m.label}</label>`).join("");
+    box.querySelectorAll("input").forEach(i => i.addEventListener("change", cambiarModo));
+    box.style.display = MODES.length > 1 ? "" : "none";
   }
 
   // El panel entero se pliega con un clic en su cabecera; la preferencia persiste.
@@ -576,15 +590,16 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   }
 
   let graph, transform = d3.zoomIdentity, hover = null, selected = null, query = "";
+  // Tras cambiar de grafo la cámara se reencuadra sola en cuanto el layout toma forma,
+  // sin esperar a que la simulación termine: con cientos de nodos tarda segundos.
+  let fitPendiente = false, ticksDesdeCambio = 0;
   // Si el lector mueve la cámara, nada vuelve a moverla por él.
   let camaraTocada = false;
   let curMode = MODES[0].id;
 
   let firstFit = true;
   function restart(refit = true) {
-    curMode = enSubgrafo()
-      ? MODO_COMPLETO.id
-      : (document.querySelector('#mode input:checked') || { value: MODES[0].id }).value;
+    curMode = (document.querySelector('#mode input:checked') || { value: MODES[0].id }).value;
     document.getElementById("desc").innerHTML = DESC[curMode] || "";
     const kinds = new Set([...document.querySelectorAll('#kinds input:checked')].map(i => i.value));
     graph = build(curMode, kinds.size ? kinds : null);
@@ -629,6 +644,10 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   }
 
   function tick() {
+    if (fitPendiente && ++ticksDesdeCambio >= 40) {
+      fitPendiente = false;
+      if (!camaraTocada) fit();
+    }
     ctx.clearRect(0, 0, W, H);
     ctx.save(); ctx.translate(transform.x, transform.y); ctx.scale(transform.k, transform.k);
     const dark = isDark(), k = transform.k;
@@ -772,7 +791,8 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
       ? `${n.subgraph.notes} nota${n.subgraph.notes === 1 ? "" : "s"} · ${n.subgraph.previewed} abierta${n.subgraph.previewed === 1 ? "" : "s"}`
       : tpl ? fill(tpl, n) : `${n.indeg} entrante${n.indeg === 1 ? "" : "s"}`;
     const origen = n.federated ? ` <span class="badge">${n.federated}</span>` : "";
-    tip.innerHTML = `<b>${n.title}</b> <small>· ${TYPE_LABEL[n.type] || n.type}</small>${origen}<br><small>${cuenta}</small>` +
+    const pista = n.subgraph ? `<br><small>Doble clic para entrar en su grafo</small>` : "";
+    tip.innerHTML = `<b>${n.title}</b> <small>· ${TYPE_LABEL[n.type] || n.type}</small>${origen}<br><small>${cuenta}</small>${pista}` +
       (n.desc ? `<div class="pv">${n.desc}</div>` : "");
     tip.style.display = "block";
     const r = tip.getBoundingClientRect();
@@ -845,29 +865,54 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   });
 
   // ---- subgrafos: entrar en el grafo que representa un portal, y volver ---------------
-  async function cambiarGrafo(url) {
+  // Vocabulario visible del grafo en pantalla. Dentro de un subgrafo manda el del hijo
+  // —sus colores, sus etiquetas, sus modos—, porque el subgrafo es SU explorador; al
+  // volver se restaura el del consumidor tal como lo declaró.
+  const DISPLAY_BASE = { colors: { ...COLORS }, labels: { ...TYPE_LABEL }, edgeColors: { ...EDGE_COLORS },
+                         modes: [...MODES], kindOrder: KIND_ORDER };
+  function aplicarDisplay(d, modeId) {
+    Object.assign(COLORS, DISPLAY_BASE.colors, (d && d.typeColors) || {});
+    Object.assign(TYPE_LABEL, DISPLAY_BASE.labels, (d && d.typeLabels) || {});
+    Object.assign(EDGE_COLORS, DISPLAY_BASE.edgeColors, (d && d.edgeColors) || {});
+    const modos = d ? ((d.modes && d.modes.length) ? d.modes : [MODO_COMPLETO]) : DISPLAY_BASE.modes;
+    MODES.length = 0; MODES.push(...modos);
+    for (const k of Object.keys(DESC)) delete DESC[k];
+    for (const m of MODES) DESC[m.id] = m.desc || "";
+    KIND_ORDER = d ? (d.typeOrder || d.knowledgeTypes || DISPLAY_BASE.kindOrder) : DISPLAY_BASE.kindOrder;
+    renderModes(modeId);
+  }
+
+  async function cambiarGrafo(url, modeId) {
     stats.textContent = "cargando…";
     data = await cargarGrafo(url);
     N = data.nodes;
     urlActual = url;
     selected = null; hover = null;
     if (tabs.length) closePeek();
+    aplicarDisplay(enSubgrafo() ? data.display : null, modeId);
     document.getElementById("kinds").innerHTML = "";
     document.getElementById("edges").innerHTML = "";
     renderMiga(); renderCrumb();
-    firstFit = true;
+    // Cámara a cero: el encuadre del grafo anterior no significa nada en este.
+    camaraTocada = false;
+    d3.select(canvas).call(zoomBehavior.transform, d3.zoomIdentity);
+    firstFit = true; fitPendiente = true; ticksDesdeCambio = 0;
     restart();
   }
 
-  async function entrarEnSubgrafo(n) {
-    pila.push({ url: urlActual, selectedId: n.id, title: data.title });
+  const urlDeSubgrafo = (id) => `/static/okf-subgraphs/${encodeURIComponent(id)}.json`;
+
+  async function entrarEnSubgrafo(n, { push = true } = {}) {
+    pila.push({ url: urlActual, selectedId: n.id, title: data.title, modeId: curMode });
+    if (push) history.pushState({ graph: n.subgraph.id }, "", `?graph=${encodeURIComponent(n.subgraph.id)}`);
     await cambiarGrafo(n.subgraph.graph);
   }
 
-  async function volverAlPadre() {
+  async function volverAlPadre({ push = true } = {}) {
     const previo = pila.pop();
     if (!previo) return;
-    await cambiarGrafo(previo.url);
+    if (push) history.pushState({}, "", location.pathname);
+    await cambiarGrafo(previo.url, previo.modeId);
     const n = previo.selectedId ? graph.idx.get(previo.selectedId) : null;
     if (n) select(n);
   }
@@ -875,21 +920,30 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   // Abierto directamente sobre un subgrafo (?graph=<id>): el camino de vuelta lo dice el
   // propio fichero, que sabe desde qué grafo y qué portal se publicó.
   async function entrarDirecto(id) {
-    const url = `/static/okf-subgraphs/${encodeURIComponent(id)}.json`;
-    pila.push({ url: GRAFO_BASE, selectedId: null, title: null });
-    await cambiarGrafo(url);
+    pila.push({ url: GRAFO_BASE, selectedId: null, title: null, modeId: MODES[0].id });
+    history.replaceState({ graph: id }, "", location.href);
+    await cambiarGrafo(urlDeSubgrafo(id));
     const desde = data.federatedFrom || {};
     pila[0].selectedId = desde.node || null;
     pila[0].title = desde.title || null;
     renderMiga();
   }
 
+  // El botón atrás del navegador deshace la entrada al subgrafo, y adelante la rehace.
+  window.addEventListener("popstate", (ev) => {
+    const id = (ev.state && ev.state.graph) || new URLSearchParams(location.search).get("graph");
+    if (id && !enSubgrafo()) {
+      const portal = graph && [...graph.idx.values()].find(n => n.subgraph && n.subgraph.id === id);
+      if (portal) entrarEnSubgrafo(portal, { push: false }); else entrarDirecto(id);
+    } else if (!id && enSubgrafo()) {
+      volverAlPadre({ push: false });
+    }
+  });
+
   function renderMiga() {
     const box = document.getElementById("miga");
     const dentro = enSubgrafo();
     box.style.display = dentro ? "flex" : "none";
-    document.getElementById("mode").style.display = dentro ? "none" : "";
-    document.getElementById("desc").style.display = dentro ? "none" : "";
     if (!dentro) return;
     const tramos = [...pila.map(p => p.title || CFG.title || "grafo"), data.title || "subgrafo"];
     box.querySelector(".path").innerHTML = tramos
@@ -978,6 +1032,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   canvas.addEventListener("dblclick", ev => {
     const n = nodeAt(ev.offsetX, ev.offsetY);
     if (!n) return;
+    if (n.subgraph) { entrarEnSubgrafo(n); return; }
     showPeek(n);
     const tb = tabs.find(x => x.id === n.id);
     if (tb) { tb.pinned = true; renderTabs(); }
@@ -1060,6 +1115,13 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     const k = Math.max(0.15, Math.min(scale || 2.4, (W - pad) / w, (H - pad) / h));
     const to = d3.zoomIdentity
       .translate(W / 2 - k * (x0 + x1) / 2, H / 2 - k * (y0 + y1) / 2).scale(k);
+    // En una pestaña oculta —abierta en segundo plano— el navegador no despacha
+    // requestAnimationFrame y la transición nunca avanza: el lector volvería a un grafo
+    // sin encuadrar. Ahí se aplica de golpe; la animación es solo para quien está mirando.
+    if (document.visibilityState === "hidden") {
+      d3.select(canvas).call(zoomBehavior.transform, to);
+      return;
+    }
     d3.select(canvas).transition().duration(450).call(zoomBehavior.transform, to);
   }
 
@@ -1101,7 +1163,10 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
         `<a href="${n.url}">${n.title.length > 34 ? n.title.slice(0, 33) + "…" : n.title}</a>`
       ).join(", ") + (ns.length > 6 ? ` +${ns.length - 6}` : ""));
     el.innerHTML = `<span class="sel">${selected.title}</span>` +
+      (selected.subgraph ? ` <button class="btn" id="crumb-dive">Explorar subgrafo ↘</button>` : "") +
       (parts.length ? '<span class="sep">·</span>' + parts.join('<span class="sep">·</span>') : "");
+    const dive = el.querySelector("#crumb-dive");
+    if (dive) dive.addEventListener("click", () => entrarEnSubgrafo(selected));
     el.style.display = "block";
   }
   document.getElementById("fit").addEventListener("click", () => fit());
@@ -1111,9 +1176,6 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     if (ev.key === "Escape" && document.activeElement !== q && tabs.length) closePeek();
   });
 
-  // Prioridad de los resultados de búsqueda. Qué tipo interesa antes es cosa del corpus:
-  // en una biblioteca la síntesis va delante de la ficha; en un catálogo, al revés.
-  const KIND_ORDER = CFG.typeOrder || CFG.knowledgeTypes || [];
   q.addEventListener("input", () => {
     query = q.value.trim().toLowerCase();
     const hits = query
@@ -1144,27 +1206,27 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   document.addEventListener("click", ev => {
     if (!ev.target.closest("#qbox")) results.style.display = "none";
   }, true);
-  document.querySelectorAll('#mode input').forEach(i =>
-    i.addEventListener("change", async () => {
-      // Un modo puede vivir sobre otro corpus: se carga la primera vez que se pide y
-      // queda en caché, así que volver a él es inmediato.
-      const m = modeById((document.querySelector('#mode input:checked') || {}).value);
-      const url = grafoDe(m);
-      if (url !== urlActual) {
-        stats.textContent = "cargando…";
-        data = await cargarGrafo(url);
-        N = data.nodes;
-        urlActual = url;
-      }
-      selected = null;
-      // Las pastillas se reconstruyen desde cero: si el modo nuevo agrupa por otra cosa
-      // —un estado en vez de un tipo, o los tipos de otro corpus—, conservar lo marcado
-      // dejaría el grafo vacío.
-      document.getElementById("kinds").innerHTML = "";
-      document.getElementById("edges").innerHTML = "";
-      renderCrumb();
-      restart();
-    }));
+  async function cambiarModo() {
+    // Un modo puede vivir sobre otro corpus: se carga la primera vez que se pide y
+    // queda en caché, así que volver a él es inmediato.
+    const m = modeById((document.querySelector('#mode input:checked') || {}).value);
+    const url = grafoDe(m);
+    if (url !== urlActual) {
+      stats.textContent = "cargando…";
+      data = await cargarGrafo(url);
+      N = data.nodes;
+      urlActual = url;
+    }
+    selected = null;
+    // Las pastillas se reconstruyen desde cero: si el modo nuevo agrupa por otra cosa
+    // —un estado en vez de un tipo, o los tipos de otro corpus—, conservar lo marcado
+    // dejaría el grafo vacío.
+    document.getElementById("kinds").innerHTML = "";
+    document.getElementById("edges").innerHTML = "";
+    renderCrumb();
+    restart();
+  }
+  renderModes(MODES[0].id);
 
   document.getElementById("ptitle").textContent = CFG.title || "Grafo";
   // Adónde vuelve el lector y cómo se llama ese sitio lo sabe el consumidor.
