@@ -22,7 +22,8 @@ const DEFAULTS = {
   emitRaw: true,
   rawOutput: "raw",
   federation: null,
-  fetchBundle: null,
+  federationArtifacts: "okf-federation",
+  loadFederation: null,
   subgraphsOutput: "static/okf-subgraphs",
 }
 
@@ -40,6 +41,13 @@ function relPathOf(file) {
 function isAuthoredFile(file) {
   const slug = String(file.data.slug ?? "")
   return Boolean(file.data.filePath) && !slug.startsWith("tags/")
+}
+
+// Notes the mount step brought in from another corpus. They speak that corpus'
+// vocabulary: the child validated and graphed them, and its graph arrives through the
+// federation artifacts, so here they are pages only.
+function isMounted(file) {
+  return Boolean(file.data?.frontmatter?.okf_federated)
 }
 
 function titleFromPath(filePath) {
@@ -116,7 +124,9 @@ export const OkfTransformer = (userOptions) => {
     markdownPlugins() {
       return [
         () => (_tree, file) => {
-          const document = validateDocument(toDocument(file), { profile })
+          const document = isMounted(file)
+            ? { ...toDocument(file), edges: [], violations: [] }
+            : validateDocument(toDocument(file), { profile })
           const type = document.frontmatter?.type
           if (type && options.injectTypeTag && file.data.frontmatter) {
             const tag = `${options.typeTagPrefix}/${type}`
@@ -149,34 +159,30 @@ async function emitRawFiles(context, files, options) {
   return emitted
 }
 
-async function defaultFetchBundle(location, { contentRoot }) {
-  if (/^https?:\/\//i.test(location)) {
-    const response = await fetch(location)
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    return response.json()
+async function defaultLoadFederation(artifactsDir) {
+  let manifest
+  try {
+    manifest = JSON.parse(await fs.readFile(path.join(artifactsDir, "manifest.json"), "utf8"))
+  } catch (error) {
+    if (error?.code === "ENOENT") return {}
+    throw error
   }
-  return JSON.parse(await fs.readFile(path.resolve(contentRoot, location), "utf8"))
+  const children = {}
+  for (const entry of manifest.subgraphs ?? []) {
+    children[entry.id] = {
+      graph: JSON.parse(await fs.readFile(path.join(artifactsDir, entry.id, "okf-graph.json"), "utf8")),
+      display: entry.display,
+      remoteHead: entry.remoteHead,
+      location: entry.repo,
+    }
+  }
+  return children
 }
 
 function federationFailure(items) {
   return new Error(
     `[okf] federation: ${items.map((item) => `[${item.code}] ${item.message}`).join("; ")}`,
   )
-}
-
-async function fetchChildren(entries, fetchBundle, contentRoot) {
-  const children = {}
-  await Promise.all(
-    entries.map(async (entry) => {
-      const id = subgraphId(entry)
-      try {
-        children[id] = { graph: await fetchBundle(entry.graph, { contentRoot }), location: entry.graph }
-      } catch (error) {
-        children[id] = { error: error?.message ?? String(error), location: entry.graph }
-      }
-    }),
-  )
-  return children
 }
 
 async function federate(context, graph, profile, options) {
@@ -194,14 +200,22 @@ async function federate(context, graph, profile, options) {
   problems.forEach(warn)
   const invalid = new Set(problems.map((item) => item.id))
   const valid = entries.filter((entry) => !invalid.has(subgraphId(entry) || "(unnamed)"))
-  const contentRoot = path.resolve(context.argv?.directory ?? "content")
-  const children = await fetchChildren(valid, options.fetchBundle ?? defaultFetchBundle, contentRoot)
+  const artifactsDir = path.resolve(context.argv?.directory ?? "content", "..", options.federationArtifacts)
+  const mounted = await (options.loadFederation ?? defaultLoadFederation)(artifactsDir)
+  const children = {}
+  for (const entry of valid) {
+    const id = subgraphId(entry)
+    children[id] = mounted[id] ?? {
+      error: "no mount artifacts found: run okf-federate before the build",
+      location: entry.repo,
+    }
+  }
   const unreachable = Object.entries(children)
     .filter(([, child]) => !child.graph)
     .map(([id, child]) => ({
       id,
       code: "federation/child-unreachable",
-      message: `${id}: cannot load ${child.location}: ${child.error}`,
+      message: `${id}: cannot mount ${child.location}: ${child.error}`,
     }))
   if (unreachable.length && options.strict) throw federationFailure(unreachable)
   const result = federateGraph(graph, children, options.federation, profile, {
@@ -216,7 +230,7 @@ async function federate(context, graph, profile, options) {
     const marker = result.graph.nodes.find((node) => node.slug === entry.node)?.subgraph
     if (!marker) continue
     console.log(
-      `[okf] federation: ${id} ← ${marker.notes} notes, ${marker.previewed} previewed (${String(marker.source_head ?? "unknown").slice(0, 7)})`,
+      `[okf] federation: ${id} ← ${marker.notes} notes, ${marker.previewed} previewed (${String(marker.source_head ?? "unknown").slice(0, 7)}) mounted at ${marker.mount}/`,
     )
   }
   return result
@@ -227,6 +241,7 @@ async function emitAll(context, content, options) {
   const files = content.map(([, file]) => file).filter((file) => file?.data)
   const documents = files
     .filter(isAuthoredFile)
+    .filter((file) => !isMounted(file))
     .map((file) => file.data.okf ?? validateDocument(toDocument(file), {
       profile,
     }))
