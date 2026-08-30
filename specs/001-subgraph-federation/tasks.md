@@ -200,6 +200,37 @@ it.
 
 ---
 
+## Phase 7: Revision (b) — single-site composition and intuitive navigation
+
+**Purpose**: the demo showed two independent services (parent fetching the child's
+site, previews linking to it) and a navigation that hid the dive. Superseding
+decisions in `research.md` §Revision (b); requirements FR-001/003/006–010/014/015.
+
+- [X] T033 [P] Tests first: `core/test/federation.test.js` for path namespacing
+      (`<id>/<slug>`, `url: /<id>/<slug>`), `repo`/`ref` validation, `mount-collision`,
+      `ref-drift`/`ref-behind`, display union on the graph root and on the copy.
+- [X] T034 [P] Tests first: `core/test/mount.test.js` — link rewriting, note marking,
+      mount index, cache dir; integration with a real local child repo, a `file://`
+      clone at a pinned ref, a child failing its own validation, a parent without
+      federation.
+- [X] T035 [P] Tests first: emitter federation tests against artifacts on disk
+      (`okf-federation/manifest.json` + child graph), mounted notes skipped for
+      validation and graph, strict failure pointing at `okf-federate`, `ref-behind`.
+- [X] T036 `core/lib/federation.js` v2 and `isRemoteRepo`; `core/lib/mount.js` +
+      `core/bin/okf-federate.js`; emitter reads artifacts (`loadFederation`
+      injectable) and ignores `okf_federated` notes.
+- [X] T037 Explorer: child display and modes applied inside the subgraph and restored
+      on return; camera reset + early fit; double-click enters a portal; dive action
+      in the relation bar; tooltip hint; `history.pushState` + `popstate`.
+- [X] T038 Consumers: mount step in both `okf/build-site.sh`; `cern-graph` config
+      with `repo` + `ref` (env overrides `OKF_IT_REPO`/`OKF_IT_REF` for a local
+      checkout); READMEs of both plugins; spec/research/data-model/quickstart updated.
+- [X] T039 Verify the acceptance walk (quickstart §3.5) on the rebuilt parent with the
+      child server stopped, and record it in the PR.
+- [X] T040 Cut the revision commits per scope and fold them into the PR (T028).
+
+---
+
 ## Dependencies & Execution Order
 
 - **Phase 1** → **Phase 2** → **Phase 3 (US1)** → **Phase 4 (US2)** and **Phase 5

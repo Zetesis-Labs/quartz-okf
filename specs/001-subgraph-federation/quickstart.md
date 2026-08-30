@@ -36,7 +36,8 @@ feature configuration:
    export const federation = {
      subgraphs: [{
        node: "topics/it-governance",
-       graph: "https://cern.zetesis.xyz/static/okf-graph.json",
+       repo: "https://github.com/Zetesis-Labs/cern-it-governance-graph",  // or "../cern-it-governance-graph"
+       ref: "<commit of the child>",
        preview: { property: "visibility", equals: "open" },
      }],
    }
@@ -52,31 +53,41 @@ feature configuration:
 3. A portal note `content/topics/it-governance.md` with `type: graph` and whatever
    `Topology` edges tie it to the parent corpus.
 
-4. Build and read the log:
+4. Make sure `okf/build-site.sh` runs the mount step between copying the content and
+   building (the consumer template does):
+
+   ```bash
+   node "$TOOLKIT/core/bin/okf-federate.js" "$REPO_ROOT" "$CACHE/content" "$CACHE/okf-federation" --cache "$CACHE_ROOT/federation"
+   ```
+
+   Then build and read the log — no other site needs to be running:
 
    ```bash
    ./okf/build-site.sh
    # expect:
-   # [okf] federation: it-governance ← 10 notes, 3 previewed (9249934)
+   # [okf] federation: mounted it-governance ← 274 notes at 011e3ea under /it-governance/
+   # [okf] federation: it-governance ← 274 notes, 18 previewed (011e3ea) mounted at /it-governance/
    # [okf] knowledge graph: N typed notes, M edges (0 unresolved)
    python3 serve.py   # or any static server on public/
    ```
 
 5. Acceptance walk (US2), in the browser at `/static/explorer`:
    - the portal is drawn with a double ring and its label is always visible;
-   - hovering it reads `10 notes · 3 previewed`;
-   - clicking it opens its note; the panel header shows **Explore subgraph**;
-   - the canvas swaps to the child graph, breadcrumb `<parent> › <child>`;
-   - **Back** returns to the parent with the portal selected;
-   - clicking a federated (dashed-ring) node opens the child's page in the panel;
-     ⌘/Ctrl-click opens it in a new tab;
+   - hovering it reads `274 notes · 18 previewed` and how to enter;
+   - **double-click** enters the child graph (so does **Explorar subgrafo** in the
+     relation bar when the portal is selected, and in its reading panel);
+   - the camera fits the child graph within a second; the panel shows the child's own
+     modes and the path `CERN › CERN IT Governance`, with colours from the child;
+   - **← Volver** — or the browser's back button — returns to the parent with the
+     portal selected;
+   - clicking a federated (dashed-ring) node opens its page *of this site*
+     (`/it-governance/...`) in the panel; ⌘/Ctrl-click opens it in a new tab;
    - `/static/explorer?graph=it-governance` opens inside the child with a back action.
 
 ## 4. Making a corpus federable (child side)
 
-The child only needs to publish its graph with a `baseUrl` (automatic once it builds
-with this toolkit version and has `configuration.baseUrl`) and to project the property
-the parent filters on:
+The child only needs to project the property the parent filters on (it does not
+need to be deployed; the parent mounts it from its repository):
 
 ```js
 profile.propertyGroups.push({

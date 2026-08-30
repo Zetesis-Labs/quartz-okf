@@ -133,45 +133,74 @@ head and the actual head.
   `cern-graph`, or an existing corpus split into subgraphs? → A: a new umbrella
   `cern-graph` repository, with `cern-it-governance-graph` as its first child.
 
+### Session 2026-08-30 (b) — after the first local demo
+
+- Q: The demo fetched the child's graph from the child's site and linked previewed
+  notes to that site — two independent services. Is that acceptable? → A: **No.** The
+  composition must not require a second running service: the parent site mounts the
+  child's corpus (notes and graph) inside itself, obtained from the child's repository
+  at a pinned commit, the same way consumers pin the toolkit. Nothing at runtime
+  depends on the child's site; the child does not even need to be deployed.
+- Q: Is the navigation intuitive? → A: Not enough. Entering a subgraph must be
+  discoverable from the node itself (double-click, and an action wherever the portal
+  is shown), the camera must land on the child graph immediately, the child graph must
+  be explored with the child's own colours and view modes, and the browser's back
+  button must return to the parent.
+
+Revision (b) supersedes FR-001, FR-003, FR-006, FR-007's role, FR-008's codes and
+FR-010; the superseded wording is kept in `research.md` for the record.
+
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: A consumer MUST be able to declare, in `okf.config.mjs`, a list of
-  subgraphs; each entry names a local note (`node`), the location of the child's
-  published graph (`graph`: an `https` URL or a path relative to the site content),
-  the child's canonical site origin (`site`, optional when the child graph carries a
-  `baseUrl`), the edge label used from portal to previews (`edge`, default
-  `Contains`), the open-note filter (`preview.property` + `preview.equals`) and an
-  optional `pin`.
+- **FR-001** *(rev. b)*: A consumer MUST be able to declare, in `okf.config.mjs`, a
+  list of subgraphs; each entry names a local note (`node`), the child's repository
+  (`repo`: a git URL or a local path), the commit to mount (`ref`, required for a
+  remote repository), the child's corpus directory (`content`, default `content`),
+  the edge label used from portal to previews (`edge`, default `Contains`) and the
+  open-note filter (`preview.property` + `preview.equals`). The subgraph id defaults
+  to the last segment of `node` and names the mount path `/<id>/`.
 - **FR-002**: The build MUST mark the portal node with a `subgraph` object carrying the
-  subgraph id, the child's `source_head`, its note count, the number previewed and the
-  same-origin path of the copied child graph.
-- **FR-003**: The build MUST add every child node that matches the open filter as a
-  node of the parent graph, with slug `<id>:<child-slug>`, a `federated` marker equal
-  to the subgraph id, an absolute `url` on the child's site, and the child's `type`,
-  `title`, `description`, `tags` and `properties` untouched.
+  subgraph id, the mount path, the child's `source_head`, its note count, the number
+  previewed and the same-origin path of the copied child graph.
+- **FR-003** *(rev. b)*: The build MUST add every child node that matches the open
+  filter as a node of the parent graph, with slug `<id>/<child-slug>` (its page in the
+  parent site), a `federated` marker equal to the subgraph id, `url: /<id>/<child-slug>`,
+  and the child's `type`, `title`, `description`, `tags` and `properties` untouched.
 - **FR-004**: The build MUST add a declared edge from the portal to each federated
   node with the configured label, and derive its inverse with the parent's
   `inverseLabels`, using the same derivation as topology edges.
 - **FR-005**: The build MUST keep child edges whose two ends are both federated,
   with their label preserved, and drop every other child edge.
-- **FR-006**: The build MUST copy the child graph to `static/okf-subgraphs/<id>.json`
-  in the parent site, with every node `url` rewritten to an absolute URL on the child's
-  site, so the explorer can load it same-origin.
-- **FR-007**: The build MUST record `baseUrl` (the site's canonical origin) in every
-  emitted `okf-graph.json`, so a graph can be federated by others without extra
-  configuration.
-- **FR-008**: Configuration problems (unknown `node`, edge label outside the parent's
-  vocabulary, missing `site` when the child has no `baseUrl`, duplicate subgraph ids,
-  prefixed-slug collisions) MUST fail the build in strict mode with a message naming
-  the subgraph id and the value; fetch failures MUST do the same.
-- **FR-009**: When `pin` is set and differs from the child's `source_head`, the build
-  MUST emit a warning naming the subgraph id and both heads, and MUST NOT fail.
-- **FR-010**: The explorer MUST draw portal nodes distinguishably from ordinary nodes
-  of the same type, label them always, and expose an "Explore subgraph" action that
-  swaps the canvas to the copied child graph and a back action that restores the
-  parent with the portal selected.
+- **FR-006** *(rev. b)*: A mount step (`okf-federate`, run by the site build before
+  Quartz) MUST obtain each child at `ref`, export its corpus with the child's own
+  profile, refuse a child that fails its own validation, write its notes under
+  `content/<id>/` with bundle links rewritten inside the mount and frontmatter marked
+  `okf_federated: <id>`, generate an index page for the mount, and write the child
+  graph plus a manifest (head, remote head, display configuration) as build artifacts.
+  The build MUST then copy the child graph to `static/okf-subgraphs/<id>.json` with
+  every node `url` inside the mount and the child's display attached, so the explorer
+  can load it same-origin.
+- **FR-007**: The build MUST record `baseUrl` (the site's canonical origin) and
+  `source_head` (the corpus commit, handed in by the harness) in every emitted
+  `okf-graph.json`.
+- **FR-008** *(rev. b)*: Configuration problems (unknown `node`, missing `repo`,
+  missing `ref` for a remote repository, edge label outside the parent's vocabulary,
+  duplicate subgraph ids, a mount path already used by the parent corpus) MUST fail
+  the build in strict mode with a message naming the subgraph id and the value;
+  missing mount artifacts MUST do the same, pointing at `okf-federate`.
+- **FR-009** *(rev. b)*: When the mounted head differs from `ref` (`ref-drift`) or the
+  child's remote moved past `ref` (`ref-behind`), the build MUST emit a warning naming
+  the subgraph id and both heads, and MUST NOT fail.
+- **FR-010** *(rev. b)*: The explorer MUST draw portal nodes distinguishably from
+  ordinary nodes of the same type, label them always, say in their tooltip how to
+  enter, and enter the child graph on double-click and from an action shown wherever
+  the portal is selected (relation bar, reading panel). Entering MUST reset the camera
+  and fit the child graph as soon as its layout takes shape, apply the child's colours,
+  labels and view modes for as long as the reader stays, push a browser-history entry
+  (`?graph=<id>`) so the browser's back button returns to the parent, and restore the
+  parent with the portal selected and the previous mode.
 - **FR-011**: The explorer MUST render federated nodes with a visible mark and route
   clicks to their absolute `url` through the existing reading panel and modifier-click
   behavior.
@@ -180,6 +209,13 @@ head and the actual head.
 - **FR-013**: Engine code MUST NOT depend on a specific node type or edge label name
   for any of the above; a consumer chooses to model portals with a `graph` type, or
   any other, in its profile.
+- **FR-014** *(rev. b)*: Mounted notes are pages of the parent site but speak the
+  child's vocabulary: the parent build MUST NOT validate them against its own profile
+  nor include them in its own graph; their graph arrives through the mount artifacts.
+- **FR-015** *(rev. b)*: The federated parent graph MUST carry, as a fallback, the
+  union of its children's display configuration (type colours and labels, edge
+  colours) so previewed notes read with the child's vocabulary where the parent
+  declares none; the consumer's own declarations always win.
 
 ### Key Entities
 
@@ -211,11 +247,12 @@ head and the actual head.
 
 ## Assumptions
 
-- Child sites are static and public; their `static/okf-graph.json` is fetchable at
-  build time. Private children are out of scope for v1.
-- Child sites allow being embedded in the parent's reading panel (no
-  `X-Frame-Options: DENY`); Cloudflare Pages does not set it by default. If a child
-  forbids embedding the reading panel shows nothing and modifier-click still works.
+- *(rev. b)* Child repositories are reachable by git at build time (public GitHub, or
+  a local path). A child that is also deployed as its own site stays independent; the
+  parent never reads from it.
+- *(rev. b)* Mounting publishes the whole child corpus under the parent site; the open
+  filter governs what is previewed in the parent graph, not what is published. A
+  parent must therefore only mount corpora it may publish.
 - Federation depth is 1: a child's own portals are not followed.
 - Parent notes cannot declare topology edges to federated nodes in v1; the only edges
   reaching them are the portal edges and preserved child edges. Qualified wikilinks

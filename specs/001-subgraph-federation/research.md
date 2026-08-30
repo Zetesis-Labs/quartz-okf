@@ -129,3 +129,53 @@ coupling is accepted for v1; removing it is the database-ingest follow-up.
 
 Both consumers copy `okf/quartz.ts` from their own repo, so the new config block is
 wired there: `componentRegistry.setOptionOverrides("quartz-okf", { profile, federation })`.
+
+## Revision (b) — single-site composition (2026-08-30, after the first demo)
+
+The first demo composed the parent from the child's **published site**: the build
+fetched `static/okf-graph.json` over HTTP and previewed notes linked to the child's
+pages. That is two independent services — at build time and at runtime — and was
+rejected (spec, Clarifications b). The decisions below supersede D1's fetch, D3, D6
+and D7; the rest of the design stands.
+
+### D10. Mount the child's bundle from its repository at a pinned commit
+
+`okf-federate` (new core CLI, `core/lib/mount.js`) runs before Quartz: it obtains the
+child from `repo` at `ref` (git clone into the toolkit cache, or a local path as is),
+exports its corpus with the child's own `okf.config.mjs` profile — the bundle is the
+contract, and this is exactly what `okf-export` produces —, refuses a child that
+fails its own validation, and mounts the notes under `content/<id>/`. The emitter
+then composes from the artifacts on disk; the site never depends on the child's site.
+**Rejected**: fetching the child's `raw/<slug>.md` files from its site (still a
+service dependency, and hundreds of requests); running the child's export inside the
+emitter (the child's profile would have to travel through Quartz content).
+
+### D11. Namespace is the mount path
+
+Federated slugs become `<id>/<slug>` — real pages of the parent site — so the panels
+plugin, `?focus=` and the reading panel all resolve them natively. The colon separator
+of D3 is gone; collisions are prevented up front by `federation/mount-collision`
+(nothing in the parent corpus may live at `/<id>/`).
+
+### D12. The child's display travels with its graph
+
+`okf-federate` reads the child's `explorer` block and keeps its display part
+(`typeColors`, `typeLabels`, `edgeColors`, `typeOrder`, `knowledgeTypes`, `radius`,
+`tooltip`, `modes`) in the manifest; the emitter attaches it to the subgraph copy and
+publishes the union of the children's colours and labels as `display` on the parent
+graph root. The explorer uses it as a fallback in the parent (the consumer's own
+declarations win) and as the vocabulary of record inside the subgraph, view modes
+included — the subgraph is the child's explorer.
+
+### D13. Navigation
+
+Double-click on a portal enters it; the same action is shown in the relation bar when
+a portal is selected and in the reading panel. Entering resets the camera and fits the
+child graph after 40 simulation ticks (a 274-node child takes seconds to settle; the
+reader should not wait), pushes `?graph=<id>` to the history so the browser's back
+button works, and remembers the mode to restore on return.
+
+### Drift after (b)
+
+`ref` is the pin. `ref-drift` warns when a local mount's head differs from it;
+`ref-behind` warns when the remote's `HEAD` moved past it (`git ls-remote` at build).

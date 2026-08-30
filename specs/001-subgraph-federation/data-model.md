@@ -1,6 +1,10 @@
 # Data Model: Subgraph portals and open-node federation
 
-**Feature**: `001-subgraph-federation` | **Date**: 2026-08-30
+**Feature**: `001-subgraph-federation` | **Date**: 2026-08-30 · revised 2026-08-30 (b)
+
+> Sections 1–5 describe the first design (composition from the child's published site).
+> **Section 6 supersedes them**: the child is mounted from its repository. Field names that
+> survive keep their meaning; the ones that changed are called out there.
 
 All additions to `okf-graph/v1` are additive (Constitution VII). Field names are
 final unless the plan's Constitution Check changes them.
@@ -156,3 +160,75 @@ OkfEmitter({ ..., federation, fetchBundle })
 4. writes `static/okf-subgraphs/<id>.json` per child;
 5. logs `[okf] federation: <id> ← <notes> notes, <previewed> previewed (<head>)` per
    subgraph and every warning with its code.
+
+## 6. Revision (b) — current shapes (single-site composition)
+
+### Configuration
+
+```js
+export const federation = {
+  subgraphs: [{
+    node: "topics/it-governance",                                     // portal note of THIS corpus (required)
+    repo: "https://github.com/Zetesis-Labs/cern-it-governance-graph", // git URL or local path (required)
+    ref: "<commit>",                                                  // required for a remote repo
+    content: "content",                                               // child's corpus dir (default)
+    preview: { property: "visibility", equals: "open" },             // required
+    edge: "Contains",                                                 // default; must be in edgeLabels
+    // id: defaults to the last segment of `node`; the mount is /<id>/
+  }],
+}
+```
+
+Problems (all fatal in strict mode): `federation/node-required`, `node-unknown`,
+`repo-required`, `ref-required`, `preview-required`, `edge-unknown`, `id-duplicate`,
+`mount-collision` (a parent slug equals `<id>` or starts with `<id>/`). Gone:
+`site-required`, `slug-collision`.
+
+### Mount artifacts (written by `okf-federate`, read by the emitter)
+
+```text
+<content-dir>/<id>/**.md          child notes, links rewritten to /<id>/…, frontmatter `okf_federated: <id>`
+<content-dir>/<id>/index.md       generated landing page of the mount
+<artifacts-dir>/manifest.json     { subgraphs: [{ id, node, repo, ref, head, remoteHead?, mount, display?, notes }] }
+<artifacts-dir>/<id>/okf-graph.json   the child's exported graph, source_head = head
+```
+
+`display` is the child's explorer configuration restricted to `typeColors`, `typeLabels`,
+`edgeColors`, `typeOrder`, `knowledgeTypes`, `radius`, `tooltip`, `modes`.
+
+### Emitted graph
+
+- Portal marker: `subgraph { id, title, site?, mount: "/<id>", graph, source_head, notes, previewed }`.
+- Federated node: `slug: "<id>/<child-slug>"`, `url: "/<id>/<child-slug>"`, `federated: "<id>"`.
+- Graph root `display`: union of the children's `typeColors`, `typeLabels`, `edgeColors`
+  (present only when at least one child carried a display).
+- Subgraph copy `static/okf-subgraphs/<id>.json`: node `url`s under the mount,
+  `federatedFrom { site, node, title }`, `display` (the child's, complete).
+- Warnings: `federation/preview-empty`, `ref-drift` (mounted head ≠ `ref`), `ref-behind`
+  (remote HEAD ≠ `ref`), `child-unreachable` (no artifacts; fatal in strict mode).
+
+### Core contracts
+
+```js
+// core/lib/federation.js (pure)
+isRemoteRepo(repo) → boolean
+validateFederationConfig(federation, profile, localSlugs) → Problem[]
+federateGraph(graph, children, federation, profile, { subgraphsPath })
+   → { graph, subgraphs: [{ id, graph }], problems, warnings }
+   // children: { [id]: { graph, display?, remoteHead?, location } | { error, location } }
+absolutiseChildGraph(childGraph, "/<id>", parentRef) → copy
+
+// core/lib/mount.js (pure helpers + effectful orchestrator)
+rewriteBundleLinks(source, id), mountedNote(source, id), mountIndex(id, branding, stats), childCacheDir(cache, id, ref)
+mountSubgraphs(parentRoot, contentOut, artifactsOut, { cacheRoot, federation?, content?, log }) → { mounted }
+
+// core/bin/okf-federate.js
+okf-federate <parent-repo> <content-dir> <artifacts-dir> [--cache <dir>]
+```
+
+### Emitter options
+
+`federation` (the block), `federationArtifacts` (default `okf-federation`, relative to
+the Quartz root), `loadFederation` (injectable reader of the artifacts), `subgraphsOutput`.
+Mounted notes (`okf_federated` in frontmatter) are neither validated nor graphed by the
+parent.
