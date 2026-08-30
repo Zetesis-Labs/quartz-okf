@@ -1,4 +1,10 @@
-export { buildGraph } from "./graph.js"
+export { buildGraph, deriveInverseEdges } from "./graph.js"
+export {
+  absolutiseChildGraph,
+  federateGraph,
+  subgraphId,
+  validateFederationConfig,
+} from "./federation.js"
 export { buildResolver, conceptId } from "./resolver.js"
 export { validateDocument, validateDocuments, isReserved } from "./rules.js"
 export { extractSection, parseTopologyEdges, convertWikilinks, WIKILINK_RE } from "./topology.js"
