@@ -2,11 +2,19 @@
  * Acceso al explorador del grafo desde cualquier nota.
  *
  * Monta una previsualización y un botón que abren el explorador en un modal maximizado,
- * enfocando la nota actual. El emitter sustituye la URL, el título y el punto de montaje.
- * Se ejecuta en cada navegación del router SPA, no solo en la carga inicial.
+ * enfocando la nota actual. El emitter sustituye la URL, el título, el punto de montaje y
+ * las palabras del catálogo. Se ejecuta en cada navegación del router SPA, no solo en la
+ * carga inicial.
  */
 ;(() => {
   const URL_GRAFO = "__EXPLORER_URL__"
+  const W = __OKF_WORDING__
+
+  const fill = (tpl, vars) =>
+    tpl.replace(/\{([^}|]+)(?:\|([^|}]*)\|([^}]*))?\}/g, (_, k, one, many) => {
+      const v = vars[k.trim()] ?? ""
+      return one == null ? String(v) : `${v} ${Number(v) === 1 ? one : many}`
+    })
 
   const svgPreview = `
     <svg viewBox="0 0 200 96" aria-hidden="true">
@@ -24,7 +32,7 @@
     .okf-explorer-access .prev { position: relative; border: 1px solid var(--lightgray);
       border-radius: 8px; padding: .3rem; background: var(--light); cursor: pointer; }
     .okf-explorer-access .prev:hover, .okf-explorer-access .prev:focus-visible { border-color: var(--secondary); }
-    .okf-explorer-access .prev::after { content: "Abrir el grafo"; position: absolute; inset: 0;
+    .okf-explorer-access .prev::after { content: attr(data-open); position: absolute; inset: 0;
       display: grid; place-items: center; border-radius: 7px; font-size: .8rem; font-weight: 600;
       color: var(--light); background: rgba(0,0,0,.45); opacity: 0; transition: opacity .15s ease; }
     .okf-explorer-access .prev:hover::after, .okf-explorer-access .prev:focus-visible::after { opacity: 1; }
@@ -120,8 +128,8 @@
         <div class="bar">
           <b>__TITLE__</b>
           <span class="sp">
-            <button class="full" type="button" aria-pressed="false">Ampliar</button>
-            <button class="close" aria-label="Cerrar">✕</button>
+            <button class="full" type="button" aria-pressed="false">${W.expand}</button>
+            <button class="close" aria-label="${W.close}">✕</button>
           </span>
         </div>
       </div>`
@@ -130,7 +138,7 @@
       soltarPagina()
       m.classList.remove("open", "wide")
       const b = m.querySelector(".full")
-      if (b) { b.setAttribute("aria-pressed", "false"); b.textContent = "Ampliar" }
+      if (b) { b.setAttribute("aria-pressed", "false"); b.textContent = W.expand }
       const f = m.querySelector("iframe")
       if (f) f.remove()
     }
@@ -138,7 +146,7 @@
     full.addEventListener("click", () => {
       const wide = m.classList.toggle("wide")
       full.setAttribute("aria-pressed", String(wide))
-      full.textContent = wide ? "Reducir" : "Ampliar"
+      full.textContent = wide ? W.reduce : W.expand
     })
     m.querySelector(".close").addEventListener("click", close)
     m.addEventListener("click", (e) => { if (e.target === m) close() })
@@ -159,7 +167,7 @@
     m.classList.remove("listo")
     const wait = document.createElement("div")
     wait.className = "cargando"
-    wait.innerHTML = '<div class="sp"></div><div>Cargando el grafo…</div>'
+    wait.innerHTML = `<div class="sp"></div><div>${W.loading}</div>`
     box.appendChild(wait)
     const f = document.createElement("iframe")
     f.src = url
@@ -201,11 +209,11 @@
     host.classList.add("okf-explorer-access")
     host.innerHTML = `
       <h3>__TITLE__</h3>
-      <div class="prev" role="button" tabindex="0" aria-label="Abrir el grafo">${svgPreview}</div>
+      <div class="prev" role="button" tabindex="0" aria-label="${W.open}" data-open="${W.open}">${svgPreview}</div>
       <div class="cta">
-        <button class="open" type="button">Abrir el grafo</button>
+        <button class="open" type="button">${W.open}</button>
       </div>
-      <div class="hint" data-okf-stats>cargando…</div>`
+      <div class="hint" data-okf-stats>${W.statsLoading}</div>`
     const open = () => openModal(currentSlug())
     host.querySelector(".prev").addEventListener("click", open)
     host.querySelector(".prev").addEventListener("keydown", (e) => {
@@ -216,9 +224,9 @@
     const stats = host.querySelector("[data-okf-stats]")
     if (stats) {
       fetch("/static/okf-graph.json").then(r => r.json()).then(g => {
-        const n = (g.stats && g.stats.notes) || (g.nodes || []).length
-        const e = (g.stats && g.stats.edges) || (g.edges || []).length
-        stats.textContent = `${n} notas · ${e} relaciones tipadas`
+        const notes = (g.stats && g.stats.notes) || (g.nodes || []).length
+        const edges = (g.stats && g.stats.edges) || (g.edges || []).length
+        stats.textContent = fill(W.stats, { notes, edges })
       }).catch(() => stats.remove())
     }
   }

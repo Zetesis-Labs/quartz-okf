@@ -1,1362 +1,268 @@
 <!doctype html>
-<html lang="es">
+<html lang="__OKF_LANG__">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Explorador del grafo</title>
+<title>Graph explorer</title>
 <style>
-  :root { color-scheme: light dark; }
+  :root {
+    color-scheme: light dark;
+    --hud-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --hud-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --stage-bg: light-dark(#faf8f8, #161618);
+    --stage-fg: light-dark(#2b2b2b, #d4d4d4);
+    --hud-bg: light-dark(#ffffff, #1d1d21);
+    --hud-bg-glass: light-dark(rgba(255, 255, 255, .74), rgba(29, 29, 33, .74));
+    --hud-border: light-dark(#dfe2e8, #35363d);
+    --hud-shadow: light-dark(0 6px 24px rgba(20, 24, 32, .12), 0 8px 28px rgba(0, 0, 0, .45));
+    --hud-fg: light-dark(#1f2328, #ececf0);
+    --hud-fg-2: light-dark(#5b626d, #a3a7b0);
+    --hud-fg-3: light-dark(#8b919b, #6f737c);
+    --hud-active: light-dark(#eaeef4, #2b2d35);
+    --hud-hover: light-dark(#f2f4f8, #25272e);
+    --accent: light-dark(#2f6fb8, #8db4ec);
+    --accent-soft: light-dark(rgba(47, 111, 184, .12), rgba(141, 180, 236, .16));
+    --warn: light-dark(#b45309, #f4b860);
+    --hud-radius: 12px;
+    --hud-motion: cubic-bezier(.16, 1, .3, 1);
+  }
   html, body { height: 100%; }
-  body { margin: 0; font: 14px/1.45 -apple-system, "Segoe UI", sans-serif;
-         display: flex; flex-direction: column; overflow: hidden;
+  body { margin: 0; font: 14px/1.45 var(--hud-font); background: var(--stage-bg); color: var(--stage-fg);
+         overflow: hidden;
          /* Dentro del modal esto va en un iframe: sin contener el rebase, Firefox
             encadena la rueda a la página de detrás y el fondo se mueve al hacer zoom. */
-         overscroll-behavior: none;
-         background: light-dark(#faf8f8, #161618); color: light-dark(#2b2b2b, #d4d4d4); }
-  #stage { display: flex; flex: 1; min-height: 0; }
-  #wrap { position: relative; flex: 1; min-width: 0; min-height: 0; }
-  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+         overscroll-behavior: none; }
+  button { font: inherit; }
+  [hidden] { display: none !important; }
+
+  #stage { position: relative; width: 100%; height: 100%; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
   canvas.on-node { cursor: pointer; }
   canvas.dragging { cursor: grabbing; }
 
-  /* panel de control flotante: todo el chrome vive aquí, el lienzo queda libre */
-  #panel { position: absolute; z-index: 6; left: .9rem; bottom: .9rem; width: 19rem;
-           max-height: calc(100% - 1.8rem); display: flex; flex-direction: column;
-           border-radius: 11px; overflow: hidden;
-           background: light-dark(rgba(255,255,255,.94), rgba(26,26,30,.94));
-           border: 1px solid light-dark(#e2e2e2, #35353c);
-           box-shadow: 0 6px 22px rgba(0,0,0,.13); backdrop-filter: blur(6px); }
-  #panel .ph { display: flex; align-items: center; gap: .5rem; padding: .5rem .7rem;
-               cursor: pointer; user-select: none; flex: 0 0 auto;
-               border-bottom: 1px solid light-dark(#ececec, #303036); }
-  #panel.collapsed .ph { border-bottom: 0; }
-  #panel .ph b { font-size: .88rem; }
-  #panel .ph .chev { margin-left: auto; opacity: .6; font-size: .78rem; }
-  /* min-height:0 es imprescindible: sin él un hijo flex no se encoge por debajo de su
-     contenido y el panel se corta por abajo en lugar de hacer scroll. */
-  #panel .pb { padding: .6rem .7rem .7rem; overflow-y: auto; overscroll-behavior: contain; display: flex;
-               flex-direction: column; gap: .55rem; min-height: 0; }
-  #panel.collapsed .pb { display: none; }
-  #panel a { color: light-dark(#284b63, #84a59d); text-decoration: none; }
+  /* Todo el chrome flota sobre el lienzo. Las capas no capturan el puntero; solo las islas. */
+  #hud { position: absolute; inset: 0; pointer-events: none; }
+  .island { pointer-events: auto; background: var(--hud-bg); border: 1px solid var(--hud-border);
+            border-radius: var(--hud-radius); box-shadow: var(--hud-shadow); color: var(--hud-fg); }
+  body[data-surfaces="glass"] .island { background: var(--hud-bg-glass);
+            -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); }
+  @media (prefers-reduced-transparency: reduce) {
+    body[data-surfaces="glass"] .island { background: var(--hud-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-  fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: .25rem; flex-wrap: wrap; }
-  legend { display: none; }
-  label.pill { cursor: pointer; user-select: none; padding: .16rem .5rem; border-radius: 999px;
-               border: 1px solid light-dark(#ddd, #3d3d3d); font-size: .78rem;
-               transition: background .12s, border-color .12s; }
-  label.pill:has(input:checked) { background: light-dark(#eceff4, #26262b);
-                                  border-color: light-dark(#b9c2cf, #4a4a52); }
-  label.pill input { position: absolute; opacity: 0; pointer-events: none; }
-  .dot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; margin-right: .3em; }
-  .pill .cnt { color: light-dark(#9a9a9a, #7a7a7a); font-size: .72rem; margin-left: .18em; }
+  .dot { display: inline-block; width: .6em; height: .6em; border-radius: 50%; flex: 0 0 auto; }
+  .badge { display: inline-block; padding: 0 .4em; border-radius: 999px; font-size: .68rem; line-height: 1.5;
+           background: var(--hud-active); border: 1px dashed var(--hud-border); color: var(--hud-fg-2); white-space: nowrap; }
+  .icon { border: 0; background: none; color: var(--hud-fg-3); cursor: pointer; padding: .15rem .4rem; border-radius: 7px; line-height: 1.2; }
+  .icon:hover { background: var(--hud-hover); color: var(--hud-fg); }
 
-  #desc { font-size: .76rem; line-height: 1.45; color: light-dark(#6d6d6d, #9a9a9a); }
-  #desc b { color: light-dark(#4a4a4a, #c0c0c0); }
+  /* ---- puertas a otros grafos: pegadas al portal en el lienzo y como chips ---- */
+  #portals { position: absolute; inset: 0; pointer-events: none; z-index: 15; }
+  .portal-btn { position: absolute; pointer-events: auto; display: inline-flex; align-items: center;
+                padding: .12rem .5rem; border-radius: 999px; border: 1px solid var(--accent);
+                background: var(--hud-bg); color: var(--accent); font: 600 .72rem/1.5 var(--hud-font);
+                cursor: pointer; box-shadow: var(--hud-shadow); white-space: nowrap;
+                transition: background .15s var(--hud-motion), color .15s var(--hud-motion); }
+  .portal-btn:hover { background: var(--accent); color: var(--hud-bg); }
+  .chip.door { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .chip.door:hover { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---- arriba, centrado: omnibar, resultados, cápsula de selección ---- */
+  #top { position: absolute; top: .8rem; left: 50%; transform: translateX(-50%);
+         width: min(40rem, calc(100% - 1.6rem)); display: flex; flex-direction: column; gap: .45rem; z-index: 20;
+         transition: left .25s var(--hud-motion), width .25s var(--hud-motion); }
+  /* Con el dock abierto la omnibar se centra en lo que queda de lienzo, no debajo del dock. */
+  body.dock-open #top { left: 29%; width: min(40rem, calc(58% - 1.6rem)); }
+  #omnibar { display: flex; align-items: center; gap: .3rem; padding: .3rem .4rem .3rem .45rem;
+             transition: border-color .15s var(--hud-motion), box-shadow .15s var(--hud-motion); }
+  #omnibar:focus-within { border-color: var(--accent); box-shadow: var(--hud-shadow), 0 0 0 3px var(--accent-soft); }
+  #trail { display: flex; align-items: center; gap: .1rem; flex: 0 1 auto; min-width: 0; max-width: 58%;
+           font-size: .82rem; white-space: nowrap; }
+  /* Los ancestros ceden antes que el nivel actual: lo que importa es dónde se está. */
+  #trail .lvl { border: 0; background: none; color: var(--hud-fg-2); padding: .12rem .35rem; border-radius: 7px;
+                cursor: pointer; flex: 0 4 auto; min-width: 2.6rem; overflow: hidden; text-overflow: ellipsis; }
+  #trail .lvl:hover { background: var(--hud-hover); color: var(--hud-fg); }
+  #trail .cur { font-weight: 650; color: var(--hud-fg); padding: .12rem .35rem; flex: 0 1 auto; min-width: 6rem;
+                overflow: hidden; text-overflow: ellipsis; }
+  #trail .sep { color: var(--hud-fg-3); }
+  #trail .scope { flex: 0 0 auto; margin-left: .2rem; font: 600 .68rem/1.6 var(--hud-mono); letter-spacing: .02em;
+                  border: 1px solid var(--hud-border); border-radius: 999px; padding: 0 .45rem;
+                  background: transparent; color: var(--hud-fg-2); cursor: pointer; }
+  #trail .scope:hover { background: var(--hud-hover); }
+  #trail .scope.active { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+  #q { flex: 1; min-width: 5rem; border: 0; background: transparent; color: inherit; font: inherit;
+       font-size: .9rem; padding: .25rem .3rem; outline: none; }
+  #q::placeholder { color: var(--hud-fg-3); }
+  #q::-webkit-search-cancel-button { display: none; }
+
+  #results { max-height: min(22rem, 50vh); overflow-y: auto; overscroll-behavior: contain; padding: .3rem; }
+  #results .hd { font-size: .72rem; color: var(--hud-fg-3); padding: .25rem .55rem; }
+  #results .hd.warn { color: var(--warn); }
+  #results .row { display: flex; align-items: baseline; gap: .45rem; width: 100%; padding: .32rem .55rem;
+                  border: 0; background: none; color: inherit; font-size: .84rem; text-align: left;
+                  border-radius: 8px; cursor: pointer; }
+  #results .row:hover, #results .row.hi { background: var(--hud-active); }
+  #results .row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #results .row .kind { margin-left: auto; font-size: .72rem; color: var(--hud-fg-3); white-space: nowrap; }
+
+  #sel { padding: .45rem .65rem; font-size: .82rem; line-height: 1.55; max-height: 30vh; overflow-y: auto; overscroll-behavior: contain; }
+  #sel .hd { display: flex; align-items: center; gap: .45rem; }
+  #sel .hd .ttl { font-weight: 700; flex: 1; min-width: 0; }
+  #sel .chip { flex: 0 0 auto; }
+  #sel .grp { color: var(--hud-fg-2); }
+  #sel .grp b { color: var(--hud-fg); font-weight: 600; }
+  #sel .grp a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  #sel .grp a:hover { text-decoration: underline; }
+  #sel .sep { color: var(--hud-fg-3); margin: 0 .35rem; }
+
+  /* ---- abajo a la izquierda: pila de islas ---- */
+  #stack { position: absolute; left: .8rem; bottom: .8rem; width: 17rem; max-height: calc(100% - 1.6rem);
+           display: flex; flex-direction: column; justify-content: flex-end; gap: .5rem; z-index: 20; }
+  #brand { display: flex; align-items: center; gap: .5rem; padding: .45rem .7rem; }
+  #brand b { font-size: .88rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #brand a { color: var(--hud-fg-2); text-decoration: none; font-size: .78rem; white-space: nowrap; }
+  #brand a:hover { color: var(--accent); }
+  body.framed #brand a { display: none; }
+  #views, #filters { padding: .45rem .5rem; display: flex; flex-direction: column; gap: .35rem; }
+  #views { max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; }
+  .chips { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
+  .chip { display: inline-flex; align-items: center; gap: .35rem; padding: .18rem .55rem; border-radius: 999px;
+          border: 1px solid var(--hud-border); background: transparent; color: var(--hud-fg-2);
+          font-size: .78rem; cursor: pointer; max-width: 100%;
+          transition: background .15s var(--hud-motion), border-color .15s var(--hud-motion); }
+  .chip:hover { background: var(--hud-hover); color: var(--hud-fg); }
+  .chip[aria-pressed="true"] { background: var(--hud-active); border-color: transparent; color: var(--hud-fg); font-weight: 600; }
+  .chip .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .sub { font: 600 .68rem/1 var(--hud-mono); color: var(--hud-fg-3); }
+  .chip.warn .sub { color: var(--warn); }
+  .chip .arr { color: var(--hud-fg-3); }
+  .chip.mini { padding: .08rem .45rem; font-size: .72rem; }
+  #desc { font-size: .76rem; line-height: 1.45; color: var(--hud-fg-2); padding: .1rem .25rem 0; }
+  #desc b { color: var(--hud-fg); }
   #desc code { font-size: .95em; }
+  #filters .foot { display: flex; align-items: center; gap: .3rem; font-size: .72rem; color: var(--hud-fg-3); padding: 0 .2rem; }
+  #filters .foot #stats { flex: 1; font-family: var(--hud-mono); }
 
-  input[type=search] { width: 100%; box-sizing: border-box; padding: .3rem .6rem;
-                       border: 1px solid light-dark(#ccc, #444); border-radius: 999px;
-                       background: transparent; color: inherit; font: inherit; font-size: .82rem; }
-  input[type=search]:focus { outline: 2px solid light-dark(#b9c2cf, #4a4a52); outline-offset: 1px; }
-  /* los resultados van en el flujo del panel: dentro de un contenedor con scroll,
-     un desplegable absoluto quedaría recortado */
-  #results { display: none; margin-top: .35rem; max-height: 13rem; overflow-y: auto; overscroll-behavior: contain;
-             border: 1px solid light-dark(#e6e6e6, #35353c); border-radius: 8px; }
-  #results button { display: flex; gap: .4rem; align-items: baseline; width: 100%;
-                    padding: .3rem .5rem; background: none; border: 0; color: inherit;
-                    cursor: pointer; text-align: left; font: inherit; font-size: .78rem; }
-  #results button:hover { background: light-dark(#eef1f6, #2b2b31); }
-  #results .nm { font-weight: 600; }
-  #results .kind { margin-left: auto; font-size: .72rem; color: light-dark(#9a9a9a, #7a7a7a); }
+  /* ---- menú lateral de tipos / relaciones ---- */
+  #side { position: absolute; left: calc(17rem + 1.4rem); bottom: .8rem; width: 16rem;
+          max-height: min(60vh, calc(100% - 1.6rem)); display: flex; flex-direction: column; z-index: 30; }
+  #side .hd { display: flex; align-items: center; gap: .3rem; padding: .4rem .5rem .4rem .7rem;
+              border-bottom: 1px solid var(--hud-border); font-size: .8rem; font-weight: 650; }
+  #side .hd .sp { flex: 1; }
+  #side .rows { overflow-y: auto; overscroll-behavior: contain; padding: .3rem; }
+  #side label.row { display: flex; align-items: center; gap: .45rem; padding: .28rem .45rem; border-radius: 8px;
+                    cursor: pointer; font-size: .8rem; user-select: none; }
+  #side label.row:hover { background: var(--hud-hover); }
+  #side label.row input { margin: 0; accent-color: var(--accent); }
+  #side label.row .lb { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #side label.row.off .lb { color: var(--hud-fg-3); }
+  #side label.row .cnt { font: .7rem/1 var(--hud-mono); color: var(--hud-fg-3); }
+  #side .lg { border-top: 1px solid var(--hud-border); padding: .4rem .7rem .5rem; font-size: .76rem;
+              color: var(--hud-fg-2); display: flex; flex-direction: column; gap: .15rem; }
+  #side .lg .lt { font-weight: 650; color: var(--hud-fg); }
+  #side .lg span { display: flex; align-items: center; gap: .35rem; }
 
-  #legend { display: none; flex-direction: column; gap: .16rem; font-size: .76rem;
-            line-height: 1.4; color: light-dark(#5d5d5d, #a0a0a0); }
-  #legend .lt { font-weight: 650; color: light-dark(#4a4a4a, #c0c0c0); }
-
-  .pf { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
-  .btn { padding: .2rem .6rem; border-radius: 999px; cursor: pointer; color: inherit;
-         border: 1px solid light-dark(#ddd, #3d3d3d); background: transparent;
-         font: inherit; font-size: .78rem; text-decoration: none; }
-  .btn:hover { background: light-dark(#eceff4, #26262b); }
-  #stats { margin-left: auto; color: light-dark(#8a8a8a, #7a7a7a); font-size: .74rem; }
-
-  /* Rastro de grafos, encima de todo: de dónde se ha entrado hasta aquí. Cada nivel
-     anterior es un enlace que devuelve a ese grafo; el actual va en negrita. Solo
-     aparece dentro de un subgrafo: en el grafo de partida no hay camino que mostrar. */
-  #trail { display: none; align-items: center; flex-wrap: wrap; gap: .2rem .45rem;
-           padding: .4rem 1rem; font-size: .88rem; line-height: 1.4;
-           background: light-dark(rgba(236,239,244,.96), rgba(30,30,34,.96));
-           border-bottom: 1px solid light-dark(#dfe3ea, #34343a); backdrop-filter: blur(3px); }
-  #trail.on { display: flex; }
-  #trail .lvl { color: light-dark(#284b63, #84a59d); text-decoration: none; }
-  #trail a.lvl:hover { text-decoration: underline; }
-  #trail .cur { color: inherit; font-weight: 700; }
-  #trail .sep { color: light-dark(#9a9a9a, #666); }
-  #trail .hint { margin-left: auto; font-size: .76rem; color: light-dark(#6d6d6d, #9a9a9a); }
-  #graph-back { padding: 0 .55rem; line-height: 1.35; font-size: 1rem; flex: 0 0 auto; }
-  .badge { display: inline-block; padding: 0 .4em; border-radius: 999px; font-size: .68rem;
-           line-height: 1.5; background: light-dark(#eceff4, #26262b);
-           border: 1px dashed light-dark(#b9c2cf, #4a4a52); color: light-dark(#5d5d5d, #a0a0a0); }
-  #results .badge { margin-left: .2rem; }
-
-  #topbars { position: absolute; z-index: 5; left: 0; right: 0; top: 0;
-             display: flex; flex-direction: column; pointer-events: none; }
-  #topbars > * { pointer-events: auto; }
-  #crumb { display: none; padding: .45rem 1rem; font-size: .82rem; line-height: 1.5;
-           max-height: 4.6rem; overflow-y: auto; overscroll-behavior: contain;
-           background: light-dark(rgba(250,248,248,.94), rgba(22,22,24,.94));
-           border-bottom: 1px solid light-dark(#e5e5e5, #333); backdrop-filter: blur(3px); }
-  #crumb .sel { font-weight: 700; }
-  #crumb b { font-weight: 600; color: light-dark(#5d5d5d, #b0b0b0); }
-  #crumb a { color: light-dark(#284b63, #84a59d); text-decoration: none; }
-  #crumb a:hover { text-decoration: underline; }
-  #crumb .sep { color: light-dark(#bbb, #555); margin: 0 .45rem; }
-
-  #tip { position: absolute; pointer-events: none; z-index: 7;
-         background: light-dark(#ffffff, #222226);
-         border: 1px solid light-dark(#e2e2e2, #3c3c42); border-radius: 8px; padding: .45rem .65rem;
-         font-size: .85rem; box-shadow: 0 4px 16px rgba(0,0,0,.18); display: none; max-width: 340px; }
-  #tip b { color: light-dark(#1d1d1d, #f0f0f0); }
-  #tip small { color: light-dark(#7a7a7a, #9a9a9a); }
-  #tip .pv { margin-top: .3rem; padding-top: .3rem; border-top: 1px solid light-dark(#eee, #3a3a40);
-             font-size: .78rem; line-height: 1.35; color: light-dark(#5d5d5d, #b0b0b0); }
-
-  #peek { display: none; flex: 0 0 42%; min-width: 22rem; max-width: 46rem;
-          border-left: 1px solid light-dark(#e0e0e0, #333); flex-direction: column;
-          background: light-dark(#ffffff, #1a1a1c); }
-  #peek.open { display: flex; }
-  #peek header { display: flex; align-items: stretch; gap: .4rem; padding: .35rem .5rem;
-                 border-bottom: 1px solid light-dark(#e8e8e8, #303035); min-height: 2.1rem; }
-  #peek .tabs { display: flex; gap: .25rem; overflow-x: auto; overscroll-behavior: contain; flex: 1; min-width: 0;
-                scrollbar-width: thin; }
-  #peek .tab { display: flex; align-items: center; gap: .35rem; padding: .2rem .5rem;
-               border-radius: 7px; cursor: pointer; font-size: .8rem; max-width: 14rem;
-               border: 1px solid transparent; color: light-dark(#5d5d5d, #a0a0a0);
+  /* ---- dock de lectura: flota a la derecha, no estrecha el lienzo ---- */
+  #dock { position: absolute; top: .8rem; right: .8rem; bottom: .8rem; width: min(42%, 46rem); min-width: 22rem;
+          display: flex; flex-direction: column; overflow: hidden; z-index: 25; }
+  #dock header { display: flex; align-items: stretch; gap: .4rem; padding: .35rem .5rem;
+                 border-bottom: 1px solid var(--hud-border); min-height: 2.1rem; }
+  #dock .tabs { display: flex; gap: .25rem; overflow-x: auto; overscroll-behavior: contain; flex: 1; min-width: 0; scrollbar-width: thin; }
+  #dock .tab { display: flex; align-items: center; gap: .35rem; padding: .2rem .5rem; border-radius: 7px; cursor: pointer;
+               font-size: .8rem; max-width: 14rem; border: 1px solid transparent; color: var(--hud-fg-2);
                white-space: nowrap; flex: 0 0 auto; }
-  #peek .tab:hover { background: light-dark(#f0f0f2, #26262b); }
-  #peek .tab.active { background: light-dark(#eceff4, #26262b);
-                      border-color: light-dark(#d8dde5, #3c3c44);
-                      color: light-dark(#1d1d1d, #f0f0f0); font-weight: 600; }
-  #peek .tab .nm { overflow: hidden; text-overflow: ellipsis; }
-  #peek .tab.temp .nm { font-style: italic; }
-  #peek .tab .pin { opacity: .35; font-size: .85em; padding: 0 .1rem; border-radius: 4px; }
-  #peek .tab .pin:hover { opacity: 1; background: light-dark(#dcdce0, #3a3a42); }
-  #peek .tab.pinned .pin { opacity: .9; }
-  #peek .tab .x { opacity: .5; font-size: .9em; padding: 0 .1rem; border-radius: 4px; }
-  #peek .tab .x:hover { opacity: 1; background: light-dark(#dcdce0, #3a3a42); }
-  #peek .tab .tdot { width: .55em; height: .55em; border-radius: 50%; flex: 0 0 auto; }
-  #peek .acts { display: flex; gap: .3rem; align-items: center; flex: 0 0 auto; }
-  #peek .frames { position: relative; flex: 1; min-height: 0; }
-  /* Una sola regla para los iframes: la anterior (`#peek iframe { flex: 1 }`) venía de
-     cuando había uno solo en flujo flex y competía con esta, dejándolos sin altura.
-     Se fija width/height además de la posición para no depender de cómo se resuelva
-     `inset` en un elemento reemplazado. */
-  #peek .frames iframe { position: absolute; inset: 0; width: 100%; height: 100%;
-                         border: 0; background: transparent; display: none; }
-  #peek .frames iframe.active { display: block; }
+  #dock .tab:hover { background: var(--hud-hover); }
+  #dock .tab.active { background: var(--hud-active); border-color: var(--hud-border); color: var(--hud-fg); font-weight: 600; }
+  #dock .tab .nm { overflow: hidden; text-overflow: ellipsis; }
+  #dock .tab.temp .nm { font-style: italic; }
+  #dock .tab .pin { opacity: .35; font-size: .85em; padding: 0 .1rem; border-radius: 4px; }
+  #dock .tab .pin:hover { opacity: 1; background: var(--hud-active); }
+  #dock .tab.pinned .pin { opacity: .9; }
+  #dock .tab .x { opacity: .5; font-size: .9em; padding: 0 .1rem; border-radius: 4px; }
+  #dock .tab .x:hover { opacity: 1; background: var(--hud-active); }
+  #dock .tab .tdot { width: .55em; height: .55em; border-radius: 50%; flex: 0 0 auto; }
+  #dock .acts { display: flex; gap: .3rem; align-items: center; flex: 0 0 auto; }
+  #dock .frames { position: relative; flex: 1; min-height: 0; }
+  /* Una sola regla para los iframes: se fija width/height además de la posición para no
+     depender de cómo se resuelva `inset` en un elemento reemplazado. */
+  #dock .frames iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; display: none; }
+  #dock .frames iframe.active { display: block; }
+
+  #tip { position: absolute; pointer-events: none; z-index: 50; background: var(--hud-bg);
+         border: 1px solid var(--hud-border); border-radius: 8px; padding: .45rem .65rem;
+         font-size: .85rem; box-shadow: var(--hud-shadow); display: none; max-width: 340px; color: var(--hud-fg); }
+  #tip b { color: var(--hud-fg); }
+  #tip small { color: var(--hud-fg-2); }
+  #tip .pv { margin-top: .3rem; padding-top: .3rem; border-top: 1px solid var(--hud-border);
+             font-size: .78rem; line-height: 1.35; color: var(--hud-fg-2); }
+
   @media (max-width: 900px) {
-    #peek.open { position: absolute; inset: 0; flex: 1 1 auto; max-width: none; z-index: 40; }
-    #panel { width: auto; right: .9rem; }
+    #top, body.dock-open #top { left: 50%; width: calc(100% - 1rem); top: .5rem; }
+    /* En estrecho la miga va en su propia línea y la caja de búsqueda debajo, a todo el ancho. */
+    #omnibar { flex-wrap: wrap; }
+    #trail { max-width: 100%; flex: 1 1 100%; }
+    #q { flex: 1 1 auto; }
+    #stack { width: calc(100% - 1.6rem); }
+    #side { left: .8rem; right: .8rem; width: auto; bottom: auto; top: 3.6rem; max-height: 50vh; }
+    #dock { inset: 0; width: auto; min-width: 0; border-radius: 0; }
   }
 </style>
 </head>
 <body>
 <div id="stage">
-  <div id="wrap">
-    <canvas id="c"></canvas>
-    <div id="topbars">
-      <nav id="trail" aria-label="Grafos">
-        <button class="btn" id="graph-back" title="Volver al grafo anterior" aria-label="Volver al grafo anterior">‹</button>
-        <span class="path"></span>
-        <span class="hint">Volver: ‹, el nivel anterior o el botón atrás del navegador</span>
-      </nav>
-      <div id="crumb"></div>
-    </div>
-    <div id="panel">
-      <div class="ph">
-        <b id="ptitle">Grafo</b>
-        <a id="pback" href="/" onclick="event.stopPropagation()">←</a>
-        <span class="chev">▾</span>
+  <canvas id="c"></canvas>
+  <div id="hud">
+    <div id="portals"></div>
+    <div id="top">
+      <div id="omnibar" class="island">
+        <nav id="trail"></nav>
+        <input id="q" type="search" autocomplete="off" spellcheck="false">
+        <button id="q-clear" class="icon" type="button" hidden>✕</button>
       </div>
-      <div class="pb">
-        <fieldset id="mode"><legend>Modo</legend></fieldset>
-        <div id="desc"></div>
-        <div id="qbox">
-          <input type="search" id="q" placeholder="Buscar nota…" autocomplete="off">
-          <div id="results"></div>
+      <div id="results" class="island" hidden></div>
+      <div id="sel" class="island" hidden></div>
+    </div>
+    <aside id="stack">
+      <section id="brand" class="island"><b id="ptitle"></b><a id="pback" href="/"></a></section>
+      <section id="views" class="island" hidden>
+        <div class="chips" id="doors" hidden></div>
+        <div class="chips" id="mode"></div>
+        <div id="desc" hidden></div>
+      </section>
+      <section id="filters" class="island" hidden>
+        <div class="chips">
+          <button class="chip" id="f-types" type="button"><span class="tx"></span><span class="sub"></span><span class="arr">›</span></button>
+          <button class="chip" id="f-edges" type="button"><span class="tx"></span><span class="sub"></span><span class="arr">›</span></button>
         </div>
-        <fieldset id="kinds"><legend>Tipos</legend></fieldset>
-        <fieldset id="edges"><legend>Relaciones</legend></fieldset>
-        <div id="legend"></div>
-        <div class="pf">
-          <button class="btn" id="fit">Encajar</button>
-          <button class="btn" id="reset">Limpiar</button>
+        <div class="foot">
           <span id="stats"></span>
+          <button class="chip mini" id="fit" type="button"></button>
+          <button class="chip mini" id="reset" type="button"></button>
         </div>
-      </div>
-    </div>
+      </section>
+    </aside>
+    <div id="side" class="island" hidden></div>
+    <aside id="dock" class="island" hidden>
+      <header>
+        <div class="tabs" role="tablist"></div>
+        <span class="acts">
+          <button class="chip mini" id="peek-dive" type="button" hidden></button>
+          <a class="chip mini" id="peek-open" href="#" target="_blank" rel="noopener"></a>
+          <button class="icon" id="peek-close" type="button">✕</button>
+        </span>
+      </header>
+      <div class="frames"></div>
+    </aside>
     <div id="tip"></div>
   </div>
-  <aside id="peek">
-    <header>
-      <div class="tabs" role="tablist"></div>
-      <span class="acts">
-        <button class="btn" id="peek-dive" hidden>Explorar subgrafo ↘</button>
-        <a class="btn" id="peek-open" href="#" target="_blank" rel="noopener">Abrir</a>
-        <button class="btn" id="peek-close" aria-label="Cerrar panel">✕</button>
-      </span>
-    </header>
-    <div class="frames"></div>
-  </aside>
 </div>
 
 <script src="/static/d3.v7.9.0.min.js"></script>
 <script>
-// Configuración del consumidor: el emitter la inyecta desde `explorer` de okf.config.mjs.
-// El motor no conoce ningún dominio; todo el vocabulario visible viene de aquí.
-// La configuración va incrustada aquí, no en un `window.OKF_EXPLORER` que ponga otro
-// script: el router SPA de Quartz reemplaza el cuerpo con micromorph y los scripts del
-// cuerpo no se re-ejecutan, así que un segundo script se pierde al llegar navegando y el
-// explorador arrancaba con los valores por defecto —otro grafo, otros modos, otro título—.
-const CFG = __OKF_EXPLORER_CONFIG__;
-const PALETTE = ["#4c7ecf", "#4caf7c", "#e08a3c", "#c2544d", "#9a6fbf", "#3fa3a3",
-                 "#b58b6a", "#8a8a8a", "#7f93ad", "#c9b04a"];
-
-const COLORS = CFG.typeColors || {};
-const TYPE_LABEL = CFG.typeLabels || {};
-const KNOWLEDGE = CFG.knowledgeTypes || [];
-const MODES = (CFG.modes && CFG.modes.length) ? CFG.modes : [
-  { id: "full", label: "Grafo completo", edges: "*",
-    desc: "<b>El grafo entero, con sus relaciones tipadas.</b>" },
-];
-// Colores de relación: los declara el consumidor o se reparten de la paleta, de modo que
-// un profile con otro vocabulario de edges sigue teniendo una leyenda coherente.
-const EDGE_COLORS = Object.assign({}, CFG.edgeColors);
-const EDGE_LABEL = {};
-
-// Dentro de un subgrafo los modos del consumidor no aplican: filtran por etiquetas y
-// tipos de SU corpus, y aplicados al hijo dejarían el lienzo vacío sin explicación.
-// Ahí se dibuja todo, con las pastillas de tipo y relación como único filtro.
-const MODO_COMPLETO = { id: "__todo__", label: "Grafo completo", edges: "*", desc: "" };
-const modeById = (id) =>
-  id === MODO_COMPLETO.id ? MODO_COMPLETO : (MODES.find(m => m.id === id) || MODES[0]);
-const DESC = Object.fromEntries(MODES.map(m => [m.id, m.desc || ""]));
-
-// Un modo puede preguntar sobre otro corpus: declara su propio `graph` y el motor lo carga
-// la primera vez que se usa. El del bloque `graphInput` es el de partida.
-const GRAFO_BASE = CFG.graphUrl || "/static/okf-graph.json";
-const grafoDe = (m) => (m && m.graph ? (m.graph[0] === "/" ? m.graph : "/" + m.graph) : GRAFO_BASE);
-const CACHE_GRAFOS = new Map();
-
-function indexar(raw) {
-  // okf-graph/v1 -> modelo interno. El bundle ya resuelve alias, deriva inversas y marca
-  // las aristas `derived`, así que aquí solo se indexa y se reparte color a los edges.
-  // Un grafo federado trae el vocabulario visible de sus hijos: sirve de relleno para
-  // los tipos y relaciones que el consumidor no declaró, nunca por encima de lo suyo.
-  const relleno = raw.display || {};
-  for (const [t, c] of Object.entries(relleno.typeColors || {})) if (!COLORS[t]) COLORS[t] = c;
-  for (const [t, l] of Object.entries(relleno.typeLabels || {})) if (!TYPE_LABEL[t]) TYPE_LABEL[t] = l;
-  for (const [k, c] of Object.entries(relleno.edgeColors || {})) if (!EDGE_COLORS[k]) EDGE_COLORS[k] = c;
-  const labels = raw.edgeLabels || [...new Set((raw.edges || []).map(e => e.label))];
-  labels.forEach((lab, i) => {
-    EDGE_LABEL[lab] = lab;
-    if (!EDGE_COLORS[lab]) EDGE_COLORS[lab] = PALETTE[i % PALETTE.length];
-  });
-  (raw.types || []).forEach((ty, i) => {
-    if (!COLORS[ty]) COLORS[ty] = PALETTE[i % PALETTE.length];
-    if (!TYPE_LABEL[ty]) TYPE_LABEL[ty] = ty;
-  });
-
-  const nodes = {};
-  for (const n of raw.nodes || []) {
-    // okf-graph/v1 identifica los nodos por `slug`.
-    const id = n.slug || n.id;
-    nodes[id] = {
-      type: n.type || "unknown",
-      title: n.title || id,
-      // Lo que se dibuja junto al nodo. Un corpus con identificadores cortos —un código,
-      // una signatura— quiere verlos ahí; el título largo se reserva para la ficha.
-      label: n.label || n.title || id,
-      desc: n.description || n.desc || "",
-      url: n.url || ("/" + id),
-      properties: n.properties || {},
-      // Un nodo-portal representa otro grafo entero; un nodo federado es una nota de
-      // otro corpus que este ha decidido mostrar. Los marca el emitter, no el consumidor.
-      subgraph: n.subgraph || null,
-      federated: n.federated || null,
-      counts: {},
-      indeg: 0,
-    };
-  }
-  const edges = [];
-  for (const e of raw.edges || []) {
-    if (!e.target || !nodes[e.source] || !nodes[e.target]) continue;
-    edges.push({ s: e.source, t: e.target, k: e.label, derived: Boolean(e.derived) });
-    nodes[e.source].counts[e.label] = (nodes[e.source].counts[e.label] || 0) + 1;
-    nodes[e.target].indeg += 1;
-  }
-  return { nodes, edges, title: raw.site || "", federatedFrom: raw.federatedFrom || null,
-           display: raw.display || null };
-}
-
-async function cargarGrafo(url) {
-  if (!CACHE_GRAFOS.has(url)) {
-    CACHE_GRAFOS.set(url, fetch(url).then(r => r.json()).then(indexar));
-  }
-  return CACHE_GRAFOS.get(url);
-}
-
-cargarGrafo(GRAFO_BASE).then(inicial => {
-  let data = inicial;
-
-  const canvas = document.getElementById("c"), tip = document.getElementById("tip");
-  const stats = document.getElementById("stats"), results = document.getElementById("results");
-  const q = document.getElementById("q"), legend = document.getElementById("legend");
-  let sim = null;
-  let W, H; const ctx = canvas.getContext("2d");
-  function resize() {
-    const ancho = canvas.clientWidth, alto = canvas.clientHeight;
-    const dx = W == null ? 0 : (ancho - W) / 2, dy = H == null ? 0 : (alto - H) / 2;
-    W = ancho; H = alto;
-    // devicePixelRatio se lee en cada redimensión, no una sola vez al cargar: cambia al
-    // usar el zoom del navegador y al arrastrar la ventana a una pantalla con otra escala.
-    // Capturado al inicio, el bitmap se queda con la escala vieja y el puntero deja de
-    // coincidir con lo dibujado.
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (dx || dy) recentrar(dx, dy);
-  }
-  // Las fuerzas de centrado guardan W/2 y H/2 como números fijos al construirse: sin
-  // reasignarlas, al agrandar la ventana el grafo sigue tirando del centro anterior.
-  // Pero NO se recalienta la simulación para conseguirlo: el ResizeObserver del lienzo
-  // salta también cuando aparece la barra de relaciones o cambia la leyenda —o sea, al
-  // pasar el ratón—, y relanzar el layout en cada gesto reordenaba el grafo entero
-  // delante del lector y lo hacía sentirse lento hasta que dejaba de tocar nada.
-  // Se traslada lo ya colocado por la mitad de lo que creció el lienzo, que es
-  // instantáneo y deja el dibujo donde el lector lo tenía.
-  function recentrar(dx, dy) {
-    if (!sim) return;
-    const fx = sim.force("x"), fy = sim.force("y"), fr = sim.force("radial");
-    if (fx) fx.x(W / 2);
-    if (fy) fy.y(H / 2);
-    if (fr) fr.x(W / 2).y(H / 2);
-    if (!graph) return;
-    for (const n of graph.nodes) {
-      n.x += dx; n.y += dy;
-      if (n.fx != null) n.fx += dx;
-      if (n.fy != null) n.fy += dy;
-    }
-  }
-  // Redimensionar no reencuadra: mover la cámara es decisión del lector, con «Encajar».
-  window.addEventListener("resize", () => { resize(); tick(); });
-  // El canvas también cambia de alto cuando aparece la barra de relaciones, cambia la
-  // leyenda o la descripción del modo ocupa otra línea. Sin observarlo, canvas.width/height
-  // se quedan con el valor anterior, el navegador escala el bitmap y el puntero deja de
-  // coincidir en vertical con lo dibujado.
-  new ResizeObserver(() => { resize(); tick(); }).observe(canvas);
-
-  let N = data.nodes;
-  let urlActual = GRAFO_BASE;
-  // Prioridad de los resultados de búsqueda. Qué tipo interesa antes es cosa del corpus:
-  // en una biblioteca la síntesis va delante de la ficha; en un catálogo, al revés.
-  let KIND_ORDER = CFG.typeOrder || CFG.knowledgeTypes || [];
-  // Pila de grafos: cada entrada es el grafo del que se entró a un subgrafo y el nodo
-  // que se estaba mirando, para volver exactamente ahí.
-  const pila = [];
-  const enSubgrafo = () => pila.length > 0;
-  // Id del subgrafo en pantalla (null en el grafo de partida).
-  let idActual = null;
-
-  // Radio del nodo. Un grafo jerárquico no se lee por grado de entrada sino por rango: una
-  // raíz es grande porque es la raíz, no porque tenga muchos hijos. `radius` permite fijarlo
-  // desde el tipo o desde una propiedad; el grado de entrada queda como recurso por defecto
-  // para corpus sin jerarquía declarada.
-  // Tensión del muelle por etiqueta de relación. Es lo que da forma: una jerarquía se lee
-  // cuando sus aristas son cortas y firmes y las transversales, largas y flojas. Qué
-  // relación es cuál lo sabe el consumidor, no el motor.
-  const LAYOUT = Object.assign({ charge: -70, gravity: 0.05 }, CFG.layout || {});
-  const LINKS = LAYOUT.link || {};
-  const LINK_DEF = Object.assign({ distance: 34, strength: 0.5 }, LINKS["*"] || {});
-  function linkForce(l) {
-    return LINKS[l.kind] ? Object.assign({}, LINK_DEF, LINKS[l.kind]) : LINK_DEF;
-  }
-
-  // Anillo de cada tipo, en fracción del radio disponible: 0 es el centro, 1 el borde.
-  const RING = LAYOUT.radial && LAYOUT.radial.byType
-    ? Object.assign({ strength: 0.7 }, LAYOUT.radial)
-    : null;
-  function ringOf(n) {
-    if (!RING) return null;
-    const f = RING.byType[n.type];
-    return f == null ? null : f * Math.min(W, H) * 0.5 * (RING.scale ?? 0.94);
-  }
-
-  const RADIUS = CFG.radius || null;
-  function sizeOf(n) {
-    if (RADIUS) {
-      if (RADIUS.byType && RADIUS.byType[n.type] != null) return RADIUS.byType[n.type];
-      if (RADIUS.property && RADIUS.map) {
-        const v = readPath(n.properties, RADIUS.property);
-        if (v != null && RADIUS.map[v] != null) return RADIUS.map[v];
-      }
-      if (RADIUS.default != null) return RADIUS.default;
-    }
-    const sb = modeById(curMode).sizeBy;
-    if (sb) {
-      if (sb.countEdge) return 4 + Math.min(9, (n.counts[sb.countEdge] || 0) * 0.8);
-      if (sb.indegree) return 4.5 + Math.min(9, (n.indeg || 0) * 0.22);
-    }
-    return 4.2 + Math.min(6, (n.indeg || 0) * 0.22);
-  }
-  function scaleOf(value, scale) {
-    return scale.find(s => value <= (s.max ?? Infinity)) || scale[scale.length - 1];
-  }
-  function readPath(obj, path) {
-    return String(path).split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
-  }
-  function fillOf(n) {
-    const cb = modeById(curMode).colorBy;
-    if (cb) {
-      if (cb.countEdge && (!KNOWLEDGE.length || KNOWLEDGE.includes(n.type))) {
-        return scaleOf(n.counts[cb.countEdge] || 0, cb.scale || []).color || "#888";
-      }
-      if (cb.property) {
-        const v = readPath(n.properties, cb.property);
-        if (v != null && cb.map && cb.map[v]) return cb.map[v].color || cb.map[v];
-        // Un nodo al que la clasificación no llega no es un nodo de valor desconocido:
-        // suele ser un agregador, y el modo puede querer distinguirlo del resto. Se acota
-        // por tipo cuando solo algunos deben teñirse —una raíz sintética no es un hueco—.
-        if (cb.fallback) {
-          const fb = typeof cb.fallback === "string" ? cb.fallback : cb.fallback[n.type];
-          if (fb) return fb;
-        }
-      }
-    }
-    return COLORS[n.type] || "#888";
-  }
-
-  // Pastillas de grupo, con el recuento del modo actual. El grupo es el tipo de nodo,
-  // salvo que el modo coloree por una propiedad: entonces agrupa por ella (ver build).
-  function renderKinds(counts, meta) {
-    const box = document.getElementById("kinds");
-    const prev = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
-    box.innerHTML = "";
-    for (const [t, c] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
-      const on = prev.size ? prev.has(t) : true;
-      const g = (meta && meta[t]) || { color: COLORS[t], label: TYPE_LABEL[t] || t };
-      const l = document.createElement("label"); l.className = "pill";
-      l.innerHTML = `<input type="checkbox" value="${t}" ${on ? "checked" : ""}>` +
-        `<span class="dot" style="background:${g.color}"></span>${g.label}` +
-        `<span class="cnt">${c}</span>`;
-      l.querySelector("input").addEventListener("change", () => restart(false));
-      box.appendChild(l);
-    }
-  }
-  // Las pastillas de relación aparecen cuando el modo deja más de una etiqueta a la vista;
-  // si el modo ya fija una sola, no hay nada que filtrar. build() lo decide y pasa {} para
-  // ocultarlas: el motor no puede depender de que un modo se llame de una forma concreta.
-  function renderEdges(counts) {
-    const box = document.getElementById("edges");
-    const any = Object.keys(counts).length > 0;
-    box.style.display = any ? "flex" : "none";
-    if (!any) { box.innerHTML = ""; return; }
-    const prev = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
-    const had = box.querySelector("input") !== null;
-    box.innerHTML = "";
-    for (const [k, c] of Object.entries(counts).sort((a, b) => b[1] - a[1])) {
-      const on = had ? prev.has(k) : true;
-      const l = document.createElement("label"); l.className = "pill";
-      l.innerHTML = `<input type="checkbox" value="${k}" ${on ? "checked" : ""}>` +
-        `<span class="dot" style="background:${EDGE_COLORS[k]}"></span>${EDGE_LABEL[k] || k}` +
-        `<span class="cnt">${c}</span>`;
-      l.querySelector("input").addEventListener("change", () => restart(false));
-      box.appendChild(l);
-    }
-  }
-
-  // Las pastillas de modo salen de la configuración, no del marcado. Se vuelven a
-  // pintar al entrar en un subgrafo, que trae sus propios modos.
-  function renderModes(activeId) {
-    const box = document.getElementById("mode");
-    const active = MODES.some(m => m.id === activeId) ? activeId : MODES[0].id;
-    box.innerHTML = MODES.map(m =>
-      `<label class="pill"><input type="radio" name="m" value="${m.id}"` +
-      `${m.id === active ? " checked" : ""}>${m.label}</label>`).join("");
-    box.querySelectorAll("input").forEach(i => i.addEventListener("change", cambiarModo));
-    box.style.display = MODES.length > 1 ? "" : "none";
-  }
-
-  // El panel entero se pliega con un clic en su cabecera; la preferencia persiste.
-  const PANEL_KEY = "okf:explorer:panel";
-  const LEGEND_KEY = "okf:explorer:legend";
-  let legendOpen = localStorage.getItem(LEGEND_KEY) !== "0";
-  const panel = document.getElementById("panel");
-  panel.classList.toggle("collapsed", localStorage.getItem(PANEL_KEY) === "0");
-  panel.querySelector(".ph").addEventListener("click", () => {
-    const open = panel.classList.toggle("collapsed") === false;
-    localStorage.setItem(PANEL_KEY, open ? "1" : "0");
-    panel.querySelector(".chev").textContent = open ? "▾" : "▸";
-  });
-  panel.querySelector(".chev").textContent =
-    panel.classList.contains("collapsed") ? "▸" : "▾";
-
-  function renderLegend() {
-    const row = (color, label) =>
-      `<span><span class="dot" style="background:${color}"></span>${label}</span>`;
-    const m = modeById(curMode);
-    let html = "";
-    if (m.colorBy && m.colorBy.scale) {
-      html = `<span class="lt">${m.legendTitle || m.label}</span>` +
-        m.colorBy.scale.map(s => row(s.color, s.label)).join("");
-    } else if (m.colorBy && m.colorBy.map) {
-      html = `<span class="lt">${m.legendTitle || m.label}</span>` +
-        Object.entries(m.colorBy.map).map(([k, v]) =>
-          row(v.color || v, v.label || k)).join("");
-    } else if (m.edges === "*" || !m.edges) {
-      const seen = new Set((graph ? graph.links : []).map(l => l.kind));
-      html = '<span class="lt">Relaciones</span>' +
-        Object.keys(EDGE_COLORS).filter(k => seen.has(k))
-          .map(k => row(EDGE_COLORS[k], EDGE_LABEL[k] || k)).join("");
-    } else {
-      const seen = [...new Set((graph ? graph.nodes : []).map(n => n.type))];
-      html = '<span class="lt">Tipos</span>' +
-        seen.map(k => row(COLORS[k], TYPE_LABEL[k] || k)).join("");
-    }
-    legend.innerHTML = html;
-    legend.style.display = html ? "flex" : "none";
-    legend.classList.toggle("collapsed", !legendOpen);
-    const title = legend.querySelector(".lt");
-    if (title) {
-      title.insertAdjacentHTML("beforeend",
-        `<span class="chev">${legendOpen ? "▾" : "▸"}</span>`);
-      title.addEventListener("click", () => {
-        legendOpen = !legendOpen;
-        localStorage.setItem(LEGEND_KEY, legendOpen ? "1" : "0");
-        renderLegend();
-      });
-    }
-  }
-
-  function build(modeId, kinds) {
-    const m = modeById(modeId);
-    const keep = new Set(), edges = [];
-    const wanted = m.edges === "*" || !m.edges ? null : new Set([].concat(m.edges));
-
-    for (const e of data.edges) {
-      if (wanted && !wanted.has(e.k)) continue;
-      if (m.sourceType && N[e.s].type !== m.sourceType) continue;
-      if (m.targetType && N[e.t].type !== m.targetType) continue;
-      keep.add(e.s); keep.add(e.t); edges.push(e);
-    }
-
-    // Las pastillas de relación solo tienen sentido cuando el modo no fija ya los edges.
-    const edgeCounts = {};
-    for (const e of edges) edgeCounts[e.k] = (edgeCounts[e.k] || 0) + 1;
-    const multi = !wanted || wanted.size > 1;
-    renderEdges(multi ? edgeCounts : {});
-    if (multi) {
-      const box = document.getElementById("edges");
-      const active = new Set([...box.querySelectorAll("input:checked")].map(i => i.value));
-      if (active.size && box.querySelector("input")) {
-        for (let i = edges.length - 1; i >= 0; i--) if (!active.has(edges[i].k)) edges.splice(i, 1);
-        keep.clear();
-        for (const e of edges) { keep.add(e.s); keep.add(e.t); }
-      }
-    }
-
-    // Las pastillas agrupan por lo que el modo colorea. En un modo que ya fija un único
-    // tipo de nodo, filtrar por tipo no diría nada; lo que el lector quiere aislar es el
-    // valor que da el color —un estado de cobertura, una fase, una madurez—.
-    const cb = m.colorBy || {};
-    const byProp = Boolean(cb.property && cb.map);
-    const groupOf = (s) => (byProp ? readPath(N[s].properties, cb.property) : N[s].type);
-
-    const counts = {};
-    for (const s of keep) {
-      const g = groupOf(s);
-      // Sin valor no hay pastilla: ese nodo no se puede filtrar y queda siempre visible.
-      if (g == null) continue;
-      counts[g] = (counts[g] || 0) + 1;
-    }
-    const meta = {};
-    for (const g of Object.keys(counts)) {
-      const v = byProp ? cb.map[g] : null;
-      meta[g] = byProp
-        ? { color: (v && (v.color || v)) || "#888", label: (v && v.label) || g }
-        : { color: COLORS[g] || "#888", label: TYPE_LABEL[g] || g };
-    }
-    renderKinds(counts, meta);
-    const active = kinds || new Set(Object.keys(counts));
-
-    const idx = new Map(), nodes = [];
-    for (const s of keep) {
-      const g = groupOf(s);
-      if (g != null && !active.has(g)) continue;
-      const n = Object.assign({ id: s }, N[s]);
-      idx.set(s, n); nodes.push(n);
-    }
-    const links = edges.filter(e => idx.has(e.s) && idx.has(e.t))
-      .map(e => ({ source: e.s, target: e.t, kind: e.k, derived: e.derived }));
-    const adj = new Map();
-    const touch = (a, b) => { if (!adj.has(a)) adj.set(a, new Set()); adj.get(a).add(b); };
-    for (const l of links) { touch(l.source, l.target); touch(l.target, l.source); }
-    return { nodes, links, adj, idx };
-  }
-
-  let graph, transform = d3.zoomIdentity, hover = null, selected = null, query = "";
-  // Tras cambiar de grafo la cámara se reencuadra sola en cuanto el layout toma forma,
-  // sin esperar a que la simulación termine: con cientos de nodos tarda segundos.
-  let fitPendiente = false, ticksDesdeCambio = 0;
-  // Si el lector mueve la cámara, nada vuelve a moverla por él.
-  let camaraTocada = false;
-  let curMode = MODES[0].id;
-
-  let firstFit = true;
-  function restart(refit = true) {
-    curMode = (document.querySelector('#mode input:checked') || { value: MODES[0].id }).value;
-    document.getElementById("desc").innerHTML = DESC[curMode] || "";
-    const kinds = new Set([...document.querySelectorAll('#kinds input:checked')].map(i => i.value));
-    graph = build(curMode, kinds.size ? kinds : null);
-    renderLegend();
-    if (selected) selected = graph.idx.get(selected.id) || null;
-    stats.textContent = `${graph.nodes.length} nodos · ${graph.links.length} enlaces`;
-    if (sim) sim.stop();
-    sim = d3.forceSimulation(graph.nodes)
-      .force("link", d3.forceLink(graph.links).id(d => d.id)
-        .distance(l => linkForce(l).distance)
-        .strength(l => linkForce(l).strength))
-      .force("charge", d3.forceManyBody().strength(LAYOUT.charge))
-      .force("x", d3.forceX(W / 2).strength(LAYOUT.gravity))
-      .force("y", d3.forceY(H / 2).strength(LAYOUT.gravity))
-      .force("collide", d3.forceCollide(d => sizeOf(d) + 2.5))
-      // Reparto radial: cada tipo se asienta en su propio anillo. Un grafo tipado con
-      // cientos de nodos es ilegible como bola —todo compite por el centro—; en anillos
-      // el ojo lee de dentro afuera y las relaciones cruzan capas en vez de amontonarse.
-      .force("radial", RING
-        ? d3.forceRadial(n => ringOf(n), W / 2, H / 2).strength(n => (ringOf(n) == null ? 0 : RING.strength))
-        : null)
-      .on("tick", tick)
-      // Solo al abrir: después, cada cambio de modo o de filtro respeta el encuadre
-      // que tenga el lector en ese momento.
-      .on("end", () => { if (refit && firstFit) { firstFit = false; fit(); } });
-  }
-
-  const matches = n => query && (n.title.toLowerCase().includes(query) ||
-    n.label.toLowerCase().includes(query) || n.id.toLowerCase().includes(query));
-  const isDark = () => matchMedia("(prefers-color-scheme: dark)").matches;
-
-  function drawLabel(n, dark, k, bold) {
-    const r = sizeOf(n);
-    ctx.font = `${bold ? "600 " : ""}${11 / k}px -apple-system, sans-serif`;
-    ctx.lineWidth = 3.2 / k; ctx.lineJoin = "round";
-    ctx.strokeStyle = dark ? "rgba(22,22,24,.85)" : "rgba(250,248,248,.85)";
-    const label = n.label.length > 42 ? n.label.slice(0, 41) + "…" : n.label;
-    const x = n.x + r + 4 / k, y = n.y + 3.5 / k;
-    ctx.strokeText(label, x, y);
-    ctx.fillStyle = dark ? "#e8e8e8" : "#222";
-    ctx.fillText(label, x, y);
-  }
-
-  function tick() {
-    if (fitPendiente && ++ticksDesdeCambio >= 40) {
-      fitPendiente = false;
-      if (!camaraTocada) fit();
-    }
-    ctx.clearRect(0, 0, W, H);
-    ctx.save(); ctx.translate(transform.x, transform.y); ctx.scale(transform.k, transform.k);
-    const dark = isDark(), k = transform.k;
-    const focus = hover || selected;
-    const near = focus ? graph.adj.get(focus.id) : null;
-    const dimming = !!focus || !!query;
-
-    // Un beginPath()+stroke() por arista costaba ~1800 llamadas de dibujo por fotograma
-    // con el corpus de PAFE. Firefox penaliza cada stroke() bastante más que Chrome, así
-    // que durante el zoom —que redibuja en cada evento de rueda— se atascaba.
-    // Los enlaces sin foco comparten alfa y grosor y solo cambian de color por tipo: se
-    // agrupan en un camino por color y se trazan de una vez, dejando en ~7 las llamadas.
-    // Los enfocados son pocos y siguen dibujándose uno a uno, que es donde va la flecha.
-    const lotes = new Map();
-    const enfocados = [];
-    for (const l of graph.links) {
-      if (focus && (l.source === focus || l.target === focus)) { enfocados.push(l); continue; }
-      const color = EDGE_COLORS[l.kind] || (dark ? "#4a4a4a" : "#c0c0c0");
-      let camino = lotes.get(color);
-      if (!camino) lotes.set(color, camino = new Path2D());
-      camino.moveTo(l.source.x, l.source.y);
-      camino.lineTo(l.target.x, l.target.y);
-    }
-    ctx.globalAlpha = focus ? 0.05 : query ? 0.1 : 0.34;
-    ctx.lineWidth = 0.7 / k;
-    for (const [color, camino] of lotes) { ctx.strokeStyle = color; ctx.stroke(camino); }
-
-    for (const l of enfocados) {
-      ctx.globalAlpha = 0.85;
-      ctx.lineWidth = 1.5 / k;
-      ctx.strokeStyle = dark ? "#ccc" : "#555";
-      ctx.beginPath(); ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); ctx.stroke();
-      const dx = l.target.x - l.source.x, dy = l.target.y - l.source.y;
-      const len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
-      const tipX = l.target.x - ux * (sizeOf(l.target) + 2.5 / k);
-      const tipY = l.target.y - uy * (sizeOf(l.target) + 2.5 / k);
-      const sz = 5.5 / k;
-      ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.moveTo(tipX, tipY);
-      ctx.lineTo(tipX - ux * sz - uy * sz * 0.55, tipY - uy * sz + ux * sz * 0.55);
-      ctx.lineTo(tipX - ux * sz + uy * sz * 0.55, tipY - uy * sz - ux * sz * 0.55);
-      ctx.closePath(); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    // Mismo criterio que con las aristas: en el caso corriente todos los nodos comparten
-    // alfa y color de borde, y solo cambia el relleno por tipo. Se agrupan los círculos en
-    // un camino por relleno —y todos en uno más para el borde— y se pinta de una vez.
-    // Los que llevan estado propio (foco, coincidencia de búsqueda, seleccionado, o alfa
-    // atenuada) son pocos y siguen dibujándose uno a uno.
-    const rellenos = new Map();
-    const bordes = new Path2D();
-    const sueltos = [];
-    for (const n of graph.nodes) {
-      const hit = matches(n), isFocus = n === focus;
-      const isNear = near && near.has(n.id), isSel = n === selected;
-      const alfa = focus ? (isFocus || isNear ? 1 : 0.12) : query ? (hit ? 1 : 0.12) : 1;
-      if (isFocus || hit || isSel || alfa !== 1 || n.subgraph || n.federated) { sueltos.push(n); continue; }
-      const r = sizeOf(n), color = fillOf(n);
-      let camino = rellenos.get(color);
-      if (!camino) rellenos.set(color, camino = new Path2D());
-      camino.moveTo(n.x + r, n.y); camino.arc(n.x, n.y, r, 0, 7);
-      bordes.moveTo(n.x + r, n.y); bordes.arc(n.x, n.y, r, 0, 7);
-    }
-    ctx.globalAlpha = 1;
-    for (const [color, camino] of rellenos) { ctx.fillStyle = color; ctx.fill(camino); }
-    ctx.lineWidth = 1.2 / k;
-    ctx.strokeStyle = dark ? "rgba(22,22,24,.9)" : "rgba(255,255,255,.9)";
-    ctx.stroke(bordes);
-
-    for (const n of sueltos) {
-      const r = sizeOf(n), hit = matches(n);
-      const isFocus = n === focus, isNear = near && near.has(n.id);
-      const isSel = n === selected;
-      ctx.globalAlpha = focus ? (isFocus || isNear ? 1 : 0.12) : query ? (hit ? 1 : 0.12) : 1;
-      ctx.beginPath(); ctx.arc(n.x, n.y, isFocus || hit ? r * 1.45 : r, 0, 7);
-      ctx.fillStyle = fillOf(n); ctx.fill();
-      ctx.lineWidth = (isFocus ? 2.2 : 1.2) / k;
-      ctx.strokeStyle = isFocus ? (dark ? "#f0f0f0" : "#333")
-                                : dark ? "rgba(22,22,24,.9)" : "rgba(255,255,255,.9)";
-      ctx.stroke();
-      const rBase = isFocus || hit ? r * 1.45 : r;
-      // Un portal lleva un segundo anillo del color de su tipo: es la puerta a otro grafo.
-      // Un nodo federado lleva un anillo discontinuo: está aquí prestado de otro corpus.
-      if (n.subgraph) {
-        ctx.beginPath(); ctx.arc(n.x, n.y, rBase + 3.2 / k, 0, 7);
-        ctx.lineWidth = 1.5 / k; ctx.strokeStyle = fillOf(n); ctx.stroke();
-      } else if (n.federated) {
-        ctx.beginPath(); ctx.arc(n.x, n.y, rBase + 2.6 / k, 0, 7);
-        ctx.setLineDash([2.5 / k, 2 / k]);
-        ctx.lineWidth = 1 / k; ctx.strokeStyle = fillOf(n); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      // El nodo abierto en el panel lleva un anillo propio, visible aunque el puntero
-      // esté en otra parte: es la referencia de dónde se está leyendo.
-      if (isSel) {
-        const rr = (isFocus || hit ? r * 1.45 : r) + 4.5 / k;
-        ctx.globalAlpha = 1;
-        ctx.beginPath(); ctx.arc(n.x, n.y, rr, 0, 7);
-        ctx.lineWidth = 2.4 / k;
-        ctx.strokeStyle = dark ? "#f2c14e" : "#c98a00";
-        ctx.stroke();
-        ctx.beginPath(); ctx.arc(n.x, n.y, rr + 2.6 / k, 0, 7);
-        ctx.lineWidth = 1 / k;
-        ctx.strokeStyle = dark ? "rgba(242,193,78,.35)" : "rgba(201,138,0,.3)";
-        ctx.stroke();
-      }
-    }
-    ctx.globalAlpha = 1;
-
-    for (const n of graph.nodes) {
-      const hit = matches(n), isFocus = n === focus, isNear = near && near.has(n.id);
-      if (dimming && !(isFocus || isNear || hit || n === selected)) continue;
-      const always = isFocus || hit || n === selected || sizeOf(n) > 8 || Boolean(n.subgraph);
-      const big = sizeOf(n) > 7;
-      if (always || (isNear && k > 0.6) || k > 2.2 || (big && k > 0.9)) drawLabel(n, dark, k, always);
-    }
-    ctx.restore();
-  }
-
-  const nodeAt = (px, py) => {
-    const [x, y] = transform.invert([px, py]);
-    return sim.find(x, y, 14 / transform.k);
-  };
-
-  // Qué se cuenta de un nodo depende del corpus: obras que lo citan, enlaces, capacidades
-  // que agrupa. La plantilla la pone el consumidor por tipo (o "*"), con `{ruta}` sobre el
-  // nodo y `{ruta|singular|plural}` cuando el número manda en la palabra.
-  const TOOLTIP = CFG.tooltip || {};
-  function fill(tpl, n) {
-    return tpl.replace(/\{([^}|]+)(?:\|([^|}]*)\|([^}]*))?\}/g, (_, ruta, sing, plur) => {
-      const v = readPath(n, ruta.trim());
-      const val = v == null ? "" : v;
-      if (sing == null) return String(val);
-      return `${val} ${Number(val) === 1 ? sing : plur}`;
-    });
-  }
-
-  function showTip(n, px, py) {
-    const tpl = TOOLTIP[n.type] || TOOLTIP["*"];
-    const cuenta = n.subgraph && !TOOLTIP[n.type]
-      ? `${n.subgraph.notes} nota${n.subgraph.notes === 1 ? "" : "s"} · ${n.subgraph.previewed} abierta${n.subgraph.previewed === 1 ? "" : "s"}`
-      : tpl ? fill(tpl, n) : `${n.indeg} entrante${n.indeg === 1 ? "" : "s"}`;
-    const origen = n.federated ? ` <span class="badge">${n.federated}</span>` : "";
-    const pista = n.subgraph ? `<br><small>Doble clic para entrar en su grafo</small>` : "";
-    tip.innerHTML = `<b>${n.title}</b> <small>· ${TYPE_LABEL[n.type] || n.type}</small>${origen}<br><small>${cuenta}</small>${pista}` +
-      (n.desc ? `<div class="pv">${n.desc}</div>` : "");
-    tip.style.display = "block";
-    const r = tip.getBoundingClientRect();
-    tip.style.left = Math.max(8, Math.min(px + 14, W - r.width - 8)) + "px";
-    tip.style.top = Math.max(8, Math.min(py + 12, H - r.height - 8)) + "px";
-  }
-
-  canvas.addEventListener("mousemove", ev => {
-    if (dragging) { tick(); return; }
-    const px = ev.offsetX, py = ev.offsetY;
-    const n = nodeAt(px, py);
-    canvas.classList.toggle("on-node", !!n);
-    if (n !== hover) { hover = n; tick(); }
-    if (n) showTip(n, px, py); else tip.style.display = "none";
-  });
-  canvas.addEventListener("mouseleave", () => { hover = null; tip.style.display = "none"; tick(); });
-  // ---- panel lateral con pestañas: varias notas abiertas sin salir del grafo -----
-  const peek = document.getElementById("peek");
-  const peekTabs = peek.querySelector(".tabs");
-  const peekFrames = peek.querySelector(".frames");
-  const peekOpen = document.getElementById("peek-open");
-  const peekDive = document.getElementById("peek-dive");
-  // Pestañas al estilo del editor: al abrir una nota se usa una pestaña TEMPORAL, que
-  // la siguiente reemplaza. Solo se acumulan las ancladas — doble clic o chincheta.
-  const tabs = [];          // [{ id, title, type, url, pinned }]
-  let activeTab = null;     // id de la pestaña visible
-
-  function frameFor(id) {
-    return peekFrames.querySelector(`iframe[data-id="${CSS.escape(id)}"]`);
-  }
-
-  function renderTabs() {
-    peekTabs.innerHTML = "";
-    for (const tb of tabs) {
-      const el = document.createElement("div");
-      el.className = "tab" + (tb.id === activeTab ? " active" : "");
-      el.setAttribute("role", "tab");
-      el.className += tb.pinned ? " pinned" : " temp";
-      el.title = tb.pinned ? tb.title : tb.title + " — pestaña temporal, doble clic para anclar";
-      el.innerHTML =
-        `<span class="tdot" style="background:${COLORS[tb.type] || "#888"}"></span>` +
-        `<span class="nm">${tb.title}</span>` +
-        `<span class="pin" aria-label="${tb.pinned ? "Desanclar" : "Anclar"}">${tb.pinned ? "📌" : "📍"}</span>` +
-        `<span class="x" aria-label="Cerrar">✕</span>`;
-      el.addEventListener("click", (e) => {
-        if (e.target.classList.contains("x")) { closeTab(tb.id); return; }
-        if (e.target.classList.contains("pin")) { tb.pinned = !tb.pinned; renderTabs(); return; }
-        activate(tb.id);
-      });
-      el.addEventListener("dblclick", () => { tb.pinned = true; renderTabs(); });
-      peekTabs.appendChild(el);
-    }
-    const cur = tabs.find(x => x.id === activeTab);
-    peekOpen.href = cur ? cur.url : "#";
-  }
-
-  function activate(id) {
-    activeTab = id;
-    peekFrames.querySelectorAll("iframe").forEach(f =>
-      f.classList.toggle("active", f.dataset.id === id));
-    renderTabs();
-    // El grafo marca la nota que se está leyendo.
-    const n = graph.idx.get(id);
-    if (n) { selected = n; renderCrumb(); tick(); }
-    peekDive.hidden = !(n && n.subgraph);
-  }
-  peekDive.addEventListener("click", () => {
-    const n = graph.idx.get(activeTab);
-    if (n && n.subgraph) entrarEnSubgrafo(n);
-  });
-
-  // ---- subgrafos: entrar en el grafo que representa un portal, y volver ---------------
-  // Vocabulario visible del grafo en pantalla. Dentro de un subgrafo manda el del hijo
-  // —sus colores, sus etiquetas, sus modos—, porque el subgrafo es SU explorador; al
-  // volver se restaura el del consumidor tal como lo declaró.
-  const DISPLAY_BASE = { colors: { ...COLORS }, labels: { ...TYPE_LABEL }, edgeColors: { ...EDGE_COLORS },
-                         modes: [...MODES], kindOrder: KIND_ORDER };
-  function aplicarDisplay(d, modeId) {
-    Object.assign(COLORS, DISPLAY_BASE.colors, (d && d.typeColors) || {});
-    Object.assign(TYPE_LABEL, DISPLAY_BASE.labels, (d && d.typeLabels) || {});
-    Object.assign(EDGE_COLORS, DISPLAY_BASE.edgeColors, (d && d.edgeColors) || {});
-    const modos = d ? ((d.modes && d.modes.length) ? d.modes : [MODO_COMPLETO]) : DISPLAY_BASE.modes;
-    MODES.length = 0; MODES.push(...modos);
-    for (const k of Object.keys(DESC)) delete DESC[k];
-    for (const m of MODES) DESC[m.id] = m.desc || "";
-    KIND_ORDER = d ? (d.typeOrder || d.knowledgeTypes || DISPLAY_BASE.kindOrder) : DISPLAY_BASE.kindOrder;
-    renderModes(modeId);
-  }
-
-  async function cambiarGrafo(url, modeId) {
-    stats.textContent = "cargando…";
-    data = await cargarGrafo(url);
-    N = data.nodes;
-    urlActual = url;
-    selected = null; hover = null;
-    if (tabs.length) closePeek();
-    aplicarDisplay(enSubgrafo() ? data.display : null, modeId);
-    document.getElementById("kinds").innerHTML = "";
-    document.getElementById("edges").innerHTML = "";
-    renderTrail(); renderCrumb();
-    // Cámara a cero: el encuadre del grafo anterior no significa nada en este.
-    camaraTocada = false;
-    d3.select(canvas).call(zoomBehavior.transform, d3.zoomIdentity);
-    firstFit = true; fitPendiente = true; ticksDesdeCambio = 0;
-    restart();
-  }
-
-  const urlDeSubgrafo = (id) => `/static/okf-subgraphs/${encodeURIComponent(id)}.json`;
-
-  const urlDeNivel = (id) => (id ? `?graph=${encodeURIComponent(id)}` : location.pathname);
-
-  async function entrarEnSubgrafo(n, { push = true } = {}) {
-    pila.push({ url: urlActual, selectedId: n.id, title: data.title, modeId: curMode, id: idActual });
-    idActual = n.subgraph.id;
-    if (push) history.pushState({ graph: idActual }, "", urlDeNivel(idActual));
-    await cambiarGrafo(n.subgraph.graph);
-  }
-
-  // Volver a un nivel del rastro: 0 es el grafo de partida. Se descartan los niveles
-  // intermedios de una vez, sin pasar por cada uno.
-  async function volverA(nivel, { push = true } = {}) {
-    if (nivel < 0 || nivel >= pila.length) return;
-    const destino = pila[nivel];
-    pila.length = nivel;
-    idActual = destino.id || null;
-    if (push) history.pushState(idActual ? { graph: idActual } : {}, "", urlDeNivel(idActual));
-    await cambiarGrafo(destino.url, destino.modeId);
-    const n = destino.selectedId ? graph.idx.get(destino.selectedId) : null;
-    if (n) select(n);
-  }
-
-  const volverAlPadre = (opts) => volverA(pila.length - 1, opts);
-
-  // Abierto directamente sobre un subgrafo (?graph=<id>): el camino de vuelta lo dice el
-  // propio fichero, que sabe desde qué grafo y qué portal se publicó.
-  async function entrarDirecto(id) {
-    pila.push({ url: GRAFO_BASE, selectedId: null, title: null, modeId: MODES[0].id, id: null });
-    idActual = id;
-    history.replaceState({ graph: id }, "", location.href);
-    await cambiarGrafo(urlDeSubgrafo(id));
-    const desde = data.federatedFrom || {};
-    pila[0].selectedId = desde.node || null;
-    pila[0].title = desde.title || null;
-    renderTrail();
-  }
-
-  // El botón atrás del navegador deshace la entrada al subgrafo, y adelante la rehace.
-  window.addEventListener("popstate", (ev) => {
-    const id = (ev.state && ev.state.graph) || new URLSearchParams(location.search).get("graph");
-    if (id === idActual) return;
-    const nivel = pila.findIndex(p => (p.id || null) === (id || null));
-    if (nivel >= 0) { volverA(nivel, { push: false }); return; }
-    if (id) {
-      const portal = graph && [...graph.idx.values()].find(n => n.subgraph && n.subgraph.id === id);
-      if (portal) entrarEnSubgrafo(portal, { push: false }); else entrarDirecto(id);
-    }
-  });
-
-  // El rastro va encima del lienzo, antes de la barra de relaciones del nodo: es lo
-  // primero que se lee al entrar en un subgrafo, y cada nivel anterior es un enlace.
-  function renderTrail() {
-    const trail = document.getElementById("trail");
-    const dentro = enSubgrafo();
-    trail.classList.toggle("on", dentro);
-    if (!dentro) { trail.querySelector(".path").innerHTML = ""; return; }
-    const raiz = CFG.title || "Grafo";
-    const niveles = [raiz, ...pila.slice(1).map(p => p.title || "subgrafo"), data.title || "subgrafo"];
-    trail.querySelector(".path").innerHTML = niveles.map((t, i) => i < niveles.length - 1
-      ? `<a class="lvl" href="#" data-nivel="${i}" title="Volver a ${t}">${t}</a><span class="sep">›</span>`
-      : `<b class="lvl cur">${t}</b>`).join("");
-    trail.querySelectorAll("a.lvl").forEach(a => a.addEventListener("click", ev => {
-      ev.preventDefault();
-      volverA(+a.dataset.nivel);
-    }));
-    document.getElementById("graph-back").title = `Volver a ${niveles[niveles.length - 2]}`;
-  }
-  document.getElementById("graph-back").addEventListener("click", () => volverAlPadre());
-
-  function trimQuartz(f) {
-    // Mismo origen: se recorta el layout para que el panel muestre solo el contenido.
-    try {
-      const d = f.contentDocument;
-      if (!d) return;
-      const css = d.createElement("style");
-      css.textContent = `
-        .left.sidebar, .right.sidebar, .page-footer, .mobile-only { display: none !important; }
-        .center { margin: 0 !important; padding: 1rem 1.4rem 3rem !important; max-width: none !important; }`;
-      d.head.appendChild(css);
-    } catch (_) { /* si el navegador lo impide, se ve la página completa */ }
-  }
-
-  function addFrame(n) {
-    const f = document.createElement("iframe");
-    f.dataset.id = n.id;
-    f.setAttribute("title", n.title);
-    f.src = n.url;
-    f.addEventListener("load", () => trimQuartz(f));
-    peekFrames.appendChild(f);
-  }
-
-  function showPeek(n) {
-    const existing = tabs.find(tb => tb.id === n.id);
-    if (!existing) {
-      // La temporal anterior se descarta: solo puede haber una a la vez.
-      const tmpIdx = tabs.findIndex(tb => !tb.pinned);
-      if (tmpIdx >= 0) {
-        const old = tabs[tmpIdx];
-        const f = frameFor(old.id);
-        if (f) f.remove();
-        tabs.splice(tmpIdx, 1, { id: n.id, title: n.title, type: n.type, url: n.url, pinned: false });
-      } else {
-        tabs.push({ id: n.id, title: n.title, type: n.type, url: n.url, pinned: false });
-      }
-      addFrame(n);
-    }
-    const first = !peek.classList.contains("open");
-    peek.classList.add("open");
-    activate(n.id);
-    if (first) { resize(); tick(); }
-  }
-
-  function closeTab(id) {
-    const i = tabs.findIndex(tb => tb.id === id);
-    if (i < 0) return;
-    tabs.splice(i, 1);
-    const f = frameFor(id);
-    if (f) f.remove();
-    if (!tabs.length) { closePeek(); return; }
-    activate(tabs[Math.min(i, tabs.length - 1)].id);
-  }
-
-  function closePeek() {
-    peek.classList.remove("open");
-    tabs.length = 0; activeTab = null;
-    peekFrames.innerHTML = "";
-    peekDive.hidden = true;
-    renderTabs();
-    resize(); tick();
-  }
-  document.getElementById("peek-close").addEventListener("click", closePeek);
-
-  // Clic en un nodo = abrir su nota. El resaltado de vecindad lo hace el hover, y la
-  // selección persistente —con su barra de relaciones— la fija el buscador: así el clic
-  // no mueve la cámara por sorpresa.
-  canvas.addEventListener("click", ev => {
-    if (dragMoved) { dragMoved = false; return; }
-    const n = nodeAt(ev.offsetX, ev.offsetY);
-    if (!n) {
-      if (selected) { selected = null; renderCrumb(); tick(); }
-      return;
-    }
-    if (ev.metaKey || ev.ctrlKey || ev.shiftKey) { window.open(n.url, "_blank"); return; }
-    showPeek(n);
-  });
-  // Doble clic: abre la nota ya anclada, sin pasar por la pestaña temporal.
-  canvas.addEventListener("dblclick", ev => {
-    const n = nodeAt(ev.offsetX, ev.offsetY);
-    if (!n) return;
-    if (n.subgraph) { entrarEnSubgrafo(n); return; }
-    showPeek(n);
-    const tb = tabs.find(x => x.id === n.id);
-    if (tb) { tb.pinned = true; renderTabs(); }
-  });
-
-  // El filter deja pasar el pan solo si el puntero NO está sobre un nodo: así el
-  // arrastre de nodos y el desplazamiento del lienzo no compiten.
-  // d3 hace preventDefault en la rueda que consume, pero si el zoom está en su tope no la
-  // consume y el evento se escapa: dentro del modal eso mueve la página de detrás. El
-  // lienzo se queda con TODA la rueda que reciba, la use o no.
-  canvas.addEventListener("wheel", e => e.preventDefault(), { passive: false });
-
-  const zoomBehavior = d3.zoom().scaleExtent([0.15, 8])
-    // Firefox entrega la rueda en LÍNEAS (deltaMode 1) y Chrome en píxeles (0), y d3
-    // aplica a cada modo un factor distinto. Peor aún: cuántas líneas vale una muesca lo
-    // decide el sistema —puede ser 1 o 3—, así que convertir líneas a píxeles con una
-    // constante deja el paso a merced de esa configuración; con 1 línea por muesca sale
-    // un tercio del de Chrome y el zoom se siente lento.
-    // En modo línea, por tanto, no se mide: cada evento ES una muesca y vale exactamente
-    // lo que una muesca en Chrome. El modo píxel —trackpad en los dos navegadores— sigue
-    // siendo proporcional, que es lo que le da su suavidad.
-    .wheelDelta(e => {
-      const mult = e.ctrlKey ? 10 : 1;
-      if (e.deltaMode === 1) return -Math.sign(e.deltaY) * 0.2 * mult;
-      const px = e.deltaMode === 2 ? e.deltaY * (H || 600) : e.deltaY;
-      return -Math.max(-120, Math.min(120, px)) * 0.002 * mult;
-    })
-    .filter(e => e.type === "wheel" || !nodeAt(e.offsetX, e.offsetY))
-    .on("zoom", ev => { transform = ev.transform; if (ev.sourceEvent) camaraTocada = true; tick(); });
-
-  // `dragging` se asignaba en el arranque del arrastre sin declararse nunca: en modo no
-  // estricto eso crea un global al asignarlo, pero el manejador de mousemove lo LEE antes,
-  // y leer una variable inexistente es ReferenceError. Resultado: cada movimiento del ratón
-  // sobre el lienzo lanzaba una excepción hasta el primer arrastre, y con ella se perdían
-  // el resaltado, el tooltip y el cursor.
-  let dragging = false;
-  let dragMoved = false;
-  // d3.drag rebasa e.x/e.y respecto a las coordenadas del subject. Si el subject llega en
-  // coordenadas de mundo mientras el puntero va en pantalla, el nodo se mueve con un
-  // desfase que crece con el zoom. Se devuelve el subject proyectado a pantalla y el nodo
-  // dentro: así e.x sigue en pantalla, invertX() da mundo, y el punto de agarre se
-  // mantiene bajo el ratón.
-  const dragBehavior = d3.drag()
-    .container(canvas)
-    .subject(e => {
-      const n = nodeAt(e.x, e.y);
-      return n ? { node: n, x: transform.applyX(n.x), y: transform.applyY(n.y) } : null;
-    })
-    .on("start", e => {
-      if (!e.subject) return;
-      const n = e.subject.node;
-      dragging = true; dragMoved = false; camaraTocada = true; hover = n;
-      canvas.classList.add("dragging");
-      if (!e.active) sim.alphaTarget(0.25).restart();
-      n.fx = n.x; n.fy = n.y;
-    })
-    .on("drag", e => {
-      if (!e.subject) return;
-      dragMoved = true;
-      e.subject.node.fx = transform.invertX(e.x);
-      e.subject.node.fy = transform.invertY(e.y);
-    })
-    .on("end", e => {
-      dragging = false; canvas.classList.remove("dragging");
-      if (!e.active) sim.alphaTarget(0);
-      if (e.subject) { e.subject.node.fx = null; e.subject.node.fy = null; }
-    });
-
-  d3.select(canvas).call(dragBehavior).call(zoomBehavior);
-
-  function fit(nodes, scale) {
-    const set = nodes && nodes.length ? nodes : (graph ? graph.nodes : []);
-    if (!set.length) return;
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const n of set) {
-      x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y);
-      x1 = Math.max(x1, n.x); y1 = Math.max(y1, n.y);
-    }
-    const pad = 80, w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1);
-    const k = Math.max(0.15, Math.min(scale || 2.4, (W - pad) / w, (H - pad) / h));
-    const to = d3.zoomIdentity
-      .translate(W / 2 - k * (x0 + x1) / 2, H / 2 - k * (y0 + y1) / 2).scale(k);
-    // En una pestaña oculta —abierta en segundo plano— el navegador no despacha
-    // requestAnimationFrame y la transición nunca avanza: el lector volvería a un grafo
-    // sin encuadrar. Ahí se aplica de golpe; la animación es solo para quien está mirando.
-    if (document.visibilityState === "hidden") {
-      d3.select(canvas).call(zoomBehavior.transform, to);
-      return;
-    }
-    d3.select(canvas).transition().duration(450).call(zoomBehavior.transform, to);
-  }
-
-  // Seleccionar no mueve la cámara. `zoomTo` la mueve solo cuando el lector lo pide
-  // —buscador o botón—, nunca como efecto secundario de navegar por el grafo.
-  function select(n, zoomTo = false) {
-    selected = n;
-    renderCrumb();
-    if (zoomTo) {
-      const hood = [n, ...[...(graph.adj.get(n.id) || [])]
-        .map(id => graph.idx.get(id)).filter(Boolean)];
-      fit(hood, 2.6);
-    }
-    tick();
-  }
-
-  function clearAll() {
-    if (tabs.length) closePeek();
-    selected = null; hover = null; query = ""; q.value = "";
-    results.style.display = "none"; tip.style.display = "none";
-    renderCrumb(); tick();
-  }
-
-  // Sustituto del breadcrumb jerárquico de singular: aquí el grafo no es un árbol,
-  // así que lo útil es enumerar las relaciones declaradas del nodo elegido.
-  function renderCrumb() {
-    const el = document.getElementById("crumb");
-    if (!selected) { el.style.display = "none"; el.innerHTML = ""; return; }
-    const byKind = {};
-    for (const l of graph.links) {
-      const out = l.source === selected, inc = l.target === selected;
-      if (!out && !inc) continue;
-      const other = out ? l.target : l.source;
-      const key = (out ? "" : "← ") + (EDGE_LABEL[l.kind] || l.kind);
-      (byKind[key] = byKind[key] || []).push(other);
-    }
-    const parts = Object.entries(byKind).map(([k, ns]) =>
-      `<b>${k}</b> ` + ns.slice(0, 6).map(n =>
-        `<a href="${n.url}">${n.title.length > 34 ? n.title.slice(0, 33) + "…" : n.title}</a>`
-      ).join(", ") + (ns.length > 6 ? ` +${ns.length - 6}` : ""));
-    el.innerHTML = `<span class="sel">${selected.title}</span>` +
-      (selected.subgraph ? ` <button class="btn" id="crumb-dive">Explorar subgrafo ↘</button>` : "") +
-      (parts.length ? '<span class="sep">·</span>' + parts.join('<span class="sep">·</span>') : "");
-    const dive = el.querySelector("#crumb-dive");
-    if (dive) dive.addEventListener("click", () => entrarEnSubgrafo(selected));
-    el.style.display = "block";
-  }
-  document.getElementById("fit").addEventListener("click", () => fit());
-  document.getElementById("reset").addEventListener("click", clearAll);
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => tick());
-  document.addEventListener("keydown", ev => {
-    if (ev.key === "Escape" && document.activeElement !== q && tabs.length) closePeek();
-  });
-
-  q.addEventListener("input", () => {
-    query = q.value.trim().toLowerCase();
-    const hits = query
-      ? graph.nodes.filter(matches).sort((a, b) =>
-          KIND_ORDER.indexOf(a.type) - KIND_ORDER.indexOf(b.type) ||
-          a.title.localeCompare(b.title, "es")).slice(0, 20)
-      : [];
-    results.innerHTML = hits.map((n, i) =>
-      `<button data-i="${i}"><span class="nm">${n.title}</span>` +
-      (n.federated ? `<span class="badge">${n.federated}</span>` : "") +
-      `<span class="kind">${TYPE_LABEL[n.type] || n.type}</span></button>`).join("");
-    results.style.display = hits.length ? "block" : "none";
-    results.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
-      const n = hits[+b.dataset.i];
-      q.value = ""; query = ""; results.style.display = "none";
-      select(n, true);
-    }));
-    tick();
-  });
-  q.addEventListener("keydown", ev => {
-    if (ev.key === "Enter") {
-      const first = results.querySelector("button");
-      if (first) first.click();
-      else if (query) fit(graph.nodes.filter(matches), 2.6);
-    }
-    if (ev.key === "Escape") clearAll();
-  });
-  document.addEventListener("click", ev => {
-    if (!ev.target.closest("#qbox")) results.style.display = "none";
-  }, true);
-  async function cambiarModo() {
-    // Un modo puede vivir sobre otro corpus: se carga la primera vez que se pide y
-    // queda en caché, así que volver a él es inmediato.
-    const m = modeById((document.querySelector('#mode input:checked') || {}).value);
-    const url = grafoDe(m);
-    if (url !== urlActual) {
-      stats.textContent = "cargando…";
-      data = await cargarGrafo(url);
-      N = data.nodes;
-      urlActual = url;
-    }
-    selected = null;
-    // Las pastillas se reconstruyen desde cero: si el modo nuevo agrupa por otra cosa
-    // —un estado en vez de un tipo, o los tipos de otro corpus—, conservar lo marcado
-    // dejaría el grafo vacío.
-    document.getElementById("kinds").innerHTML = "";
-    document.getElementById("edges").innerHTML = "";
-    renderCrumb();
-    restart();
-  }
-  renderModes(MODES[0].id);
-
-  document.getElementById("ptitle").textContent = CFG.title || "Grafo";
-  renderTrail();
-  // Adónde vuelve el lector y cómo se llama ese sitio lo sabe el consumidor.
-  const back = document.getElementById("pback");
-  back.href = (CFG.backTo && CFG.backTo.href) || "/";
-  back.textContent = "← " + ((CFG.backTo && CFG.backTo.label) || "inicio");
-  document.title = CFG.title || "Explorador del grafo";
-  resize(); restart();
-
-  // ?focus=<slug> centra el grafo en una nota: es como lo abre el modal desde una
-  // página, para que el lector no tenga que buscarla al llegar.
-  // ?graph=<id> abre el explorador ya dentro de un subgrafo publicado por este sitio.
-  const params = new URLSearchParams(location.search);
-  const focus = params.get("focus");
-  const subgrafo = params.get("graph");
-  if (subgrafo) entrarDirecto(subgrafo).then(() => { if (focus) entrarConFoco(focus); });
-  else if (focus) entrarConFoco(focus);
-
-  // Claves con las que se intenta emparejar el slug de la URL con el del grafo. El bundle
-  // normaliza los slugs y las páginas no, así que se compara sin distinguir mayúsculas; y
-  // un enlace antiguo puede traerlo aún percent-encoded, de ahí la variante decodificada.
-  function clavesDe(valor) {
-    const formas = [valor];
-    try {
-      const d = decodeURIComponent(valor);
-      if (d !== valor) formas.push(d);
-    } catch (_) { /* valor con % suelto: se usa tal cual */ }
-    const claves = [];
-    for (const f of formas) {
-      const c = f.replace(/^\/+|\/+$/g, "").toLowerCase();
-      claves.push(c);
-    }
-    return claves;
-  }
-
-  function buscarNodo(claves) {
-    for (const c of claves) {
-      const exacto = graph.nodes.find(n => n.id.toLowerCase() === c);
-      if (exacto) return exacto;
-    }
-    for (const c of claves) {
-      const hoja = c.split("/").pop();
-      const porHoja = graph.nodes.find(n => n.id.toLowerCase().split("/").pop() === hoja);
-      if (porHoja) return porHoja;
-    }
-    return null;
-  }
-
-  // Entrar con una nota enfocada. Los modos pueden vivir sobre corpus distintos y filtrar
-  // lo que dibujan, así que la nota no tiene por qué existir en el modo de partida: se
-  // recorren en el orden declarado y se abre en el primero que la contenga. Si ninguno lo
-  // hace, se vuelve al inicial y el grafo se abre sin selección.
-  async function entrarConFoco(valor) {
-    const claves = clavesDe(valor);
-    const encontrado = buscarNodo(claves);
-    if (encontrado) return marcarYEncuadrar(encontrado);
-
-    const radios = [...document.querySelectorAll("#mode input")];
-    const inicial = radios.find(r => r.checked) || radios[0];
-    for (const r of radios) {
-      if (r === inicial) continue;
-      await activarModo(r);
-      const n = buscarNodo(claves);
-      if (n) return marcarYEncuadrar(n);
-    }
-    if (inicial) await activarModo(inicial);
-  }
-
-  async function activarModo(radio) {
-    const m = modeById(radio.value);
-    const url = grafoDe(m);
-    if (url !== urlActual) {
-      data = await cargarGrafo(url);
-      N = data.nodes;
-      urlActual = url;
-    }
-    radio.checked = true;
-    document.getElementById("kinds").innerHTML = "";
-    document.getElementById("edges").innerHTML = "";
-    restart(false);
-  }
-
-  // Marcar y encuadrar son dos momentos distintos. Se marca ya, para que el lector entre
-  // con su nota señalada; encuadrar ahora sería inútil porque d3 acaba de colocar los
-  // nodos en su espiral inicial y la vecindad se irá a otra parte, dejando la cámara
-  // mirando al vacío. El encuadre espera a que la simulación se asiente, y se cancela si
-  // para entonces el lector ya movió la cámara él mismo.
-  function marcarYEncuadrar(n) {
-    select(n);
-    sim.on("end.focus", () => {
-      sim.on("end.focus", null);
-      if (!camaraTocada) select(n, true);
-    });
-  }
-});
+var OKF_EXPLORER_CONFIG = __OKF_EXPLORER_CONFIG__;
+__OKF_EXPLORER_HUD__
 </script>
 </body>
 </html>

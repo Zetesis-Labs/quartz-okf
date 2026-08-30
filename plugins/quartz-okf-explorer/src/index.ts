@@ -1,6 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { explorerConfig } from "../lib/emit-config.js"
 
 /**
  * Emits the full-page OKF explorer and, optionally, the access widget that opens it in a
@@ -8,8 +9,9 @@ import { fileURLToPath } from "node:url"
  *
  * The engine carries no vocabulary: colours, labels and — above all — the view modes come
  * from the consumer's `explorer` block in `okf.config.mjs`, which is inlined into the page
- * inlined into the page script itself. Two sites sharing this plugin can therefore ask entirely
- * different questions of their corpus.
+ * script itself. Two sites sharing this plugin can therefore ask entirely different
+ * questions of their corpus. Every visible word comes from a locale catalogue chosen by the
+ * site's language and overridable per key.
  */
 export interface ExplorerScale {
   max?: number
@@ -49,6 +51,13 @@ export interface ExplorerMode {
   sizeBy?: { indegree?: boolean; countEdge?: string }
 }
 
+export interface ExplorerHud {
+  /** `flat` (default) or `glass` — blurred surfaces, always flat under `prefers-reduced-transparency`. */
+  surfaces?: "flat" | "glass"
+  /** CSS custom properties applied on `:root` (`--accent`, `--hud-bg`, `--hud-radius`, …). */
+  tokens?: Record<string, string>
+}
+
 export interface ExplorerOptions {
   /** Where `@zetesis/quartz-okf` wrote the `okf-graph/v1` document. */
   graphInput?: string
@@ -56,7 +65,7 @@ export interface ExplorerOptions {
   output?: string
   /** Add the preview + modal to every page. */
   injectAccess?: boolean
-  /** Heading of the access widget and of the modal. */
+  /** Heading of the access widget and of the modal. Defaults to the catalogue's. */
   accessTitle?: string
   /** Where the access widget mounts. */
   mountSelector?: string
@@ -105,15 +114,19 @@ export interface ExplorerOptions {
   /** Where the back link returns to, and what that place is called. */
   backTo?: { href?: string; label?: string }
   modes?: ExplorerMode[]
+  /** Wording catalogue (`es`, `en`). Defaults to the site's Quartz locale. */
+  locale?: string
+  /** Per-key overrides of the engine wording (see README § Wording). */
+  wording?: Record<string, string>
+  hud?: ExplorerHud
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
-const defaults: Required<Pick<ExplorerOptions, "graphInput" | "output" | "injectAccess" | "accessTitle" | "mountSelector">> = {
+const defaults: Required<Pick<ExplorerOptions, "graphInput" | "output" | "injectAccess" | "mountSelector">> = {
   graphInput: "static/okf-graph.json",
   output: "static/explorer.html",
   injectAccess: true,
-  accessTitle: "Grafo de conocimiento",
   mountSelector: ".right.sidebar",
 }
 
@@ -127,6 +140,15 @@ async function readAsset(name: string): Promise<string> {
     }
   }
   throw new Error(`quartz-okf-explorer: missing asset ${name}`)
+}
+
+// `String.replace` interprets `$&`, `$1`… in the replacement: a bundle or a JSON document
+// with a `$` inside would come out corrupted. A function replacer inserts it verbatim.
+const inject = (page: string, slot: string, text: string) => page.replace(slot, () => text)
+
+interface EmitContext {
+  argv: { output: string }
+  cfg?: { configuration?: { locale?: string } }
 }
 
 export const OkfExplorer = (userOpts?: ExplorerOptions) => {
@@ -152,41 +174,42 @@ export const OkfExplorer = (userOpts?: ExplorerOptions) => {
           }
         : {},
 
-    async emit(ctx: { argv: { output: string } }): Promise<string[]> {
+    async emit(ctx: EmitContext): Promise<string[]> {
       const out = ctx.argv.output
       const written: string[] = []
 
-      const config = {
-        graphUrl: "/" + opts.graphInput,
-        title: opts.title ?? opts.accessTitle,
-        typeColors: opts.typeColors ?? {},
-        typeLabels: opts.typeLabels ?? {},
-        edgeColors: opts.edgeColors ?? {},
-        knowledgeTypes: opts.knowledgeTypes ?? [],
-        typeOrder: opts.typeOrder ?? null,
-        layout: opts.layout ?? null,
-        radius: opts.radius ?? null,
-        tooltip: opts.tooltip ?? null,
-        backTo: opts.backTo ?? null,
-        modes: opts.modes ?? [],
-      }
+      const { config, problems } = explorerConfig(opts, ctx.cfg?.configuration?.locale)
+      for (const problem of problems) console.warn(`[quartz-okf-explorer] warning: ${problem}`)
 
-      // Incrustada en el propio script del motor: el router SPA de Quartz reemplaza el
-      // cuerpo con micromorph sin re-ejecutar sus scripts, así que un `<script>` aparte
-      // con la configuración se pierde al llegar navegando desde otra página.
-      const page = (await readAsset("explorer.html")).replace(
-        "__OKF_EXPLORER_CONFIG__",
-        JSON.stringify(config),
-      )
+      // Configuración y código van en el MISMO script del documento: el router SPA de
+      // Quartz reemplaza el cuerpo con micromorph sin re-ejecutar sus scripts, así que un
+      // `<script>` aparte con la configuración se pierde al llegar navegando desde otra
+      // página y el explorador arrancaba con los valores por defecto.
+      let page = await readAsset("explorer.html")
+      page = inject(page, "__OKF_LANG__", config.locale)
+      page = inject(page, "__OKF_EXPLORER_CONFIG__", JSON.stringify(config))
+      page = inject(page, "__OKF_EXPLORER_HUD__", await readAsset("hud.js"))
       const pagePath = path.join(out, opts.output)
       await fs.mkdir(path.dirname(pagePath), { recursive: true })
       await fs.writeFile(pagePath, page)
       written.push(pagePath)
 
       if (opts.injectAccess) {
-        const access = (await readAsset("access.js"))
+        const w = config.wording
+        const wording = {
+          open: w["access.open"],
+          expand: w["access.expand"],
+          reduce: w["access.reduce"],
+          close: w["access.close"],
+          loading: w["access.loading"],
+          stats: w["access.stats"],
+          statsLoading: w["access.stats.loading"],
+        }
+        let access = await readAsset("access.js")
+        access = inject(access, "__OKF_WORDING__", JSON.stringify(wording))
+        access = access
           .replaceAll("__EXPLORER_URL__", "/" + opts.output.replace(/\.html$/, ""))
-          .replaceAll("__TITLE__", opts.accessTitle)
+          .replaceAll("__TITLE__", config.accessTitle)
           .replaceAll("__MOUNT__", opts.mountSelector)
         const accessFile = path.join(out, accessPath)
         await fs.writeFile(accessFile, access)

@@ -15,6 +15,7 @@
   },
   "files": [
     "dist",
+    "lib",
     "README.md"
   ],
   "keywords": [
@@ -25,8 +26,8 @@
     "explorer"
   ],
   "scripts": {
-    "build": "tsup",
-    "prepare": "tsup"
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
+    "prepare": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup"
   },
   "dependencies": {
     "@quartz-community/types": "github:quartz-community/types"
@@ -54,7 +55,6 @@
       "graphInput": "static/okf-graph.json",
       "output": "static/explorer.html",
       "injectAccess": true,
-      "accessTitle": "Grafo de conocimiento",
       "mountSelector": ".right.sidebar"
     }
   }
