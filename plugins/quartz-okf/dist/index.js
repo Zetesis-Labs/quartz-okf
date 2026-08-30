@@ -3,9 +3,12 @@ import path from "node:path"
 import {
   PROFILE,
   buildGraph,
+  federateGraph,
   isReserved,
   mergeProfile,
+  subgraphId,
   validateDocument,
+  validateFederationConfig,
 } from "../../lib/index.js"
 import { stringifyFrontmatter } from "../../lib/frontmatter.js"
 
@@ -18,6 +21,9 @@ const DEFAULTS = {
   graphOutput: "static/okf-graph.json",
   emitRaw: true,
   rawOutput: "raw",
+  federation: null,
+  fetchBundle: null,
+  subgraphsOutput: "static/okf-subgraphs",
 }
 
 function asArray(value) {
@@ -72,6 +78,15 @@ function toDocument(file) {
     parseError: null,
     reserved,
   }
+}
+
+// Quartz's baseUrl is a bare host ("cern.zetesis.xyz"); the graph publishes a full
+// origin so other corpora can address this one's notes without guessing the scheme.
+function canonicalOrigin(baseUrl) {
+  const value = String(baseUrl ?? "").trim()
+  if (!value) return undefined
+  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`
+  return withScheme.replace(/\/+$/, "")
 }
 
 function profileFromOptions(options) {
@@ -134,6 +149,79 @@ async function emitRawFiles(context, files, options) {
   return emitted
 }
 
+async function defaultFetchBundle(location, { contentRoot }) {
+  if (/^https?:\/\//i.test(location)) {
+    const response = await fetch(location)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    return response.json()
+  }
+  return JSON.parse(await fs.readFile(path.resolve(contentRoot, location), "utf8"))
+}
+
+function federationFailure(items) {
+  return new Error(
+    `[okf] federation: ${items.map((item) => `[${item.code}] ${item.message}`).join("; ")}`,
+  )
+}
+
+async function fetchChildren(entries, fetchBundle, contentRoot) {
+  const children = {}
+  await Promise.all(
+    entries.map(async (entry) => {
+      const id = subgraphId(entry)
+      try {
+        children[id] = { graph: await fetchBundle(entry.graph, { contentRoot }), location: entry.graph }
+      } catch (error) {
+        children[id] = { error: error?.message ?? String(error), location: entry.graph }
+      }
+    }),
+  )
+  return children
+}
+
+async function federate(context, graph, profile, options) {
+  const entries = options.federation?.subgraphs ?? []
+  if (!entries.length) return { graph, subgraphs: [] }
+  const reported = new Set()
+  const warn = (item) => {
+    const key = `${item.code}\n${item.message}`
+    if (reported.has(key)) return
+    reported.add(key)
+    console.warn(`[okf] federation WARN [${item.code}] ${item.message}`)
+  }
+  const problems = validateFederationConfig(options.federation, profile, graph.nodes.map((node) => node.slug))
+  if (problems.length && options.strict) throw federationFailure(problems)
+  problems.forEach(warn)
+  const invalid = new Set(problems.map((item) => item.id))
+  const valid = entries.filter((entry) => !invalid.has(subgraphId(entry) || "(unnamed)"))
+  const contentRoot = path.resolve(context.argv?.directory ?? "content")
+  const children = await fetchChildren(valid, options.fetchBundle ?? defaultFetchBundle, contentRoot)
+  const unreachable = Object.entries(children)
+    .filter(([, child]) => !child.graph)
+    .map(([id, child]) => ({
+      id,
+      code: "federation/child-unreachable",
+      message: `${id}: cannot load ${child.location}: ${child.error}`,
+    }))
+  if (unreachable.length && options.strict) throw federationFailure(unreachable)
+  const result = federateGraph(graph, children, options.federation, profile, {
+    subgraphsPath: `/${options.subgraphsOutput}`,
+  })
+  if (result.problems.length && options.strict) throw federationFailure(result.problems)
+  result.problems.forEach(warn)
+  result.warnings.forEach(warn)
+  for (const entry of valid) {
+    const id = subgraphId(entry)
+    if (!children[id]?.graph) continue
+    const marker = result.graph.nodes.find((node) => node.slug === entry.node)?.subgraph
+    if (!marker) continue
+    console.log(
+      `[okf] federation: ${id} ← ${marker.notes} notes, ${marker.previewed} previewed (${String(marker.source_head ?? "unknown").slice(0, 7)})`,
+    )
+  }
+  return result
+}
+
 async function emitAll(context, content, options) {
   const profile = profileFromOptions(options)
   const files = content.map(([, file]) => file).filter((file) => file?.data)
@@ -159,14 +247,22 @@ async function emitAll(context, content, options) {
 
   const emitted = await emitRawFiles(context, files, options)
   if (!options.emitGraph) return emitted
-  const graph = buildGraph(documents, {
+  const local = buildGraph(documents, {
     profile,
     site: context.cfg?.configuration?.pageTitle,
+    baseUrl: canonicalOrigin(context.cfg?.configuration?.baseUrl),
   })
+  const { graph, subgraphs } = await federate(context, local, profile, options)
   const graphPath = path.join(context.argv.output, options.graphOutput)
   await fs.mkdir(path.dirname(graphPath), { recursive: true })
   await fs.writeFile(graphPath, `${JSON.stringify(graph, null, 2)}\n`)
   emitted.push(graphPath)
+  for (const subgraph of subgraphs) {
+    const copyPath = path.join(context.argv.output, options.subgraphsOutput, `${subgraph.id}.json`)
+    await fs.mkdir(path.dirname(copyPath), { recursive: true })
+    await fs.writeFile(copyPath, `${JSON.stringify(subgraph.graph, null, 2)}\n`)
+    emitted.push(copyPath)
+  }
 
   const alternates = Object.fromEntries(
     files

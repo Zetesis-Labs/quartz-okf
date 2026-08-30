@@ -69,6 +69,61 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
 }
 ```
 
+## Additive fields since 0.1
+
+- Graph root `baseUrl`: the site's canonical origin (`https://…`), taken from Quartz
+  `configuration.baseUrl`. Absent when the site declares none. Lets other corpora
+  address this one's notes without extra configuration.
+- Node `subgraph` (portal to another corpus, see Federation):
+  `{ id, title, site, graph, source_head, notes, previewed }`.
+- Node `federated` + `url`: a note copied from another corpus' graph, namespaced as
+  `<id>:<child-slug>`, addressed absolutely on the child's site.
+- Edge `federated`: the edge was added by federation (portal edges and preserved child
+  edges); `derived` keeps its meaning.
+- `stats.federatedNodes` / `stats.federatedEdges`: what federation added. `notes` and
+  `edges` keep counting everything.
+
+# Federation
+
+A site may declare that one of its notes stands for another published corpus and
+compose that corpus' *open* notes into its own graph at build time. Bundles produced
+by `okf-export` stay per-corpus; federation is a property of the rendered site.
+
+```js
+// okf.config.mjs
+export const federation = {
+  subgraphs: [
+    {
+      node: "topics/it-governance",                              // portal note of THIS corpus
+      graph: "https://cern.zetesis.xyz/static/okf-graph.json",  // or a path relative to content/
+      preview: { property: "visibility", equals: "open" },      // which child notes to show
+      // id: "it-governance",    defaults to the last segment of `node`
+      // site: "https://…",      defaults to the child graph's baseUrl
+      // edge: "Contains",       must be one of this corpus' edgeLabels
+      // pin: "<source_head>",   warns when the child moved on
+    },
+  ],
+}
+```
+
+```ts
+// okf/quartz.ts
+componentRegistry.setOptionOverrides("quartz-okf", { profile, federation })
+```
+
+The emitter fetches each child graph (`fetchBundle` is injectable), validates the
+declaration (`federation/node-unknown`, `edge-unknown`, `preview-required`,
+`id-duplicate`, `site-required`, `slug-collision` — all fatal in strict mode), marks
+the portal node, adds the open child notes with namespaced slugs and absolute URLs,
+declares `portal → note` edges with the configured label (inverse derived), keeps the
+child's edges between two open notes, and republishes the whole child graph
+same-origin at `static/okf-subgraphs/<id>.json` for the explorer to dive into. An
+unreachable child fails a strict build; otherwise the portal is emitted empty with a
+`federation/child-unreachable` warning. Empty previews and pin drift are warnings.
+
+The child only needs to publish `baseUrl` (automatic) and project the property the
+parent filters on through a `propertyGroup`.
+
 # Companion renderer
 
 Node coloring and the legend remain in `okf/quartz-graph-okf/`. The companion
