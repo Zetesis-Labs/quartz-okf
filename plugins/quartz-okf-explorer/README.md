@@ -114,6 +114,26 @@ export const explorer = {
 Without `layout`/`radius` the graph falls back to in-degree sizing and uniform springs,
 which suits a corpus with no declared hierarchy.
 
+## Subgraphs
+
+When the site federates other corpora (see `@zetesis/quartz-okf` → Federation) the graph
+carries two kinds of marked nodes, and the explorer reads the marks — no configuration here:
+
+- **Portals** (`node.subgraph`) are drawn with a second ring in their type colour and keep
+  their label at every zoom. The tooltip reads how many notes the child holds and how many
+  are previewed (a consumer rewords it through `tooltip.<type>`, e.g.
+  `"{subgraph.notes|note|notes} · {subgraph.previewed} previewed"`). Their reading panel
+  offers **Explorar subgrafo**, which swaps the canvas to the child graph published
+  same-origin at `static/okf-subgraphs/<id>.json`.
+- **Federated notes** (`node.federated`) wear a dashed ring and a badge with their subgraph
+  id in the tooltip and the search results; clicking one opens the child's own page in the
+  panel (absolute `url`), modifier-click opens it in a new tab.
+
+Inside a subgraph the consumer's modes are hidden — they filter by the parent's vocabulary —
+and the panel shows the path `parent › child` with **← Volver**, which restores the parent
+graph with the portal selected. `?graph=<id>` opens the explorer already inside a subgraph;
+the copied graph knows its parent (`federatedFrom`) so the way back still works.
+
 ## Input
 
 Reads the `okf-graph/v1` document emitted by `@zetesis/quartz-okf` (`static/okf-graph.json`).

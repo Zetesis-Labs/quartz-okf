@@ -81,6 +81,17 @@
   .btn:hover { background: light-dark(#eceff4, #26262b); }
   #stats { margin-left: auto; color: light-dark(#8a8a8a, #7a7a7a); font-size: .74rem; }
 
+  /* Camino de grafos: aparece al entrar en un subgrafo y sustituye a los modos, que
+     pertenecen al corpus de partida y no dicen nada sobre el vocabulario del hijo. */
+  #miga { display: none; align-items: center; gap: .4rem; font-size: .78rem; flex-wrap: wrap; }
+  #miga .path { color: light-dark(#5d5d5d, #a0a0a0); }
+  #miga .path b { color: light-dark(#1d1d1d, #f0f0f0); }
+  #miga .sep { color: light-dark(#bbb, #555); margin: 0 .3rem; }
+  .badge { display: inline-block; padding: 0 .4em; border-radius: 999px; font-size: .68rem;
+           line-height: 1.5; background: light-dark(#eceff4, #26262b);
+           border: 1px dashed light-dark(#b9c2cf, #4a4a52); color: light-dark(#5d5d5d, #a0a0a0); }
+  #results .badge { margin-left: .2rem; }
+
   #crumb { display: none; position: absolute; z-index: 5; left: 0; right: 0; top: 0;
            padding: .45rem 1rem; font-size: .82rem; line-height: 1.5;
            max-height: 4.6rem; overflow-y: auto; overscroll-behavior: contain;
@@ -152,6 +163,10 @@
         <span class="chev">▾</span>
       </div>
       <div class="pb">
+        <div id="miga">
+          <button class="btn" id="miga-back">← Volver</button>
+          <span class="path"></span>
+        </div>
         <fieldset id="mode"><legend>Modo</legend></fieldset>
         <div id="desc"></div>
         <div id="qbox">
@@ -174,6 +189,7 @@
     <header>
       <div class="tabs" role="tablist"></div>
       <span class="acts">
+        <button class="btn" id="peek-dive" hidden>Explorar subgrafo ↘</button>
         <a class="btn" id="peek-open" href="#" target="_blank" rel="noopener">Abrir</a>
         <button class="btn" id="peek-close" aria-label="Cerrar panel">✕</button>
       </span>
@@ -206,7 +222,12 @@ const MODES = (CFG.modes && CFG.modes.length) ? CFG.modes : [
 const EDGE_COLORS = Object.assign({}, CFG.edgeColors);
 const EDGE_LABEL = {};
 
-const modeById = (id) => MODES.find(m => m.id === id) || MODES[0];
+// Dentro de un subgrafo los modos del consumidor no aplican: filtran por etiquetas y
+// tipos de SU corpus, y aplicados al hijo dejarían el lienzo vacío sin explicación.
+// Ahí se dibuja todo, con las pastillas de tipo y relación como único filtro.
+const MODO_COMPLETO = { id: "__todo__", label: "Grafo completo", edges: "*", desc: "" };
+const modeById = (id) =>
+  id === MODO_COMPLETO.id ? MODO_COMPLETO : (MODES.find(m => m.id === id) || MODES[0]);
 const DESC = Object.fromEntries(MODES.map(m => [m.id, m.desc || ""]));
 
 // Un modo puede preguntar sobre otro corpus: declara su propio `graph` y el motor lo carga
@@ -241,6 +262,10 @@ function indexar(raw) {
       desc: n.description || n.desc || "",
       url: n.url || ("/" + id),
       properties: n.properties || {},
+      // Un nodo-portal representa otro grafo entero; un nodo federado es una nota de
+      // otro corpus que este ha decidido mostrar. Los marca el emitter, no el consumidor.
+      subgraph: n.subgraph || null,
+      federated: n.federated || null,
       counts: {},
       indeg: 0,
     };
@@ -252,7 +277,7 @@ function indexar(raw) {
     nodes[e.source].counts[e.label] = (nodes[e.source].counts[e.label] || 0) + 1;
     nodes[e.target].indeg += 1;
   }
-  return { nodes, edges };
+  return { nodes, edges, title: raw.site || "", federatedFrom: raw.federatedFrom || null };
 }
 
 async function cargarGrafo(url) {
@@ -313,6 +338,10 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
 
   let N = data.nodes;
   let urlActual = GRAFO_BASE;
+  // Pila de grafos: cada entrada es el grafo del que se entró a un subgrafo y el nodo
+  // que se estaba mirando, para volver exactamente ahí.
+  const pila = [];
+  const enSubgrafo = () => pila.length > 0;
 
   // Radio del nodo. Un grafo jerárquico no se lee por grado de entrada sino por rango: una
   // raíz es grande porque es la raíz, no porque tenga muchos hijos. `radius` permite fijarlo
@@ -553,8 +582,10 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
 
   let firstFit = true;
   function restart(refit = true) {
-    curMode = (document.querySelector('#mode input:checked') || { value: MODES[0].id }).value;
-    document.getElementById("desc").innerHTML = DESC[curMode];
+    curMode = enSubgrafo()
+      ? MODO_COMPLETO.id
+      : (document.querySelector('#mode input:checked') || { value: MODES[0].id }).value;
+    document.getElementById("desc").innerHTML = DESC[curMode] || "";
     const kinds = new Set([...document.querySelectorAll('#kinds input:checked')].map(i => i.value));
     graph = build(curMode, kinds.size ? kinds : null);
     renderLegend();
@@ -654,7 +685,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
       const hit = matches(n), isFocus = n === focus;
       const isNear = near && near.has(n.id), isSel = n === selected;
       const alfa = focus ? (isFocus || isNear ? 1 : 0.12) : query ? (hit ? 1 : 0.12) : 1;
-      if (isFocus || hit || isSel || alfa !== 1) { sueltos.push(n); continue; }
+      if (isFocus || hit || isSel || alfa !== 1 || n.subgraph || n.federated) { sueltos.push(n); continue; }
       const r = sizeOf(n), color = fillOf(n);
       let camino = rellenos.get(color);
       if (!camino) rellenos.set(color, camino = new Path2D());
@@ -678,6 +709,18 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
       ctx.strokeStyle = isFocus ? (dark ? "#f0f0f0" : "#333")
                                 : dark ? "rgba(22,22,24,.9)" : "rgba(255,255,255,.9)";
       ctx.stroke();
+      const rBase = isFocus || hit ? r * 1.45 : r;
+      // Un portal lleva un segundo anillo del color de su tipo: es la puerta a otro grafo.
+      // Un nodo federado lleva un anillo discontinuo: está aquí prestado de otro corpus.
+      if (n.subgraph) {
+        ctx.beginPath(); ctx.arc(n.x, n.y, rBase + 3.2 / k, 0, 7);
+        ctx.lineWidth = 1.5 / k; ctx.strokeStyle = fillOf(n); ctx.stroke();
+      } else if (n.federated) {
+        ctx.beginPath(); ctx.arc(n.x, n.y, rBase + 2.6 / k, 0, 7);
+        ctx.setLineDash([2.5 / k, 2 / k]);
+        ctx.lineWidth = 1 / k; ctx.strokeStyle = fillOf(n); ctx.stroke();
+        ctx.setLineDash([]);
+      }
       // El nodo abierto en el panel lleva un anillo propio, visible aunque el puntero
       // esté en otra parte: es la referencia de dónde se está leyendo.
       if (isSel) {
@@ -698,7 +741,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     for (const n of graph.nodes) {
       const hit = matches(n), isFocus = n === focus, isNear = near && near.has(n.id);
       if (dimming && !(isFocus || isNear || hit || n === selected)) continue;
-      const always = isFocus || hit || n === selected || sizeOf(n) > 8;
+      const always = isFocus || hit || n === selected || sizeOf(n) > 8 || Boolean(n.subgraph);
       const big = sizeOf(n) > 7;
       if (always || (isNear && k > 0.6) || k > 2.2 || (big && k > 0.9)) drawLabel(n, dark, k, always);
     }
@@ -725,8 +768,11 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
 
   function showTip(n, px, py) {
     const tpl = TOOLTIP[n.type] || TOOLTIP["*"];
-    const fund = `<small>${tpl ? fill(tpl, n) : `${n.indeg} entrante${n.indeg === 1 ? "" : "s"}`}</small>`;
-    tip.innerHTML = `<b>${n.title}</b> <small>· ${TYPE_LABEL[n.type] || n.type}</small><br>${fund}` +
+    const cuenta = n.subgraph && !TOOLTIP[n.type]
+      ? `${n.subgraph.notes} nota${n.subgraph.notes === 1 ? "" : "s"} · ${n.subgraph.previewed} abierta${n.subgraph.previewed === 1 ? "" : "s"}`
+      : tpl ? fill(tpl, n) : `${n.indeg} entrante${n.indeg === 1 ? "" : "s"}`;
+    const origen = n.federated ? ` <span class="badge">${n.federated}</span>` : "";
+    tip.innerHTML = `<b>${n.title}</b> <small>· ${TYPE_LABEL[n.type] || n.type}</small>${origen}<br><small>${cuenta}</small>` +
       (n.desc ? `<div class="pv">${n.desc}</div>` : "");
     tip.style.display = "block";
     const r = tip.getBoundingClientRect();
@@ -748,6 +794,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   const peekTabs = peek.querySelector(".tabs");
   const peekFrames = peek.querySelector(".frames");
   const peekOpen = document.getElementById("peek-open");
+  const peekDive = document.getElementById("peek-dive");
   // Pestañas al estilo del editor: al abrir una nota se usa una pestaña TEMPORAL, que
   // la siguiente reemplaza. Solo se acumulan las ancladas — doble clic o chincheta.
   const tabs = [];          // [{ id, title, type, url, pinned }]
@@ -790,7 +837,66 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     // El grafo marca la nota que se está leyendo.
     const n = graph.idx.get(id);
     if (n) { selected = n; renderCrumb(); tick(); }
+    peekDive.hidden = !(n && n.subgraph);
   }
+  peekDive.addEventListener("click", () => {
+    const n = graph.idx.get(activeTab);
+    if (n && n.subgraph) entrarEnSubgrafo(n);
+  });
+
+  // ---- subgrafos: entrar en el grafo que representa un portal, y volver ---------------
+  async function cambiarGrafo(url) {
+    stats.textContent = "cargando…";
+    data = await cargarGrafo(url);
+    N = data.nodes;
+    urlActual = url;
+    selected = null; hover = null;
+    if (tabs.length) closePeek();
+    document.getElementById("kinds").innerHTML = "";
+    document.getElementById("edges").innerHTML = "";
+    renderMiga(); renderCrumb();
+    firstFit = true;
+    restart();
+  }
+
+  async function entrarEnSubgrafo(n) {
+    pila.push({ url: urlActual, selectedId: n.id, title: data.title });
+    await cambiarGrafo(n.subgraph.graph);
+  }
+
+  async function volverAlPadre() {
+    const previo = pila.pop();
+    if (!previo) return;
+    await cambiarGrafo(previo.url);
+    const n = previo.selectedId ? graph.idx.get(previo.selectedId) : null;
+    if (n) select(n);
+  }
+
+  // Abierto directamente sobre un subgrafo (?graph=<id>): el camino de vuelta lo dice el
+  // propio fichero, que sabe desde qué grafo y qué portal se publicó.
+  async function entrarDirecto(id) {
+    const url = `/static/okf-subgraphs/${encodeURIComponent(id)}.json`;
+    pila.push({ url: GRAFO_BASE, selectedId: null, title: null });
+    await cambiarGrafo(url);
+    const desde = data.federatedFrom || {};
+    pila[0].selectedId = desde.node || null;
+    pila[0].title = desde.title || null;
+    renderMiga();
+  }
+
+  function renderMiga() {
+    const box = document.getElementById("miga");
+    const dentro = enSubgrafo();
+    box.style.display = dentro ? "flex" : "none";
+    document.getElementById("mode").style.display = dentro ? "none" : "";
+    document.getElementById("desc").style.display = dentro ? "none" : "";
+    if (!dentro) return;
+    const tramos = [...pila.map(p => p.title || CFG.title || "grafo"), data.title || "subgrafo"];
+    box.querySelector(".path").innerHTML = tramos
+      .map((t, i) => (i === tramos.length - 1 ? `<b>${t}</b>` : t))
+      .join('<span class="sep">›</span>');
+  }
+  document.getElementById("miga-back").addEventListener("click", volverAlPadre);
 
   function trimQuartz(f) {
     // Mismo origen: se recorta el layout para que el panel muestre solo el contenido.
@@ -849,6 +955,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     peek.classList.remove("open");
     tabs.length = 0; activeTab = null;
     peekFrames.innerHTML = "";
+    peekDive.hidden = true;
     renderTabs();
     resize(); tick();
   }
@@ -1016,6 +1123,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
       : [];
     results.innerHTML = hits.map((n, i) =>
       `<button data-i="${i}"><span class="nm">${n.title}</span>` +
+      (n.federated ? `<span class="badge">${n.federated}</span>` : "") +
       `<span class="kind">${TYPE_LABEL[n.type] || n.type}</span></button>`).join("");
     results.style.display = hits.length ? "block" : "none";
     results.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
@@ -1068,8 +1176,12 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
 
   // ?focus=<slug> centra el grafo en una nota: es como lo abre el modal desde una
   // página, para que el lector no tenga que buscarla al llegar.
-  const focus = new URLSearchParams(location.search).get("focus");
-  if (focus) entrarConFoco(focus);
+  // ?graph=<id> abre el explorador ya dentro de un subgrafo publicado por este sitio.
+  const params = new URLSearchParams(location.search);
+  const focus = params.get("focus");
+  const subgrafo = params.get("graph");
+  if (subgrafo) entrarDirecto(subgrafo).then(() => { if (focus) entrarConFoco(focus); });
+  else if (focus) entrarConFoco(focus);
 
   // Claves con las que se intenta emparejar el slug de la URL con el del grafo. El bundle
   // normaliza los slugs y las páginas no, así que se compara sin distinguir mayúsculas; y
