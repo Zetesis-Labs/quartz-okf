@@ -3,6 +3,7 @@ import test from "node:test"
 import {
   absolutiseChildGraph,
   federateGraph,
+  isRemoteRepo,
   subgraphId,
   validateFederationConfig,
 } from "../lib/federation.js"
@@ -21,6 +22,7 @@ const profile = mergeProfile(PROFILE, {
 })
 
 const PORTAL = "topics/it-governance"
+const ID = "it-governance"
 
 function parentGraph() {
   return {
@@ -88,29 +90,47 @@ function childGraph() {
   }
 }
 
+const DISPLAY = {
+  typeColors: { service: "#10b981", policy: "#ef4444" },
+  typeLabels: { service: "Service / System", policy: "Policy / Circular" },
+  edgeColors: { Authorizes: "#6366f1" },
+  modes: [{ id: "full", label: "Full view", edges: "*" }],
+}
+
 const ENTRY = {
   node: PORTAL,
-  graph: "https://cern.zetesis.xyz/static/okf-graph.json",
+  repo: "https://github.com/example/child-graph",
+  ref: "def456",
   preview: { property: "visibility", equals: "open" },
 }
 const federation = (...entries) => ({ subgraphs: entries.length ? entries : [ENTRY] })
+const child = (overrides = {}) => ({ [ID]: { graph: childGraph(), display: DISPLAY, ...overrides } })
 const localSlugs = ["cern", PORTAL]
-const codes = (problems) => problems.map((problem) => problem.code)
+const codes = (items) => items.map((item) => item.code)
 
 test("subgraph id defaults to the last segment of the portal slug", () => {
-  assert.equal(subgraphId(ENTRY), "it-governance")
+  assert.equal(subgraphId(ENTRY), ID)
   assert.equal(subgraphId({ ...ENTRY, id: "it" }), "it")
+})
+
+test("a repository is remote when it is a URL, local when it is a path", () => {
+  for (const remote of ["https://github.com/x/y", "git@github.com:x/y.git", "ssh://git@host/x", "file:///tmp/x"]) {
+    assert.equal(isRemoteRepo(remote), true, remote)
+  }
+  for (const local of ["../child", "/abs/child", "child"]) assert.equal(isRemoteRepo(local), false, local)
 })
 
 test("a complete declaration validates clean; edge defaults to Contains", () => {
   assert.deepEqual(validateFederationConfig(federation(), profile, localSlugs), [])
+  assert.deepEqual(validateFederationConfig(federation({ ...ENTRY, repo: "../child", ref: undefined }), profile, localSlugs), [])
 })
 
 test("validation names every configuration problem with its subgraph id", () => {
   const cases = [
     [{ ...ENTRY, node: undefined }, "federation/node-required"],
     [{ ...ENTRY, node: "topics/missing" }, "federation/node-unknown"],
-    [{ ...ENTRY, graph: undefined }, "federation/graph-required"],
+    [{ ...ENTRY, repo: undefined }, "federation/repo-required"],
+    [{ ...ENTRY, ref: undefined }, "federation/ref-required"],
     [{ ...ENTRY, preview: undefined }, "federation/preview-required"],
     [{ ...ENTRY, preview: { property: "visibility" } }, "federation/preview-required"],
     [{ ...ENTRY, edge: "Runs on" }, "federation/edge-unknown"],
@@ -122,9 +142,17 @@ test("validation names every configuration problem with its subgraph id", () => 
   }
 })
 
+test("a mount path already used by the parent corpus is a problem", () => {
+  const problems = validateFederationConfig(federation(), profile, [...localSlugs, `${ID}/intro`])
+  assert.deepEqual(codes(problems), ["federation/mount-collision"])
+  assert.match(problems[0].message, /it-governance\/intro/)
+  const asNote = validateFederationConfig(federation(), profile, [...localSlugs, ID])
+  assert.deepEqual(codes(asNote), ["federation/mount-collision"])
+})
+
 test("two declarations resolving to the same id are a problem", () => {
   const problems = validateFederationConfig(
-    federation(ENTRY, { ...ENTRY, node: "cern", id: "it-governance" }),
+    federation(ENTRY, { ...ENTRY, node: "cern", id: ID }),
     profile,
     localSlugs,
   )
@@ -132,10 +160,10 @@ test("two declarations resolving to the same id are a problem", () => {
   assert.match(problems[0].message, /it-governance/)
 })
 
-test("federates the open child notes around the portal without mutating the input", () => {
+test("federates the open child notes as pages of the parent site, without mutating the input", () => {
   const parent = parentGraph()
   const before = structuredClone(parent)
-  const result = federateGraph(parent, { "it-governance": { graph: childGraph() } }, federation(), profile)
+  const result = federateGraph(parent, child(), federation(), profile)
   assert.deepEqual(parent, before)
   assert.deepEqual(result.problems, [])
   assert.deepEqual(result.warnings, [])
@@ -143,30 +171,31 @@ test("federates the open child notes around the portal without mutating the inpu
   const federated = result.graph.nodes.filter((node) => node.federated)
   assert.deepEqual(
     federated.map((node) => node.slug),
-    ["it-governance:identity/sso", "it-governance:identity/gms"],
+    [`${ID}/identity/sso`, `${ID}/identity/gms`],
   )
   assert.deepEqual(federated[0], {
-    slug: "it-governance:identity/sso",
+    slug: `${ID}/identity/sso`,
     title: "SSO",
     type: "service",
     tags: ["identity"],
     description: "Single sign-on.",
     path: "identity/sso.md",
     properties: { visibility: "open", entorno: "corporate" },
-    federated: "it-governance",
-    url: "https://cern.zetesis.xyz/identity/sso",
+    federated: ID,
+    url: `/${ID}/identity/sso`,
   })
   assert.equal(result.graph.nodes.some((node) => node.slug.endsWith("security/oc5")), false)
 })
 
-test("marks the portal with the child's identity and counts", () => {
-  const result = federateGraph(parentGraph(), { "it-governance": { graph: childGraph() } }, federation(), profile)
+test("marks the portal with the child's identity, mount and counts", () => {
+  const result = federateGraph(parentGraph(), child(), federation(), profile)
   const portal = result.graph.nodes.find((node) => node.slug === PORTAL)
   assert.deepEqual(portal.subgraph, {
-    id: "it-governance",
+    id: ID,
     title: "CERN IT Governance",
     site: "https://cern.zetesis.xyz",
-    graph: "/static/okf-subgraphs/it-governance.json",
+    mount: `/${ID}`,
+    graph: `/static/okf-subgraphs/${ID}.json`,
     source_head: "def456",
     notes: 4,
     previewed: 2,
@@ -183,16 +212,16 @@ test("marks the portal with the child's identity and counts", () => {
 })
 
 test("declares portal edges, derives their inverses and keeps child edges between open notes", () => {
-  const result = federateGraph(parentGraph(), { "it-governance": { graph: childGraph() } }, federation(), profile)
-  const added = result.graph.edges.filter((edge) => edge.federated === "it-governance")
+  const result = federateGraph(parentGraph(), child(), federation(), profile)
+  const added = result.graph.edges.filter((edge) => edge.federated === ID)
   const line = (edge) => `${edge.source} ${edge.label} ${edge.target}${edge.derived ? " (derived)" : ""}`
   assert.deepEqual(added.map(line), [
-    "topics/it-governance Contains it-governance:identity/sso",
-    "topics/it-governance Contains it-governance:identity/gms",
-    "it-governance:identity/sso Authorizes it-governance:identity/gms",
-    "it-governance:identity/gms Authorized by it-governance:identity/sso (derived)",
-    "it-governance:identity/sso Part of topics/it-governance (derived)",
-    "it-governance:identity/gms Part of topics/it-governance (derived)",
+    `${PORTAL} Contains ${ID}/identity/sso`,
+    `${PORTAL} Contains ${ID}/identity/gms`,
+    `${ID}/identity/sso Authorizes ${ID}/identity/gms`,
+    `${ID}/identity/gms Authorized by ${ID}/identity/sso (derived)`,
+    `${ID}/identity/sso Part of ${PORTAL} (derived)`,
+    `${ID}/identity/gms Part of ${PORTAL} (derived)`,
   ])
   assert.equal(added[0].iri, `${PROFILE.id}#contains`)
   assert.equal(added[2].iri, "child#authorizes")
@@ -201,35 +230,18 @@ test("declares portal edges, derives their inverses and keeps child edges betwee
   assert.deepEqual(result.graph.edges.slice(0, 2), parentGraph().edges)
 })
 
-test("uses the configured edge label and an explicit site over the child's baseUrl", () => {
-  const entry = { ...ENTRY, edge: "Governs", site: "https://mirror.example/" }
-  const result = federateGraph(parentGraph(), { "it-governance": { graph: childGraph() } }, federation(entry), profile)
+test("uses the configured edge label", () => {
+  const result = federateGraph(parentGraph(), child(), federation({ ...ENTRY, edge: "Governs" }), profile)
   const added = result.graph.edges.filter((edge) => edge.federated && !edge.derived && edge.source === PORTAL)
   assert.deepEqual(added.map((edge) => edge.label), ["Governs", "Governs"])
   const inverse = result.graph.edges.filter((edge) => edge.derived && edge.target === PORTAL && edge.federated)
   assert.deepEqual(inverse.map((edge) => edge.label), ["Supervised by", "Supervised by"])
-  const node = result.graph.nodes.find((candidate) => candidate.federated)
-  assert.equal(node.url, "https://mirror.example/identity/sso")
-})
-
-test("needs a site from somewhere and refuses prefixed slugs that already exist", () => {
-  const child = childGraph()
-  delete child.baseUrl
-  const noSite = federateGraph(parentGraph(), { "it-governance": { graph: child } }, federation(), profile)
-  assert.deepEqual(codes(noSite.problems), ["federation/site-required"])
-  assert.equal(noSite.graph.nodes.some((node) => node.federated), false)
-
-  const parent = parentGraph()
-  parent.nodes.push({ slug: "it-governance:identity/sso", title: "Clash", type: "unit", tags: [], path: "x.md" })
-  const clash = federateGraph(parent, { "it-governance": { graph: childGraph() } }, federation(), profile)
-  assert.deepEqual(codes(clash.problems), ["federation/slug-collision"])
-  assert.match(clash.problems[0].message, /it-governance:identity\/sso/)
 })
 
 test("an empty preview is a warning, never a silent portal", () => {
   const result = federateGraph(
     parentGraph(),
-    { "it-governance": { graph: childGraph() } },
+    child(),
     federation({ ...ENTRY, preview: { property: "visibility", equals: "public" } }),
     profile,
   )
@@ -238,68 +250,77 @@ test("an empty preview is a warning, never a silent portal", () => {
   assert.equal(result.graph.stats.federatedNodes, 0)
 })
 
-test("a pinned head that drifted is a warning naming both heads; no pin, no check", () => {
-  const drifted = federateGraph(
-    parentGraph(),
-    { "it-governance": { graph: childGraph() } },
-    federation({ ...ENTRY, pin: "abc123" }),
-    profile,
-  )
-  assert.deepEqual(codes(drifted.warnings), ["federation/pin-drift"])
+test("a mounted head that differs from the pinned ref, or a remote that moved on, are warnings", () => {
+  const drifted = federateGraph(parentGraph(), child(), federation({ ...ENTRY, ref: "abc123" }), profile)
+  assert.deepEqual(codes(drifted.warnings), ["federation/ref-drift"])
   assert.match(drifted.warnings[0].message, /it-governance.*abc123.*def456/)
   assert.deepEqual(drifted.problems, [])
   assert.equal(drifted.graph.stats.federatedNodes, 2)
 
-  const unpinned = federateGraph(parentGraph(), { "it-governance": { graph: childGraph() } }, federation(), profile)
-  assert.deepEqual(unpinned.warnings, [])
-  assert.equal(unpinned.graph.nodes.find((node) => node.slug === PORTAL).subgraph.source_head, "def456")
+  const behind = federateGraph(parentGraph(), child({ remoteHead: "999aaa" }), federation(), profile)
+  assert.deepEqual(codes(behind.warnings), ["federation/ref-behind"])
+  assert.match(behind.warnings[0].message, /it-governance.*def456.*999aaa/)
+
+  const local = federateGraph(parentGraph(), child(), federation({ ...ENTRY, repo: "../child", ref: undefined }), profile)
+  assert.deepEqual(local.warnings, [])
+  assert.equal(local.graph.nodes.find((node) => node.slug === PORTAL).subgraph.source_head, "def456")
 })
 
-test("an unreachable child leaves a marked, empty portal and a warning naming the location", () => {
+test("an unmounted child leaves a marked, empty portal and a warning naming the location", () => {
   const result = federateGraph(
     parentGraph(),
-    { "it-governance": { error: "HTTP 503", location: ENTRY.graph } },
+    { [ID]: { error: "not mounted", location: ENTRY.repo } },
     federation(),
     profile,
   )
   assert.deepEqual(codes(result.warnings), ["federation/child-unreachable"])
-  assert.match(result.warnings[0].message, /it-governance.*okf-graph\.json.*HTTP 503/)
+  assert.match(result.warnings[0].message, /it-governance.*child-graph.*not mounted/)
   const portal = result.graph.nodes.find((node) => node.slug === PORTAL)
   assert.deepEqual(portal.subgraph, {
-    id: "it-governance",
-    graph: "/static/okf-subgraphs/it-governance.json",
+    id: ID,
+    mount: `/${ID}`,
+    graph: `/static/okf-subgraphs/${ID}.json`,
     notes: 0,
     previewed: 0,
   })
   assert.deepEqual(result.subgraphs, [])
 })
 
-test("returns the absolutised child graph as the subgraph copy", () => {
-  const result = federateGraph(parentGraph(), { "it-governance": { graph: childGraph() } }, federation(), profile)
+test("returns the subgraph copy addressed inside the parent site, carrying the child's display", () => {
+  const result = federateGraph(parentGraph(), child(), federation(), profile)
   assert.equal(result.subgraphs.length, 1)
-  assert.equal(result.subgraphs[0].id, "it-governance")
-  assert.deepEqual(result.subgraphs[0].graph.federatedFrom, {
-    site: "https://cern.example",
-    node: PORTAL,
-    title: "CERN",
-  })
-  assert.equal(result.subgraphs[0].graph.nodes[0].url, "https://cern.zetesis.xyz/identity/sso")
+  assert.equal(result.subgraphs[0].id, ID)
+  const copy = result.subgraphs[0].graph
+  assert.deepEqual(copy.federatedFrom, { site: "https://cern.example", node: PORTAL, title: "CERN" })
+  assert.equal(copy.nodes[0].url, `/${ID}/identity/sso`)
+  assert.deepEqual(copy.display, DISPLAY)
 })
 
-test("absolutiseChildGraph addresses every note on the child site and drops nested portals", () => {
-  const child = childGraph()
-  child.nodes[0].subgraph = { id: "nested" }
-  child.nodes[1].url = "https://elsewhere.example/gms"
-  const before = structuredClone(child)
-  const copy = absolutiseChildGraph(child, "https://cern.zetesis.xyz", { site: "https://cern.example", node: PORTAL })
-  assert.deepEqual(child, before)
+test("the parent graph publishes the union of its children's display as a fallback", () => {
+  const result = federateGraph(parentGraph(), child(), federation(), profile)
+  assert.deepEqual(result.graph.display, {
+    typeColors: DISPLAY.typeColors,
+    typeLabels: DISPLAY.typeLabels,
+    edgeColors: DISPLAY.edgeColors,
+  })
+  const bare = federateGraph(parentGraph(), { [ID]: { graph: childGraph() } }, federation(), profile)
+  assert.equal("display" in bare.graph, false)
+})
+
+test("absolutiseChildGraph addresses every note under the mount and drops nested portals", () => {
+  const graph = childGraph()
+  graph.nodes[0].subgraph = { id: "nested" }
+  graph.nodes[1].url = "https://elsewhere.example/gms"
+  const before = structuredClone(graph)
+  const copy = absolutiseChildGraph(graph, `/${ID}`, { site: "https://cern.example", node: PORTAL })
+  assert.deepEqual(graph, before)
   assert.deepEqual(
     copy.nodes.map((node) => node.url),
     [
-      "https://cern.zetesis.xyz/identity/sso",
+      `/${ID}/identity/sso`,
       "https://elsewhere.example/gms",
-      "https://cern.zetesis.xyz/security/oc5",
-      "https://cern.zetesis.xyz/sources/foo",
+      `/${ID}/security/oc5`,
+      `/${ID}/sources/foo`,
     ],
   )
   assert.equal("subgraph" in copy.nodes[0], false)

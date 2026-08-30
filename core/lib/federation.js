@@ -3,10 +3,15 @@ import { deriveInverseEdges } from "./graph.js"
 
 const DEFAULT_EDGE = "Contains"
 const DEFAULT_SUBGRAPHS_PATH = "/static/okf-subgraphs"
+const DISPLAY_FALLBACK_KEYS = ["typeColors", "typeLabels", "edgeColors"]
 
 export function subgraphId(entry) {
   if (entry?.id) return String(entry.id)
   return String(entry?.node ?? "").split("/").filter(Boolean).at(-1) ?? ""
+}
+
+export function isRemoteRepo(repo) {
+  return /^(https?:\/\/|git@|ssh:\/\/|file:\/\/)/i.test(String(repo ?? ""))
 }
 
 function nameOf(entry) {
@@ -27,15 +32,8 @@ function readProperty(properties, propertyPath) {
     .reduce((value, key) => (value == null ? value : value[key]), properties ?? {})
 }
 
-function canonicalSite(value) {
-  const text = String(value ?? "").trim()
-  if (!text) return undefined
-  const withScheme = /^https?:\/\//i.test(text) ? text : `https://${text}`
-  return withScheme.replace(/\/+$/, "")
-}
-
-function isAbsolute(url) {
-  return /^https?:\/\//i.test(String(url ?? ""))
+function isAbsoluteUrl(url) {
+  return /^(https?:)?\/\//i.test(String(url ?? ""))
 }
 
 export function validateFederationConfig(federation, profile = PROFILE, localSlugs = []) {
@@ -52,8 +50,10 @@ export function validateFederationConfig(federation, profile = PROFILE, localSlu
         problem(id, "federation/node-unknown", `node "${entry.node}" is not a note of this corpus`),
       )
     }
-    if (!entry.graph) {
-      problems.push(problem(id, "federation/graph-required", "declare the child's graph location in `graph`"))
+    if (!entry.repo) {
+      problems.push(problem(id, "federation/repo-required", "declare the child's repository in `repo` (URL or local path)"))
+    } else if (isRemoteRepo(entry.repo) && !entry.ref) {
+      problems.push(problem(id, "federation/ref-required", `pin the commit of ${entry.repo} in \`ref\``))
     }
     if (!entry.preview?.property || entry.preview.equals === undefined) {
       problems.push(problem(id, "federation/preview-required", "declare `preview.property` and `preview.equals`"))
@@ -62,20 +62,26 @@ export function validateFederationConfig(federation, profile = PROFILE, localSlu
     if (!labels.has(edge)) {
       problems.push(problem(id, "federation/edge-unknown", `edge "${edge}" is not one of this corpus' edgeLabels`))
     }
+    const taken = [...slugs].filter((slug) => slug === id || slug.startsWith(`${id}/`))
+    if (taken.length) {
+      problems.push(
+        problem(id, "federation/mount-collision", `the mount path /${id}/ is already used by this corpus: ${taken.join(", ")}`),
+      )
+    }
     if (seen.has(id)) problems.push(problem(id, "federation/id-duplicate", "two subgraphs resolve to this id"))
     seen.add(id)
   }
   return problems
 }
 
-export function absolutiseChildGraph(childGraph, site, parentRef) {
-  const origin = canonicalSite(site)
+export function absolutiseChildGraph(childGraph, urlBase, parentRef) {
+  const base = String(urlBase ?? "").replace(/\/+$/, "")
   return {
     ...childGraph,
     federatedFrom: parentRef,
     nodes: (childGraph.nodes ?? []).map(({ subgraph: _nested, ...node }) => ({
       ...node,
-      url: isAbsolute(node.url) ? node.url : `${origin}/${node.slug}`,
+      url: isAbsoluteUrl(node.url) ? node.url : `${base}/${node.slug}`,
     })),
   }
 }
@@ -86,61 +92,62 @@ function openNotesOf(childGraph, preview) {
   )
 }
 
-function federateEntry({ entry, id, child, portal, bySlug, graph, profile, subgraphsPath }) {
+function empty() {
+  return { problems: [], warnings: [], nodes: [], edges: [], declared: 0, derived: 0 }
+}
+
+function federateEntry({ entry, id, child, portal, graph, profile, subgraphsPath }) {
+  const mount = `/${id}`
   const copyPath = `${subgraphsPath}/${id}.json`
-  const problems = []
-  const warnings = []
+  const result = empty()
   if (!child?.graph) {
-    warnings.push({
+    result.warnings.push({
       id,
       code: "federation/child-unreachable",
-      message: `${id}: cannot load ${child?.location ?? entry.graph}: ${child?.error ?? "no graph provided"}`,
+      message: `${id}: cannot mount ${child?.location ?? entry.repo}: ${child?.error ?? "no graph provided"}`,
     })
-    portal.subgraph = { id, graph: copyPath, notes: 0, previewed: 0 }
-    return { problems, warnings, nodes: [], edges: [], declared: 0, derived: 0 }
-  }
-  const site = canonicalSite(entry.site ?? child.graph.baseUrl)
-  if (!site) {
-    problems.push(problem(id, "federation/site-required", "declare `site`: the child graph publishes no baseUrl"))
-    return { problems, warnings, nodes: [], edges: [], declared: 0, derived: 0 }
+    portal.subgraph = { id, mount, graph: copyPath, notes: 0, previewed: 0 }
+    return result
   }
   const open = openNotesOf(child.graph, entry.preview)
   if (!open.length) {
-    warnings.push({
+    result.warnings.push({
       id,
       code: "federation/preview-empty",
       message: `${id}: no child note has ${entry.preview.property} = ${JSON.stringify(entry.preview.equals)}`,
     })
   }
-  if (entry.pin && child.graph.source_head && entry.pin !== child.graph.source_head) {
-    warnings.push({
+  const head = child.graph.source_head
+  if (entry.ref && head && entry.ref !== head) {
+    result.warnings.push({
       id,
-      code: "federation/pin-drift",
-      message: `${id}: pinned ${entry.pin} but the child publishes ${child.graph.source_head}`,
+      code: "federation/ref-drift",
+      message: `${id}: pinned ref ${entry.ref} but the mounted head is ${head}`,
     })
   }
-  const prefix = (slug) => `${id}:${slug}`
-  const collisions = open.map((node) => prefix(node.slug)).filter((slug) => bySlug.has(slug))
-  if (collisions.length) {
-    problems.push(
-      problem(id, "federation/slug-collision", `prefixed slug already exists in this corpus: ${collisions.join(", ")}`),
-    )
-    return { problems, warnings, nodes: [], edges: [], declared: 0, derived: 0 }
+  if (entry.ref && child.remoteHead && child.remoteHead !== entry.ref) {
+    result.warnings.push({
+      id,
+      code: "federation/ref-behind",
+      message: `${id}: pinned ${entry.ref}, the remote now points at ${child.remoteHead}`,
+    })
   }
   portal.subgraph = compact({
     id,
     title: child.graph.site,
-    site,
+    site: child.graph.baseUrl,
+    mount,
     graph: copyPath,
-    source_head: child.graph.source_head,
+    source_head: head,
     notes: child.graph.stats?.notes ?? (child.graph.nodes ?? []).length,
     previewed: open.length,
   })
-  const nodes = open.map(({ subgraph: _nested, ...node }) => ({
+  const prefix = (slug) => `${id}/${slug}`
+  result.nodes = open.map(({ subgraph: _nested, ...node }) => ({
     ...node,
     slug: prefix(node.slug),
     federated: id,
-    url: isAbsolute(node.url) ? node.url : `${site}/${node.slug}`,
+    url: isAbsoluteUrl(node.url) ? node.url : `${mount}/${node.slug}`,
   }))
   const edge = entry.edge ?? DEFAULT_EDGE
   const portalEdges = open.map((node) =>
@@ -160,18 +167,23 @@ function federateEntry({ entry, id, child, portal, bySlug, graph, profile, subgr
       }),
     )
   const derived = deriveInverseEdges(portalEdges, profile).map((item) => ({ ...item, federated: id }))
-  return {
-    problems,
-    warnings,
-    nodes,
-    edges: [...portalEdges, ...childEdges, ...derived],
-    declared: portalEdges.length + childEdges.filter((item) => !item.derived).length,
-    derived: derived.length + childEdges.filter((item) => item.derived).length,
-    subgraph: {
-      id,
-      graph: absolutiseChildGraph(child.graph, site, compact({ site: graph.baseUrl, node: entry.node, title: graph.site })),
-    },
+  result.edges = [...portalEdges, ...childEdges, ...derived]
+  result.declared = portalEdges.length + childEdges.filter((item) => !item.derived).length
+  result.derived = derived.length + childEdges.filter((item) => item.derived).length
+  const copy = absolutiseChildGraph(child.graph, mount, compact({ site: graph.baseUrl, node: entry.node, title: graph.site }))
+  result.subgraph = { id, graph: child.display ? { ...copy, display: child.display } : copy }
+  result.display = child.display
+  return result
+}
+
+function unionDisplay(displays) {
+  const present = displays.filter(Boolean)
+  if (!present.length) return undefined
+  const union = Object.fromEntries(DISPLAY_FALLBACK_KEYS.map((key) => [key, {}]))
+  for (const display of present) {
+    for (const key of DISPLAY_FALLBACK_KEYS) Object.assign(union[key], display[key] ?? {})
   }
+  return union
 }
 
 export function federateGraph(graph, children, federation, profile = PROFILE, options = {}) {
@@ -184,6 +196,7 @@ export function federateGraph(graph, children, federation, profile = PROFILE, op
   const addedNodes = []
   const addedEdges = []
   const subgraphs = []
+  const displays = []
   let declared = 0
   let derived = 0
   for (const entry of federation?.subgraphs ?? []) {
@@ -194,7 +207,6 @@ export function federateGraph(graph, children, federation, profile = PROFILE, op
       id,
       child: children?.[id],
       portal: bySlug.get(entry.node),
-      bySlug,
       graph,
       profile,
       subgraphsPath,
@@ -206,11 +218,14 @@ export function federateGraph(graph, children, federation, profile = PROFILE, op
     declared += result.declared
     derived += result.derived
     if (result.subgraph) subgraphs.push(result.subgraph)
+    displays.push(result.display)
   }
   const stats = graph.stats ?? {}
+  const display = unionDisplay(displays)
   return {
     graph: {
       ...graph,
+      ...(display ? { display } : {}),
       stats: {
         ...stats,
         notes: (stats.notes ?? 0) + addedNodes.length,

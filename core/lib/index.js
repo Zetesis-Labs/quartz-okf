@@ -2,6 +2,7 @@ export { buildGraph, deriveInverseEdges } from "./graph.js"
 export {
   absolutiseChildGraph,
   federateGraph,
+  isRemoteRepo,
   subgraphId,
   validateFederationConfig,
 } from "./federation.js"
