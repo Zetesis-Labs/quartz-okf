@@ -49,6 +49,20 @@ test("keeps an explicit scheme and drops trailing slashes from baseUrl", async (
   assert.equal(graph.baseUrl, "http://localhost:8080")
 })
 
+test("records the corpus commit handed in by the harness as source_head", async () => {
+  process.env.OKF_SOURCE_HEAD = "abc1234567"
+  try {
+    const { graph } = await emitSite(SITE)
+    assert.equal(graph.source_head, "abc1234567")
+  } finally {
+    delete process.env.OKF_SOURCE_HEAD
+  }
+  const explicit = await emitSite(SITE, { sourceHead: "fedcba" })
+  assert.equal(explicit.graph.source_head, "fedcba")
+  const none = await emitSite(SITE)
+  assert.equal(none.graph.source_head, undefined)
+})
+
 test("emits no baseUrl when the site declares none", async () => {
   const { graph } = await emitSite(SITE)
   assert.equal("baseUrl" in graph, false)

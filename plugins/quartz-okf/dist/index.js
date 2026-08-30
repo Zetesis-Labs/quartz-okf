@@ -251,6 +251,9 @@ async function emitAll(context, content, options) {
     profile,
     site: context.cfg?.configuration?.pageTitle,
     baseUrl: canonicalOrigin(context.cfg?.configuration?.baseUrl),
+    // Quartz builds from a copy of the corpus, outside its repository: the harness
+    // hands the commit in through the environment so federating parents can pin it.
+    sourceHead: options.sourceHead ?? process.env.OKF_SOURCE_HEAD ?? undefined,
   })
   const { graph, subgraphs } = await federate(context, local, profile, options)
   const graphPath = path.join(context.argv.output, options.graphOutput)
