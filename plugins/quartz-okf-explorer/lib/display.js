@@ -58,3 +58,12 @@ export function displayFor(base, model, { inSubgraph, t }) {
 export function modeById(display, id) {
   return display.modes.find((m) => m.id === id) || display.modes[0]
 }
+
+/**
+ * The document a mode draws. A mode may name its own; otherwise it asks about the graph
+ * on screen — inside a subgraph, the child's, never the root's.
+ */
+export function modeGraphUrl(mode, currentUrl) {
+  if (!mode || !mode.graph) return currentUrl
+  return mode.graph[0] === "/" ? mode.graph : "/" + mode.graph
+}

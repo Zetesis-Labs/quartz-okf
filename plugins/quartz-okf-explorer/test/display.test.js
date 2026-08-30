@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { FULL_MODE_ID, PALETTE, baseDisplay, displayFor, modeById } from "../lib/display.js"
+import { FULL_MODE_ID, PALETTE, baseDisplay, displayFor, modeById, modeGraphUrl } from "../lib/display.js"
 import { indexGraph } from "../lib/model.js"
 import { RAW_CHILD, RAW_ROOT, stubT } from "./fixtures.js"
 
@@ -68,6 +68,12 @@ test("displayFor is deterministic and never mutates the base", () => {
   const b = displayFor(base, child, { inSubgraph: true, t: stubT })
   assert.deepEqual(a, b)
   assert.equal(base.colors.service, undefined)
+})
+
+test("a mode asks about the graph on screen unless it names its own document", () => {
+  assert.equal(modeGraphUrl({ id: "ops" }, "/static/okf-subgraphs/it.json"), "/static/okf-subgraphs/it.json")
+  assert.equal(modeGraphUrl({ id: "x", graph: "static/other.json" }, "/static/okf-subgraphs/it.json"), "/static/other.json")
+  assert.equal(modeGraphUrl({ id: "y", graph: "/static/other.json" }, "/g.json"), "/static/other.json")
 })
 
 test("modeById returns the mode or the first one", () => {

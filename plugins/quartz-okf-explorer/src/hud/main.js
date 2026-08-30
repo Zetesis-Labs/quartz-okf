@@ -1,4 +1,4 @@
-import { baseDisplay, displayFor, modeById } from "../../lib/display.js"
+import { baseDisplay, displayFor, modeById, modeGraphUrl } from "../../lib/display.js"
 import { findNode, focusKeys, resolveFocus } from "../../lib/focus.js"
 import { dismissOrder, filterRows, filtersIsland, selectionView, trailView, viewsIsland } from "../../lib/hud.js"
 import { translator } from "../../lib/i18n.js"
@@ -26,7 +26,6 @@ const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)").matches
 
 const $ = (id) => document.getElementById(id)
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c])
-const grafoDe = (m) => (m && m.graph ? (m.graph[0] === "/" ? m.graph : "/" + m.graph) : GRAFO_BASE)
 const urlDeSubgrafo = (id) => `/static/okf-subgraphs/${encodeURIComponent(id)}.json`
 const urlDeNivel = (id) => (id ? `?graph=${encodeURIComponent(id)}` : location.pathname)
 
@@ -51,6 +50,8 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   let data = inicial
   let display = displayFor(BASE, data, { inSubgraph: false, t })
   let urlActual = GRAFO_BASE
+  // El documento del nivel en pantalla: a él vuelve un modo que no declara el suyo.
+  let urlNivel = GRAFO_BASE
   // Pila de grafos: cada entrada es el grafo del que se entró a un subgrafo y el nodo que
   // se estaba mirando, para volver exactamente ahí. `idActual` es null en el de partida.
   const pila = []
@@ -455,6 +456,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     statsEl.textContent = t("stats.loading")
     data = await cargarGrafo(url)
     urlActual = url
+    urlNivel = url
     if (idActual) {
       if (!registry.has(idActual)) registry.set(idActual, { key: idActual, title: data.title, url, path: [idActual], model: null, error: null })
       expandRegistry(registry, idActual, data)
@@ -945,7 +947,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   async function cambiarModo(id) {
     curMode = id
     // Un modo puede vivir sobre otro corpus: se carga la primera vez y queda en caché.
-    const url = grafoDe(modeById(display, id))
+    const url = modeGraphUrl(modeById(display, id), urlNivel)
     if (url !== urlActual) {
       statsEl.textContent = t("stats.loading")
       data = await cargarGrafo(url)
@@ -1018,7 +1020,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
 
   async function activarModo(id) {
     curMode = id
-    const url = grafoDe(modeById(display, id))
+    const url = modeGraphUrl(modeById(display, id), urlNivel)
     if (url !== urlActual) {
       data = await cargarGrafo(url)
       urlActual = url
