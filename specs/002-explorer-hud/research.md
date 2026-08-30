@@ -365,3 +365,30 @@ own unresolved backlog item (12 blurs over a 60 fps canvas) before it bites on a
    the explorer detects it is framed?
 3. Saved explorations (D9): `localStorage` + URL as proposed, or URL only for v1?
 4. Ground (D12): dot grid on by default, or opt-in per consumer?
+
+## 6. Scope cut (2026-08-31)
+
+Asked whether this was the best approach, the answer was "in the bones yes, in the
+skin not entirely": the defects that hurt a reader are structural (a panel that hides
+the trail, search blind to 272 mounted pages, `?focus=` silently unselected, Spanish
+wording on English sites) and the power-tool idioms of graphacker — palette, context
+menu, windows as a system, spatial keyboard — assume a daily user the explorer does not
+have evidence of. The owner accepted the recommendation:
+
+- **Tranche A (this feature)**: D1 (stage and layers), D2 (islands: brand, views,
+  filters; reading island deferred), D3 (omnibar with the trail as scope, cross-graph
+  search, `?focus=` across graphs; palette deferred), D5 (side menus for types and
+  relations with all/none and legend), D6 (selection capsule; context menu deferred),
+  D8 (single dismiss chain), D10 (wording catalogues `es`/`en`, default from the site
+  locale), D11 (plain ES modules + esbuild through tsup, no framework), D12 tokens only
+  (flat by default, glass opt-in; ground deferred). The dock keeps its temporary/pinned
+  tabs and becomes an overlay instead of a flex sibling.
+- **Tranche B (deferred, unscheduled)**: D4 (reading island, `⌘W`, maximise), D7
+  (spatial keyboard), D9 (URL state and saved explorations), palette, context menu,
+  dot-grid ground, the modal host adopting the island look.
+- **Answers to §5**: (1) plain ES modules, no SolidJS; (2) `access.js` keeps its bar
+  and only takes wording from the catalogue; (3) URL keeps `graph`/`focus` only;
+  (4) no ground in tranche A.
+
+The mock in `mock/hud.html` shows the full HUD (both tranches) and stays as the
+discussion piece; the shipped tranche A is the subset above.

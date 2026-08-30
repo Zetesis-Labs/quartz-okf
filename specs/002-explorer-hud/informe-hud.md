@@ -290,6 +290,33 @@ Con esas cuatro respuestas, `/speckit-plan` y `/speckit-tasks` sobre la rama `00
 
 ---
 
+## 11. Decisión: tramo A (2026-08-31)
+
+A la pregunta de si este enfoque era el mejor, la respuesta fue «en los huesos sí, en
+la piel no del todo»: los defectos que duelen (§4) son estructurales y se arreglan con
+la *estructura* de graphacker, no con sus idiomas de herramienta diaria. Se acordó
+partir la feature en dos tramos y construir solo el primero:
+
+| Tramo A — se construye | Tramo B — aplazado |
+|---|---|
+| Escenario a sangre y capas (D1) | Isla de lectura, `⌘W`, maximizar (D4) |
+| Islas de marca, vistas y filtros (D2) | Paleta de comandos `>` (D3, parte) |
+| Omnibar con la miga como ámbito y búsqueda entre grafos; `?focus=` resuelto en los subgrafos (D3) | Menú contextual (D6, parte) |
+| Menús laterales de tipos y relaciones con todos/ninguno y leyenda (D5) | Teclado espacial (D7) |
+| Cápsula de selección (D6) | Estado completo en la URL y exploraciones guardadas (D9) |
+| Una sola cadena de `Escape` (D8) | Fondo de puntos con parallax (D12, parte) |
+| Catálogos `es`/`en`, idioma del sitio por defecto (D10) | El modal de las notas con el aspecto de las islas |
+| Módulos ES planos + esbuild vía tsup, sin framework (D11) | |
+| Tokens; plano por defecto, cristal opt-in (D12) | |
+
+El dock conserva sus pestañas temporales y ancladas y pasa a flotar sobre el lienzo en
+vez de estrecharlo. Las cuatro preguntas del §10 quedan respondidas: módulos planos;
+`access.js` mantiene su barra; solo `graph`/`focus` en la URL; sin fondo de puntos.
+
+La spec, el plan y las tareas del tramo A están en `spec.md`, `plan.md` y `tasks.md`.
+La maqueta del Anexo C enseña el HUD completo (los dos tramos) y sigue siendo la pieza
+de discusión.
+
 ## Anexo C. Maqueta interactiva
 
 `mock/hud.html` — un solo fichero, sin dependencias más allá de las fuentes de Google.
