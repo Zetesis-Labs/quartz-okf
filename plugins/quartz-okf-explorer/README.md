@@ -135,11 +135,13 @@ carries two kinds of marked nodes, and the explorer reads the marks — no confi
   when the consumer did not declare them (`display` on the graph root).
 
 Inside a subgraph the explorer is the child's: its colours, labels and **its own view
-modes** replace the consumer's for as long as you stay, and the panel shows the path
-`parent › child` with **← Volver**. Entering pushes `?graph=<id>` to the browser history,
-so the browser's back button also returns to the parent, with the portal selected and the
-previous mode restored. `?graph=<id>` opens the explorer already inside a subgraph; the
-copied graph knows its parent (`federatedFrom`) so the way back still works.
+modes** replace the consumer's for as long as you stay. A **trail bar** appears at the
+top of the canvas, before the relation bar of the selected node: `‹ parent › child`,
+where every earlier level is a link that returns to that graph (several levels at once)
+and `‹` goes one level up. Entering pushes `?graph=<id>` to the browser history, so the
+browser's back button also returns to the parent — always with the portal selected and
+the previous mode restored. `?graph=<id>` opens the explorer already inside a subgraph;
+the copied graph knows its parent (`federatedFrom`) so the way back still works.
 
 ## Input
 

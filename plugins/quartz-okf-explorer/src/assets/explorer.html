@@ -81,19 +81,29 @@
   .btn:hover { background: light-dark(#eceff4, #26262b); }
   #stats { margin-left: auto; color: light-dark(#8a8a8a, #7a7a7a); font-size: .74rem; }
 
-  /* Camino de grafos: aparece al entrar en un subgrafo y sustituye a los modos, que
-     pertenecen al corpus de partida y no dicen nada sobre el vocabulario del hijo. */
-  #miga { display: none; align-items: center; gap: .4rem; font-size: .78rem; flex-wrap: wrap; }
-  #miga .path { color: light-dark(#5d5d5d, #a0a0a0); }
-  #miga .path b { color: light-dark(#1d1d1d, #f0f0f0); }
-  #miga .sep { color: light-dark(#bbb, #555); margin: 0 .3rem; }
+  /* Rastro de grafos, encima de todo: de dónde se ha entrado hasta aquí. Cada nivel
+     anterior es un enlace que devuelve a ese grafo; el actual va en negrita. Solo
+     aparece dentro de un subgrafo: en el grafo de partida no hay camino que mostrar. */
+  #trail { display: none; align-items: center; flex-wrap: wrap; gap: .2rem .45rem;
+           padding: .4rem 1rem; font-size: .88rem; line-height: 1.4;
+           background: light-dark(rgba(236,239,244,.96), rgba(30,30,34,.96));
+           border-bottom: 1px solid light-dark(#dfe3ea, #34343a); backdrop-filter: blur(3px); }
+  #trail.on { display: flex; }
+  #trail .lvl { color: light-dark(#284b63, #84a59d); text-decoration: none; }
+  #trail a.lvl:hover { text-decoration: underline; }
+  #trail .cur { color: inherit; font-weight: 700; }
+  #trail .sep { color: light-dark(#9a9a9a, #666); }
+  #trail .hint { margin-left: auto; font-size: .76rem; color: light-dark(#6d6d6d, #9a9a9a); }
+  #graph-back { padding: 0 .55rem; line-height: 1.35; font-size: 1rem; flex: 0 0 auto; }
   .badge { display: inline-block; padding: 0 .4em; border-radius: 999px; font-size: .68rem;
            line-height: 1.5; background: light-dark(#eceff4, #26262b);
            border: 1px dashed light-dark(#b9c2cf, #4a4a52); color: light-dark(#5d5d5d, #a0a0a0); }
   #results .badge { margin-left: .2rem; }
 
-  #crumb { display: none; position: absolute; z-index: 5; left: 0; right: 0; top: 0;
-           padding: .45rem 1rem; font-size: .82rem; line-height: 1.5;
+  #topbars { position: absolute; z-index: 5; left: 0; right: 0; top: 0;
+             display: flex; flex-direction: column; pointer-events: none; }
+  #topbars > * { pointer-events: auto; }
+  #crumb { display: none; padding: .45rem 1rem; font-size: .82rem; line-height: 1.5;
            max-height: 4.6rem; overflow-y: auto; overscroll-behavior: contain;
            background: light-dark(rgba(250,248,248,.94), rgba(22,22,24,.94));
            border-bottom: 1px solid light-dark(#e5e5e5, #333); backdrop-filter: blur(3px); }
@@ -155,7 +165,14 @@
 <div id="stage">
   <div id="wrap">
     <canvas id="c"></canvas>
-    <div id="crumb"></div>
+    <div id="topbars">
+      <nav id="trail" aria-label="Grafos">
+        <button class="btn" id="graph-back" title="Volver al grafo anterior" aria-label="Volver al grafo anterior">‹</button>
+        <span class="path"></span>
+        <span class="hint">Volver: ‹, el nivel anterior o el botón atrás del navegador</span>
+      </nav>
+      <div id="crumb"></div>
+    </div>
     <div id="panel">
       <div class="ph">
         <b id="ptitle">Grafo</b>
@@ -163,10 +180,6 @@
         <span class="chev">▾</span>
       </div>
       <div class="pb">
-        <div id="miga">
-          <button class="btn" id="miga-back">← Volver</button>
-          <span class="path"></span>
-        </div>
         <fieldset id="mode"><legend>Modo</legend></fieldset>
         <div id="desc"></div>
         <div id="qbox">
@@ -352,6 +365,8 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   // que se estaba mirando, para volver exactamente ahí.
   const pila = [];
   const enSubgrafo = () => pila.length > 0;
+  // Id del subgrafo en pantalla (null en el grafo de partida).
+  let idActual = null;
 
   // Radio del nodo. Un grafo jerárquico no se lee por grado de entrada sino por rango: una
   // raíz es grande porque es la raíz, no porque tenga muchos hijos. `radius` permite fijarlo
@@ -892,7 +907,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
     aplicarDisplay(enSubgrafo() ? data.display : null, modeId);
     document.getElementById("kinds").innerHTML = "";
     document.getElementById("edges").innerHTML = "";
-    renderMiga(); renderCrumb();
+    renderTrail(); renderCrumb();
     // Cámara a cero: el encuadre del grafo anterior no significa nada en este.
     camaraTocada = false;
     d3.select(canvas).call(zoomBehavior.transform, d3.zoomIdentity);
@@ -902,55 +917,74 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
 
   const urlDeSubgrafo = (id) => `/static/okf-subgraphs/${encodeURIComponent(id)}.json`;
 
+  const urlDeNivel = (id) => (id ? `?graph=${encodeURIComponent(id)}` : location.pathname);
+
   async function entrarEnSubgrafo(n, { push = true } = {}) {
-    pila.push({ url: urlActual, selectedId: n.id, title: data.title, modeId: curMode });
-    if (push) history.pushState({ graph: n.subgraph.id }, "", `?graph=${encodeURIComponent(n.subgraph.id)}`);
+    pila.push({ url: urlActual, selectedId: n.id, title: data.title, modeId: curMode, id: idActual });
+    idActual = n.subgraph.id;
+    if (push) history.pushState({ graph: idActual }, "", urlDeNivel(idActual));
     await cambiarGrafo(n.subgraph.graph);
   }
 
-  async function volverAlPadre({ push = true } = {}) {
-    const previo = pila.pop();
-    if (!previo) return;
-    if (push) history.pushState({}, "", location.pathname);
-    await cambiarGrafo(previo.url, previo.modeId);
-    const n = previo.selectedId ? graph.idx.get(previo.selectedId) : null;
+  // Volver a un nivel del rastro: 0 es el grafo de partida. Se descartan los niveles
+  // intermedios de una vez, sin pasar por cada uno.
+  async function volverA(nivel, { push = true } = {}) {
+    if (nivel < 0 || nivel >= pila.length) return;
+    const destino = pila[nivel];
+    pila.length = nivel;
+    idActual = destino.id || null;
+    if (push) history.pushState(idActual ? { graph: idActual } : {}, "", urlDeNivel(idActual));
+    await cambiarGrafo(destino.url, destino.modeId);
+    const n = destino.selectedId ? graph.idx.get(destino.selectedId) : null;
     if (n) select(n);
   }
+
+  const volverAlPadre = (opts) => volverA(pila.length - 1, opts);
 
   // Abierto directamente sobre un subgrafo (?graph=<id>): el camino de vuelta lo dice el
   // propio fichero, que sabe desde qué grafo y qué portal se publicó.
   async function entrarDirecto(id) {
-    pila.push({ url: GRAFO_BASE, selectedId: null, title: null, modeId: MODES[0].id });
+    pila.push({ url: GRAFO_BASE, selectedId: null, title: null, modeId: MODES[0].id, id: null });
+    idActual = id;
     history.replaceState({ graph: id }, "", location.href);
     await cambiarGrafo(urlDeSubgrafo(id));
     const desde = data.federatedFrom || {};
     pila[0].selectedId = desde.node || null;
     pila[0].title = desde.title || null;
-    renderMiga();
+    renderTrail();
   }
 
   // El botón atrás del navegador deshace la entrada al subgrafo, y adelante la rehace.
   window.addEventListener("popstate", (ev) => {
     const id = (ev.state && ev.state.graph) || new URLSearchParams(location.search).get("graph");
-    if (id && !enSubgrafo()) {
+    if (id === idActual) return;
+    const nivel = pila.findIndex(p => (p.id || null) === (id || null));
+    if (nivel >= 0) { volverA(nivel, { push: false }); return; }
+    if (id) {
       const portal = graph && [...graph.idx.values()].find(n => n.subgraph && n.subgraph.id === id);
       if (portal) entrarEnSubgrafo(portal, { push: false }); else entrarDirecto(id);
-    } else if (!id && enSubgrafo()) {
-      volverAlPadre({ push: false });
     }
   });
 
-  function renderMiga() {
-    const box = document.getElementById("miga");
+  // El rastro va encima del lienzo, antes de la barra de relaciones del nodo: es lo
+  // primero que se lee al entrar en un subgrafo, y cada nivel anterior es un enlace.
+  function renderTrail() {
+    const trail = document.getElementById("trail");
     const dentro = enSubgrafo();
-    box.style.display = dentro ? "flex" : "none";
-    if (!dentro) return;
-    const tramos = [...pila.map(p => p.title || CFG.title || "grafo"), data.title || "subgrafo"];
-    box.querySelector(".path").innerHTML = tramos
-      .map((t, i) => (i === tramos.length - 1 ? `<b>${t}</b>` : t))
-      .join('<span class="sep">›</span>');
+    trail.classList.toggle("on", dentro);
+    if (!dentro) { trail.querySelector(".path").innerHTML = ""; return; }
+    const raiz = CFG.title || "Grafo";
+    const niveles = [raiz, ...pila.slice(1).map(p => p.title || "subgrafo"), data.title || "subgrafo"];
+    trail.querySelector(".path").innerHTML = niveles.map((t, i) => i < niveles.length - 1
+      ? `<a class="lvl" href="#" data-nivel="${i}" title="Volver a ${t}">${t}</a><span class="sep">›</span>`
+      : `<b class="lvl cur">${t}</b>`).join("");
+    trail.querySelectorAll("a.lvl").forEach(a => a.addEventListener("click", ev => {
+      ev.preventDefault();
+      volverA(+a.dataset.nivel);
+    }));
+    document.getElementById("graph-back").title = `Volver a ${niveles[niveles.length - 2]}`;
   }
-  document.getElementById("miga-back").addEventListener("click", volverAlPadre);
+  document.getElementById("graph-back").addEventListener("click", () => volverAlPadre());
 
   function trimQuartz(f) {
     // Mismo origen: se recorta el layout para que el panel muestre solo el contenido.
@@ -1229,6 +1263,7 @@ cargarGrafo(GRAFO_BASE).then(inicial => {
   renderModes(MODES[0].id);
 
   document.getElementById("ptitle").textContent = CFG.title || "Grafo";
+  renderTrail();
   // Adónde vuelve el lector y cómo se llama ese sitio lo sabe el consumidor.
   const back = document.getElementById("pback");
   back.href = (CFG.backTo && CFG.backTo.href) || "/";
