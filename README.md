@@ -85,6 +85,13 @@ A consumer keeps only its **corpus** (colocated `.md` notes), an optional
 the plugins as Quartz `github:` sources, the contract via the build harness. See
 `harness/` and each plugin's README.
 
+## Working on this repository
+
+Work is spec-driven ([Spec Kit](https://github.com/github/spec-kit)): features live
+under `specs/NNN-name/` and follow specify → plan → tasks → implement, under the
+rules of `.specify/memory/constitution.md`. `docs/METHODOLOGY.md` explains the flow,
+the git-as-truth / bundle-as-contract model and how consumers adopt a change.
+
 ## Status
 
 Extracted from the Mileto GitOps repository, its first consumer. Consumer
