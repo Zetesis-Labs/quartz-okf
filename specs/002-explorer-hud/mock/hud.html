@@ -1,0 +1,1455 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maqueta del HUD — quartz-okf 002</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --ground: #f7f6f4;
+  --ground-deep: #eeece8;
+  --ink: #1b1c1f;
+  --ink-2: #4a4d54;
+  --ink-3: #797d86;
+  --hairline: rgba(20, 22, 28, .10);
+  --glass: rgba(252, 252, 251, .82);
+  --glass-hover: rgba(255, 255, 255, .93);
+  --glass-edge: rgba(20, 22, 28, .09);
+  --glass-inner: inset 0 1px 0 rgba(255, 255, 255, .9), inset 0 -1px 0 rgba(20, 22, 28, .04);
+  --shadow: 0 8px 26px -6px rgba(18, 20, 26, .13), 0 2px 7px -3px rgba(18, 20, 26, .07);
+  --shadow-lg: 0 20px 52px -10px rgba(18, 20, 26, .22), 0 5px 16px -6px rgba(18, 20, 26, .11);
+  --pill: rgba(20, 22, 28, .075);
+  --pill-ink: #14161c;
+  --ice: #2f7d9e;
+  --ice-soft: rgba(47, 125, 158, .14);
+  --grid-dot: rgba(24, 28, 36, .16);
+  --note-paper: #fdfdfc;
+  --annot: #b4543c;
+  --r-capsule: 999px;
+  --r-island: 13px;
+  --r-menu: 15px;
+  --ease: cubic-bezier(.16, 1, .3, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #131417;
+    --ground-deep: #0d0e10;
+    --ink: #eceef2;
+    --ink-2: #a7abb4;
+    --ink-3: #757a85;
+    --hairline: rgba(255, 255, 255, .09);
+    --glass: rgba(28, 30, 35, .78);
+    --glass-hover: rgba(38, 41, 47, .88);
+    --glass-edge: rgba(255, 255, 255, .11);
+    --glass-inner: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(0, 0, 0, .35);
+    --shadow: 0 12px 34px -8px rgba(0, 0, 0, .6), 0 2px 10px -3px rgba(0, 0, 0, .4);
+    --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, .72), 0 6px 20px -6px rgba(0, 0, 0, .5);
+    --pill: rgba(255, 255, 255, .12);
+    --pill-ink: #ffffff;
+    --ice: #8fd0ff;
+    --ice-soft: rgba(143, 208, 255, .15);
+    --grid-dot: rgba(180, 200, 230, .13);
+    --note-paper: #17181c;
+    --annot: #e8836a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #131417;
+  --ground-deep: #0d0e10;
+  --ink: #eceef2;
+  --ink-2: #a7abb4;
+  --ink-3: #757a85;
+  --hairline: rgba(255, 255, 255, .09);
+  --glass: rgba(28, 30, 35, .78);
+  --glass-hover: rgba(38, 41, 47, .88);
+  --glass-edge: rgba(255, 255, 255, .11);
+  --glass-inner: inset 0 1px 0 rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(0, 0, 0, .35);
+  --shadow: 0 12px 34px -8px rgba(0, 0, 0, .6), 0 2px 10px -3px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, .72), 0 6px 20px -6px rgba(0, 0, 0, .5);
+  --pill: rgba(255, 255, 255, .12);
+  --pill-ink: #ffffff;
+  --ice: #8fd0ff;
+  --ice-soft: rgba(143, 208, 255, .15);
+  --grid-dot: rgba(180, 200, 230, .13);
+  --note-paper: #17181c;
+  --annot: #e8836a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font: 400 14px/1.45 "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--ice); outline-offset: 2px; }
+button, input { font: inherit; color: inherit; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+#stage { position: fixed; inset: 0; display: flex; }
+#wrap { position: relative; flex: 1; min-width: 0; }
+#c { display: block; width: 100%; height: 100%; cursor: grab; }
+#c.on-node { cursor: pointer; }
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow), var(--glass-inner);
+}
+body.flat .glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--ground-deep); }
+@media (prefers-reduced-transparency: reduce) {
+  .glass { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--ground-deep); }
+}
+
+/* ---------- omnibar ---------- */
+#omnibar-slot {
+  position: absolute; z-index: 20; top: 16px; left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  pointer-events: none;
+}
+#omnibar-slot > * { pointer-events: auto; }
+
+#omnibar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 5px 6px 5px 9px; border-radius: var(--r-capsule);
+  max-width: min(760px, 92vw);
+  transition: box-shadow .2s var(--ease), background .2s var(--ease);
+}
+#omnibar:focus-within { box-shadow: var(--shadow-lg), var(--glass-inner), 0 0 0 1px var(--ice-soft); }
+
+#trail { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; max-width: 46%; }
+#trail button, #trail .cur {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+  padding: 4px 10px; border: 1px solid transparent; border-radius: var(--r-capsule);
+  background: transparent; font-size: 12.5px; color: var(--ink-2);
+  cursor: pointer; white-space: nowrap;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+#trail button { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+#trail .cur { flex: 0 1 auto; }
+#trail .cur .nm { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#trail button:hover { background: var(--pill); color: var(--ink); }
+#trail .cur {
+  cursor: default; color: var(--pill-ink); font-weight: 600;
+  background: var(--pill); border-color: var(--glass-edge);
+}
+#trail .cur .scope-key {
+  flex: 0 0 auto;
+  font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 500;
+  color: var(--ink-3); border: 1px solid var(--hairline); border-radius: 4px; padding: 0 4px;
+}
+#trail .scope-all .scope-key { color: var(--ice); border-color: color-mix(in srgb, var(--ice) 40%, transparent); }
+#trail .sep { color: var(--ink-3); font-size: 12px; flex: 0 0 auto; }
+#trail .scope-all { color: var(--ice); border-color: color-mix(in srgb, var(--ice) 40%, transparent); background: var(--ice-soft); }
+
+#omni-div { width: 1px; align-self: stretch; margin: 2px 4px; background: var(--hairline); flex: 0 0 auto; }
+
+#q {
+  flex: 1; min-width: 12rem; width: 22rem; padding: 5px 10px;
+  background: transparent; border: 0; outline: 0; font-size: 13.5px;
+  transition: width .25s var(--ease);
+}
+#q::placeholder { color: var(--ink-3); }
+#omni-hint {
+  flex: 0 0 auto; display: flex; gap: 4px; align-items: center; padding-right: 4px;
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-3);
+}
+#omni-hint kbd { border: 1px solid var(--hairline); border-radius: 4px; padding: 1px 4px; }
+
+#results {
+  position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  width: min(600px, 90vw); max-height: 58vh; overflow-y: auto; padding: 5px;
+  border-radius: var(--r-menu); box-shadow: var(--shadow-lg), var(--glass-inner);
+  display: none;
+}
+#results.on { display: block; }
+#results .row {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 6px 10px; border: 0; border-radius: 9px; background: none;
+  cursor: pointer; text-align: left; font-size: 12.5px;
+}
+#results .row.sel { background: var(--pill); }
+#results .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+#results .ic { width: 16px; text-align: center; flex: 0 0 auto; font-size: 12px; }
+#results .rt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#results .kind {
+  flex: 0 0 auto; font-size: 10.5px; color: var(--ink-3);
+  border: 1px solid var(--hairline); border-radius: 999px; padding: 1px 7px;
+}
+#results .kind.sub { color: var(--ice); border-color: color-mix(in srgb, var(--ice) 35%, transparent); border-style: dashed; }
+#results .kbd { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-3); }
+#results .empty { padding: 10px 12px; font-size: 12.5px; color: var(--ink-3); }
+
+/* ---------- selection capsule ---------- */
+#sel {
+  display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 8px 7px 12px; border-radius: var(--r-capsule); max-width: min(880px, 94vw);
+}
+#sel.on { display: flex; }
+#sel .sdot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+#sel .stitle { font-weight: 600; font-size: 13px; }
+#sel .stype { font-size: 11.5px; color: var(--ink-3); }
+#sel .sdiv { width: 1px; height: 17px; background: var(--hairline); }
+#sel .rel {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px;
+  border: 1px solid var(--hairline); border-radius: var(--r-capsule);
+  background: transparent; font-size: 11.5px; color: var(--ink-2); cursor: pointer;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+#sel .rel:hover { background: var(--pill); color: var(--ink); }
+#sel .rel .n { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-3); }
+#sel .rel i { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+#sel .act {
+  padding: 4px 11px; border: 1px solid var(--glass-edge); border-radius: var(--r-capsule);
+  background: transparent; font-size: 11.5px; cursor: pointer; color: var(--ink-2);
+}
+#sel .act:hover { background: var(--pill); color: var(--ink); }
+#sel .act.key { color: var(--ice); border-color: color-mix(in srgb, var(--ice) 42%, transparent); background: var(--ice-soft); }
+
+/* ---------- left stack ---------- */
+#stack {
+  position: absolute; z-index: 20; left: 18px; bottom: 18px; width: 236px;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+#stack > * { pointer-events: auto; }
+.island { border-radius: var(--r-island); padding: 5px; display: flex; flex-direction: column; gap: 2px; }
+.island:empty, .island.hidden { display: none; }
+.island .foot {
+  padding: 5px 10px 3px; font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px; color: var(--ink-3); border-top: 1px solid var(--hairline); margin-top: 3px;
+}
+.island .rule { height: 1px; background: var(--hairline); margin: 3px 6px; }
+
+#views { max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; }
+#brand { flex-direction: row; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; }
+#brand .name { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; flex: 1; }
+#brand .home, #brand .gear {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-3); cursor: pointer;
+}
+#brand .home:hover, #brand .gear:hover { background: var(--pill); color: var(--ink); }
+
+.chip {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 6px 10px; border: 0; border-radius: 9px; background: transparent;
+  color: var(--ink-2); font-size: 12.5px; text-align: left; cursor: pointer;
+  transition: background .15s var(--ease), color .15s var(--ease), transform .1s var(--ease);
+}
+.chip:hover { background: var(--pill); color: var(--ink); }
+.chip:active { transform: scale(.975); }
+.chip.active { background: var(--pill); color: var(--pill-ink); font-weight: 600; }
+.chip .lb { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip .sub { flex: 0 0 auto; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-3); }
+.chip .arrow { flex: 0 0 auto; color: var(--ink-3); font-size: 13px; }
+.chip .info { flex: 0 0 auto; color: var(--ink-3); font-size: 11px; opacity: .55; }
+.chip:hover .info { opacity: 1; }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.chip.back { color: var(--ice); }
+.chip.back .lb { font-weight: 500; }
+
+.row2 { display: flex; align-items: center; gap: 2px; }
+.row2 > .chip { flex: 1; min-width: 0; }
+.row2 .x {
+  flex: 0 0 auto; width: 24px; height: 24px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--ink-3); cursor: pointer; font-size: 11px; opacity: .5;
+}
+.row2:hover .x { opacity: 1; }
+.row2 .x:hover { background: var(--pill); color: var(--ink); }
+
+/* ---------- side menu ---------- */
+#side {
+  position: absolute; z-index: 30; display: none; width: 258px; max-height: min(430px, calc(100vh - 90px));
+  overflow-y: auto; padding: 5px; border-radius: var(--r-menu);
+  box-shadow: var(--shadow-lg), var(--glass-inner);
+}
+#side.on { display: block; }
+#side .head {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px 8px;
+  font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3);
+}
+#side .head .mini { margin-left: auto; display: flex; gap: 4px; }
+#side .head .mini button {
+  border: 1px solid var(--hairline); border-radius: 999px; background: none;
+  color: var(--ink-3); font-size: 10px; padding: 1px 7px; cursor: pointer; letter-spacing: 0; text-transform: none;
+}
+#side .head .mini button:hover { color: var(--ink); background: var(--pill); }
+#side .opt {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 5px 10px; border: 0; border-radius: 8px; background: none;
+  color: var(--ink-2); font-size: 12.5px; text-align: left; cursor: pointer;
+}
+#side .opt:hover { background: var(--pill); color: var(--ink); }
+#side .opt .box {
+  width: 13px; height: 13px; border: 1px solid var(--ink-3); border-radius: 3.5px;
+  flex: 0 0 auto; display: grid; place-items: center; font-size: 9px; color: var(--ground);
+}
+#side .opt.on .box { background: var(--ink-2); border-color: var(--ink-2); }
+#side .opt.on { color: var(--ink); }
+#side .opt .dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+#side .opt .lb { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#side .opt .n { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-3); }
+#side .legend { padding: 4px 10px 8px; font-size: 11px; color: var(--ink-3); line-height: 1.5; }
+#side .legend b { color: var(--ink-2); font-weight: 500; }
+
+/* ---------- context menu ---------- */
+#ctx {
+  position: absolute; z-index: 40; display: none; min-width: 212px; padding: 5px;
+  border-radius: 11px; box-shadow: var(--shadow-lg), var(--glass-inner);
+}
+#ctx.on { display: block; }
+#ctx button {
+  display: block; width: 100%; padding: 5px 11px; border: 0; border-radius: 7px;
+  background: none; color: var(--ink-2); font-size: 12.5px; text-align: left; cursor: pointer;
+}
+#ctx button:hover { background: var(--pill); color: var(--ink); }
+#ctx .sep { height: 1px; margin: 4px 8px; background: var(--hairline); }
+
+/* ---------- tooltip ---------- */
+#tip {
+  position: absolute; z-index: 45; display: none; max-width: 300px; padding: 7px 11px;
+  border-radius: 10px; box-shadow: var(--shadow-lg), var(--glass-inner);
+  font-size: 12.5px; pointer-events: none;
+}
+#tip.on { display: block; }
+#tip b { display: block; font-weight: 600; }
+#tip small { color: var(--ink-3); font-size: 11px; }
+#tip .pv {
+  margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--hairline);
+  font-size: 11.5px; color: var(--ink-2);
+}
+
+/* ---------- reading dock ---------- */
+#dock {
+  display: none; flex: 0 0 38%; min-width: 21rem; max-width: 40rem;
+  flex-direction: column; background: var(--note-paper);
+  border-left: 1px solid var(--hairline);
+}
+#dock.on { display: flex; }
+#dock header {
+  display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+  border-bottom: 1px solid var(--hairline); min-height: 40px;
+}
+#dock .tabs { display: flex; gap: 3px; flex: 1; min-width: 0; overflow-x: auto; }
+#dock .tab {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto; max-width: 13rem;
+  padding: 4px 8px; border: 1px solid transparent; border-radius: 8px;
+  background: none; color: var(--ink-3); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+#dock .tab:hover { background: var(--pill); }
+#dock .tab.active { background: var(--pill); border-color: var(--glass-edge); color: var(--ink); font-weight: 500; }
+#dock .tab.temp .nm { font-style: italic; }
+#dock .tab .nm { overflow: hidden; text-overflow: ellipsis; }
+#dock .tab .td { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+#dock .tab .pin { opacity: .35; font-size: 10px; }
+#dock .tab.pinned .pin { opacity: 1; }
+#dock .acts { display: flex; gap: 4px; flex: 0 0 auto; }
+#dock .acts button {
+  padding: 3px 9px; border: 1px solid var(--glass-edge); border-radius: 999px;
+  background: none; color: var(--ink-2); font-size: 11.5px; cursor: pointer;
+}
+#dock .acts button:hover { background: var(--pill); color: var(--ink); }
+#dock .body { flex: 1; overflow-y: auto; padding: 22px 26px 40px; }
+#dock .body .eyebrow {
+  font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 7px;
+}
+#dock .body h1 {
+  font-family: Newsreader, Georgia, serif; font-weight: 400; font-size: 27px;
+  line-height: 1.2; text-wrap: balance; margin-bottom: 12px;
+}
+#dock .body .meta {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 17px;
+  padding-bottom: 15px; border-bottom: 1px solid var(--hairline);
+}
+#dock .body .meta span {
+  font-size: 11px; color: var(--ink-3); border: 1px solid var(--hairline);
+  border-radius: 999px; padding: 1px 8px;
+}
+#dock .body p { margin-bottom: 12px; color: var(--ink-2); font-size: 13.5px; line-height: 1.62; max-width: 62ch; }
+#dock .body h2 {
+  font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3);
+  margin: 22px 0 9px;
+}
+#dock .body ul { margin: 0 0 14px 0; padding-left: 17px; color: var(--ink-2); font-size: 13.5px; line-height: 1.62; }
+#dock .body li { margin-bottom: 4px; }
+#dock .body code {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px;
+  background: var(--pill); border-radius: 4px; padding: 1px 4px;
+}
+
+/* ---------- annotations ---------- */
+#annots { position: absolute; inset: 0; z-index: 60; pointer-events: none; display: none; }
+#annots.on { display: block; }
+#annots .pin {
+  position: absolute; display: flex; align-items: center; gap: 7px; transform: translateY(-50%);
+}
+#annots .num {
+  width: 21px; height: 21px; border-radius: 50%; flex: 0 0 auto;
+  display: grid; place-items: center; background: var(--annot); color: #fff;
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
+#annots .lbl {
+  max-width: 250px; padding: 4px 9px; border-radius: 7px;
+  background: var(--annot); color: #fff; font-size: 11.5px; line-height: 1.35;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+}
+#annots .lbl b { font-weight: 600; }
+#annots .box {
+  position: absolute; border: 1.5px dashed var(--annot); border-radius: 12px;
+  opacity: .65;
+}
+#annots .pin.left { flex-direction: row-reverse; }
+#annots .pin.left .lbl { text-align: right; }
+
+/* ---------- mock controls ---------- */
+#mockbar {
+  position: absolute; z-index: 70; right: 18px; bottom: 18px;
+  display: flex; align-items: center; gap: 3px; padding: 5px 6px;
+  border-radius: var(--r-capsule); border: 1px dashed var(--annot);
+  background: var(--glass); backdrop-filter: blur(20px); box-shadow: var(--shadow);
+}
+#mockbar .tag {
+  font-family: "IBM Plex Mono", monospace; font-size: 9.5px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--annot); padding: 0 7px 0 4px;
+}
+#mockbar button {
+  padding: 4px 10px; border: 0; border-radius: 999px; background: transparent;
+  color: var(--ink-2); font-size: 11.5px; cursor: pointer;
+}
+#mockbar button:hover { background: var(--pill); color: var(--ink); }
+#mockbar button.on { background: var(--pill); color: var(--pill-ink); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+@media (max-width: 900px) {
+  #dock.on { position: absolute; inset: 0; flex: 1 1 auto; max-width: none; z-index: 50; }
+  #stack { width: 204px; left: 12px; bottom: 12px; }
+  #omnibar { max-width: 94vw; }
+  #q { width: 9rem; min-width: 7rem; }
+  #omni-hint { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="wrap">
+    <canvas id="c"></canvas>
+
+    <div id="omnibar-slot">
+      <div id="omnibar" class="glass">
+        <nav id="trail" aria-label="Grafos"></nav>
+        <span id="omni-div"></span>
+        <input id="q" type="search" placeholder="Buscar nota…  ( &gt; comandos )" autocomplete="off" spellcheck="false" aria-label="Buscar">
+        <span id="omni-hint"><kbd>/</kbd><kbd>⇥</kbd></span>
+      </div>
+      <div id="sel" class="glass"></div>
+      <div id="results" class="glass" role="listbox"></div>
+    </div>
+
+    <aside id="stack" aria-label="Controles">
+      <div id="brand" class="island glass">
+        <span class="name">CERN graph</span>
+        <button class="home" title="Volver al sitio" aria-label="Volver al sitio">←</button>
+        <button class="gear" title="Ajustes" aria-label="Ajustes">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+      <div id="reading" class="island glass hidden"></div>
+      <div id="views" class="island glass"></div>
+      <div id="filters" class="island glass"></div>
+    </aside>
+
+    <div id="side" class="glass"></div>
+    <div id="ctx" class="glass"></div>
+    <div id="tip" class="glass"></div>
+    <div id="annots"></div>
+
+    <div id="mockbar">
+      <span class="tag">maqueta</span>
+      <button id="m-graph">Entrar al subgrafo</button>
+      <button id="m-annot">Anatomía</button>
+      <button id="m-theme">Claro</button>
+      <button id="m-flat">Plano</button>
+    </div>
+  </div>
+
+  <aside id="dock">
+    <header>
+      <div class="tabs" role="tablist"></div>
+      <span class="acts">
+        <button id="dock-wide" title="Ampliar">Ampliar</button>
+        <button id="dock-close" aria-label="Cerrar el dock">✕</button>
+      </span>
+    </header>
+    <div class="body"></div>
+  </aside>
+</div>
+
+<script>
+const TYPE = {
+  organisation:   { c: "#3d4a86", l: "Organisation" },
+  graph:          { c: "#4c7ecf", l: "Linked graph" },
+  topic:          { c: "#c39a6b", l: "Topic hub" },
+  sector:         { c: "#9a6fbf", l: "Sector / Department" },
+  board:          { c: "#4c7ecf", l: "Committee / Board" },
+  role:           { c: "#cf5fae", l: "Executive role" },
+  service:        { c: "#4caf7c", l: "Service / System" },
+  source:         { c: "#8a8a8a", l: "Primary source" },
+  policy:         { c: "#c2544d", l: "Policy / Circular" },
+  concept:        { c: "#a8825f", l: "Concept" },
+  facility:       { c: "#7f93ad", l: "Facility" },
+  tech:           { c: "#6fbf8f", l: "Technology / Software" },
+  unit:           { c: "#9a6fbf", l: "Organisational unit" },
+  decision:       { c: "#d9536f", l: "Decision" },
+  standard:       { c: "#c9b04a", l: "Standard / Framework" },
+  network:        { c: "#d4674a", l: "Network" },
+  cluster:        { c: "#8d6fbf", l: "Compute cluster" },
+  datastore:      { c: "#3fa3a3", l: "Datastore" },
+  platform:       { c: "#4c7ecf", l: "Data platform" },
+  programme:      { c: "#a56fbf", l: "Programme / Initiative" },
+  protocol:       { c: "#e08a3c", l: "Protocol / Specification" },
+  licence:        { c: "#c9a24a", l: "Agreement / Licence" },
+};
+const EDGE = {
+  "Contains": "#9a6fbf", "Part of": "#7f6fbf", "Cites": "#8a8a8a", "About": "#3fa3a3",
+  "Integrates": "#4caf7c", "Governs": "#c2544d", "Supervised by": "#c2544d",
+  "Runs": "#9a6fbf", "Run by": "#9a6fbf", "Advises": "#e08a3c", "Advised by": "#e0a83c",
+  "Authenticates": "#4c7ecf", "Authenticated by": "#4c7ecf",
+  "Complies with": "#c9b04a", "Applies to": "#c9b04a",
+};
+
+const N = (id, t, type, o = {}) => ({ id, t, type, ...o });
+
+const ROOT = {
+  id: null,
+  title: "CERN graph",
+  modes: [
+    { id: "full", l: "Full view", d: "<b>La organización y sus grafos enlazados.</b> Cada nota y cada relación tipada. Los nodos de doble anillo son portales a otros grafos: ábrelos y entra." },
+    { id: "chain", l: "Chain of authority", d: "<b>Quién responde ante quién.</b> Solo <code>Governs</code>, <code>Supervised by</code>, <code>Advises</code> y sus inversas." },
+  ],
+  nodes: [
+    N("cern", "CERN", "organisation", { r: 17 }),
+    N("it-governance", "IT governance & identity", "graph", { r: 15, portal: { notes: 274, previewed: 18, id: "it-governance" } }),
+    N("our-governance", "CERN — Our governance", "source"),
+    N("council", "CERN Council", "board"),
+    N("spc", "Scientific Policy Committee", "board"),
+    N("dg", "Director-General", "role"),
+    N("cio", "The CIO role", "role", { fed: 1 }),
+    N("it-dept", "IT Department", "sector"),
+    N("rcs", "Research and Computing Sector", "sector"),
+    N("it-department", "IT department", "sector", { fed: 1 }),
+    N("sso", "CERN SSO", "service", { fed: 1 }),
+    N("iam", "WLCG IAM", "service", { fed: 1 }),
+    N("oc5", "OC5 — the Computing Rules", "policy", { fed: 1 }),
+    N("t-gov", "Governance structure", "topic", { fed: 1 }),
+    N("t-id", "Identity architecture", "topic", { fed: 1 }),
+    N("t-sec", "Security governance", "topic", { fed: 1 }),
+    N("t-svc", "Service management", "topic", { fed: 1 }),
+    N("t-sto", "Storage and data", "topic", { fed: 1 }),
+    N("t-net", "Networks", "topic", { fed: 1 }),
+    N("t-com", "Compute platforms", "topic", { fed: 1 }),
+    N("t-os", "Open science", "topic", { fed: 1 }),
+    N("t-oc", "Open collaboration", "topic", { fed: 1 }),
+    N("t-dp", "Data privacy", "topic", { fed: 1 }),
+    N("t-fund", "Funding the computing", "topic", { fed: 1 }),
+    N("t-wlcg", "WLCG governance", "topic", { fed: 1 }),
+    N("t-grid", "Grid federation (WLCG)", "topic", { fed: 1 }),
+  ],
+  edges: [
+    ["cern", "it-governance", "Contains"], ["cern", "our-governance", "Cites"],
+    ["cern", "council", "Contains"], ["cern", "spc", "Contains"], ["cern", "dg", "Contains"],
+    ["council", "dg", "Supervised by"], ["spc", "council", "Advises"], ["dg", "it-dept", "Governs"],
+    ["dg", "rcs", "Governs"], ["rcs", "it-dept", "Contains"], ["it-dept", "cio", "Run by"],
+    ["it-department", "cio", "Run by"], ["it-governance", "it-department", "Contains"],
+    ["it-governance", "sso", "Contains"], ["it-governance", "iam", "Contains"],
+    ["it-governance", "oc5", "Contains"], ["it-governance", "cio", "Contains"],
+    ["it-governance", "t-gov", "Contains"], ["it-governance", "t-id", "Contains"],
+    ["it-governance", "t-sec", "Contains"], ["it-governance", "t-svc", "Contains"],
+    ["it-governance", "t-sto", "Contains"], ["it-governance", "t-net", "Contains"],
+    ["it-governance", "t-com", "Contains"], ["it-governance", "t-os", "Contains"],
+    ["it-governance", "t-oc", "Contains"], ["it-governance", "t-dp", "Contains"],
+    ["it-governance", "t-fund", "Contains"], ["it-governance", "t-wlcg", "Contains"],
+    ["it-governance", "t-grid", "Contains"],
+    ["sso", "t-id", "Part of"], ["iam", "t-grid", "Part of"], ["oc5", "t-sec", "Applies to"],
+    ["sso", "it-department", "Run by"], ["oc5", "cern", "Complies with"],
+    ["sso", "iam", "Authenticates"], ["t-wlcg", "t-grid", "Part of"], ["t-fund", "council", "Cites"],
+  ],
+};
+
+const CHILD = {
+  id: "it-governance",
+  title: "CERN IT Governance & identity",
+  modes: [
+    { id: "full", l: "Full view", d: "<b>El grafo entero, con sus relaciones tipadas.</b> Cada nota y cada arista declarada bajo un encabezado <code>Topology</code>." },
+    { id: "chain", l: "Chain of authority", d: "<b>La cadena de mando.</b> Del Council al servicio, sin pasos intermedios ocultos." },
+    { id: "ident", l: "Identity & Access (SSO / OIDC)", d: "<b>Quién autentica a quién.</b> El plano de identidad, del SSO a los tokens del grid." },
+    { id: "cyber", l: "Governance & Cybersecurity", d: "<b>Qué órgano decide sobre seguridad</b> y qué política aplica dónde." },
+    { id: "corp", l: "Corporate vs grid", d: "<b>Dos mundos con reglas distintas.</b> Lo corporativo y lo del grid, y sus puentes." },
+    { id: "force", l: "What is still in force", d: "<b>Lo vigente.</b> Se ocultan las decisiones superadas y los servicios retirados." },
+    { id: "compl", l: "Compliance declared", d: "<b>Qué declara cumplir cada servicio</b>, y contra qué estándar." },
+    { id: "svcctl", l: "Service control", d: "<b>Quién opera cada servicio</b> y bajo qué proceso." },
+    { id: "stack", l: "The stack", d: "<b>La pila técnica</b> de abajo arriba: instalación, cluster, servicio, interfaz." },
+    { id: "svcmgmt", l: "Service management", d: "<b>ITIL en la práctica</b>: incidencias, catálogo y el Service Desk." },
+    { id: "prim", l: "Primary sources", d: "<b>Sobre qué se apoya cada afirmación.</b> Solo <code>Cites</code>." },
+    { id: "note", l: "Note structure", d: "<b>Cómo está escrito el corpus</b>: notas, hubs y sus contenidos." },
+  ],
+  nodes: [
+    N("itdept", "IT Department", "unit", { r: 16 }),
+    N("council2", "CERN Council", "board", { r: 12 }),
+    N("dg2", "Director-General", "role", { r: 11 }),
+    N("cio2", "The CIO role", "role", { r: 11 }),
+    N("rcs2", "Research and Computing Sector (RCS)", "unit", { r: 12 }),
+    N("csb", "Computer Security Board", "board"),
+    N("saca", "SACA — the audit advisory committee", "board"),
+    N("crsg", "WLCG Computing Resources Scrutiny Group", "board"),
+    N("sipb", "Scientific Information Policy Board", "board"),
+    N("sos", "Site Operations Sector", "unit"),
+    N("odp", "Office of Data Privacy", "unit"),
+    N("sso2", "CERN SSO", "service", { r: 13 }),
+    N("iam2", "WLCG IAM", "service", { r: 12 }),
+    N("ldap", "CERN LDAP", "service"),
+    N("gms", "Group Management System (GMS)", "service"),
+    N("egroups", "E-groups (–2026)", "service"),
+    N("adfs", "ADFS (legacy)", "service"),
+    N("edh", "Electronic Document Handling (EDH)", "service"),
+    N("edms", "EDMS", "service"),
+    N("indico", "Indico", "service"),
+    N("cernbox", "CERNBox", "service"),
+    N("mattermost", "Mattermost", "tech"),
+    N("gitlab", "GitLab at CERN", "tech"),
+    N("puppet", "Puppet configuration management", "tech"),
+    N("linux", "The Linux service", "service"),
+    N("winsvc", "Windows Services", "service"),
+    N("servicenow", "ServiceNow at CERN", "service"),
+    N("desk", "The Service Desk", "service"),
+    N("batch", "The batch service", "service"),
+    N("htcondor", "CERN Batch Docs (HTCondor)", "source"),
+    N("lsf", "LSF", "cluster"),
+    N("eos", "EOS", "datastore", { r: 12 }),
+    N("cta", "CERN Tape Archive (CTA)", "datastore"),
+    N("castor", "CASTOR — CERN Advanced STORage manager", "datastore"),
+    N("cvmfs", "CVMFS", "datastore"),
+    N("rucio", "Rucio", "platform"),
+    N("fts", "File Transfer Service (FTS)", "platform"),
+    N("xrootd", "XRootD", "protocol"),
+    N("afs", "AFS", "protocol"),
+    N("swan", "SWAN", "platform"),
+    N("meyrin", "The Meyrin Data Centre", "facility", { r: 12 }),
+    N("prevessin", "The Prévessin Computing Centre", "facility"),
+    N("lhcopn", "LHCOPN — LHC Optical Private Network", "network"),
+    N("campus", "The campus network", "network"),
+    N("jwt", "The WLCG Common JWT Profile", "standard"),
+    N("aarc", "The AARC framework", "standard"),
+    N("sirtfi", "Sirtfi — federated incident response", "standard"),
+    N("itil", "The ITIL processes", "standard"),
+    N("oc5b", "OC5 — the Computing Rules", "policy", { r: 12 }),
+    N("mtp", "CERN Medium-Term Plan 2025–29", "policy"),
+    N("ospolicy", "The Open Science Policy (2022)", "policy"),
+    N("d-tokens", "Decision: from X.509 proxies to tokens", "decision"),
+    N("d-adfs", "Decision: leave ADFS", "decision"),
+    N("d-onprem", "Decision: on-premise over cloud SSO", "decision"),
+    N("d-malt", "MALT — Microsoft Alternatives", "programme"),
+    N("2fa", "The 2FA rollout", "programme"),
+    N("openlab", "CERN openlab", "programme"),
+    N("c-caps", "Capability-based authorization", "concept"),
+    N("c-life", "Token lifetimes instead of revocation", "concept"),
+    N("c-tier", "The WLCG tier model", "concept"),
+    N("c-vo", "VO-centred transitive trust", "concept"),
+    N("c-pillars", "The four pillars of the IT strategy", "concept"),
+    N("s-tokenprof", "WLCG token profile v1.0 (2019)", "source"),
+    N("s-authz", "CERN Authorization Service data model", "source"),
+    N("s-members", "CERN Member States", "source"),
+    N("s-five", "The five-sector structure (2026–2030)", "source"),
+  ],
+  edges: [
+    ["council2", "dg2", "Governs"], ["dg2", "rcs2", "Governs"], ["rcs2", "itdept", "Contains"],
+    ["itdept", "cio2", "Run by"], ["csb", "itdept", "Advises"], ["saca", "council2", "Advises"],
+    ["crsg", "council2", "Advises"], ["sipb", "ospolicy", "Governs"], ["sos", "meyrin", "Runs"],
+    ["odp", "itdept", "Advises"],
+    ["itdept", "sso2", "Runs"], ["itdept", "ldap", "Runs"], ["itdept", "gms", "Runs"],
+    ["itdept", "linux", "Runs"], ["itdept", "winsvc", "Runs"], ["itdept", "desk", "Runs"],
+    ["itdept", "batch", "Runs"], ["itdept", "eos", "Runs"], ["itdept", "cernbox", "Runs"],
+    ["sso2", "ldap", "Integrates"], ["sso2", "gms", "Integrates"], ["sso2", "egroups", "Integrates"],
+    ["sso2", "adfs", "Cites"], ["d-adfs", "adfs", "About"], ["d-onprem", "sso2", "About"],
+    ["sso2", "edh", "Authenticates"], ["sso2", "edms", "Authenticates"], ["sso2", "indico", "Authenticates"],
+    ["sso2", "cernbox", "Authenticates"], ["sso2", "gitlab", "Authenticates"], ["sso2", "mattermost", "Authenticates"],
+    ["iam2", "jwt", "Complies with"], ["iam2", "aarc", "Complies with"], ["iam2", "sirtfi", "Complies with"],
+    ["jwt", "s-tokenprof", "Cites"], ["c-caps", "jwt", "Part of"], ["c-life", "jwt", "Part of"],
+    ["d-tokens", "iam2", "About"], ["d-tokens", "s-tokenprof", "Cites"], ["c-vo", "iam2", "Part of"],
+    ["sso2", "s-authz", "Cites"], ["2fa", "sso2", "About"], ["d-malt", "mattermost", "About"],
+    ["batch", "htcondor", "Cites"], ["batch", "lsf", "Contains"], ["batch", "meyrin", "Part of"],
+    ["eos", "cta", "Integrates"], ["eos", "xrootd", "Integrates"], ["castor", "cta", "Cites"],
+    ["cvmfs", "eos", "Integrates"], ["rucio", "fts", "Integrates"], ["fts", "xrootd", "Integrates"],
+    ["swan", "eos", "Integrates"], ["afs", "linux", "Part of"], ["cernbox", "eos", "Part of"],
+    ["meyrin", "prevessin", "Cites"], ["meyrin", "campus", "Contains"], ["lhcopn", "c-tier", "Part of"],
+    ["campus", "lhcopn", "Cites"], ["c-tier", "iam2", "About"],
+    ["oc5b", "itdept", "Applies to"], ["oc5b", "s-members", "Cites"], ["mtp", "c-pillars", "Cites"],
+    ["c-pillars", "itdept", "About"], ["ospolicy", "openlab", "About"], ["s-five", "rcs2", "Cites"],
+    ["itil", "servicenow", "Applies to"], ["servicenow", "desk", "Integrates"], ["desk", "itil", "Complies with"],
+    ["puppet", "linux", "Part of"], ["gitlab", "puppet", "Integrates"], ["winsvc", "d-malt", "Cites"],
+    ["indico", "edms", "Cites"], ["edh", "edms", "Integrates"],
+  ],
+};
+
+const TYPE_COUNTS = {
+  null: [["topic", 13], ["sector", 3], ["board", 2], ["role", 2], ["service", 2],
+         ["organisation", 1], ["source", 1], ["graph", 1], ["policy", 1]],
+  "it-governance": [["source", 121], ["service", 33], ["concept", 18], ["board", 14], ["topic", 13],
+                    ["facility", 10], ["tech", 9], ["policy", 9], ["unit", 6], ["decision", 6],
+                    ["standard", 5], ["network", 5], ["cluster", 4], ["role", 4], ["datastore", 4],
+                    ["platform", 4], ["programme", 4], ["protocol", 3], ["licence", 2]],
+};
+const EDGE_COUNTS = {
+  null: [["Contains", 25], ["Part of", 25], ["Cites", 4], ["Governs", 3], ["Runs", 3],
+         ["Supervised by", 3], ["Run by", 3], ["Advises", 1], ["Advised by", 1],
+         ["Authenticates", 1], ["Authenticated by", 1], ["Complies with", 1], ["Applies to", 1]],
+  "it-governance": [["Cites", 213], ["Part of", 140], ["Contains", 140], ["About", 46],
+                    ["Integrates", 27], ["Runs", 24], ["Authenticates", 19], ["Complies with", 12],
+                    ["Governs", 9], ["Applies to", 7], ["Advises", 6], ["Run by", 5]],
+};
+const STATS = { null: "26 nodos · 72 aristas", "it-governance": "290 nodos · 812 aristas" };
+
+const NOTE = {
+  eyebrow: "identity / cern-sso",
+  title: "CERN SSO",
+  meta: ["Service / System", "visibility: open", "source_head 5cbcd01"],
+  html: `<p>El punto único de autenticación del dominio corporativo. Todo lo que un miembro
+    del personal abre con su cuenta de CERN —<code>indico</code>, EDMS, GitLab, CERNBox—
+    pasa por aquí; el plano del grid vive aparte y se une por confianza federada, no por
+    esta sesión.</p>
+    <h2>Topology</h2>
+    <ul>
+      <li><b>Run by</b>: IT Department</li>
+      <li><b>Integrates</b>: CERN LDAP · Group Management System (GMS) · E-groups (–2026)</li>
+      <li><b>Authenticates</b>: EDH · EDMS · Indico · CERNBox · GitLab at CERN · Mattermost</li>
+      <li><b>Cites</b>: CERN Authorization Service data model · ADFS (legacy)</li>
+    </ul>
+    <h2>Qué sigue en vigor</h2>
+    <p>La salida de ADFS está decidida y ejecutada; lo que queda de aquel plano son las
+    aplicaciones que aún piden WS-Federation y que el equipo migra a OIDC a medida que
+    tocan release. El despliegue de 2FA cubre ya las cuentas con rol administrativo.</p>
+    <p>La decisión de mantener el SSO on-premise en lugar de delegarlo en un proveedor
+    externo se registró con su razonamiento: el corpus la conserva como nota propia para
+    que la próxima revisión discuta el argumento y no la conclusión.</p>`,
+};
+
+const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
+const $ = (s) => document.querySelector(s);
+const trailEl = $("#trail"), qEl = $("#q"), resultsEl = $("#results"), selEl = $("#sel");
+const sideEl = $("#side"), ctxEl = $("#ctx"), tipEl = $("#tip"), annotEl = $("#annots");
+const readingEl = $("#reading"), viewsEl = $("#views"), filtersEl = $("#filters"), dockEl = $("#dock");
+
+const S = {
+  graph: ROOT,
+  mode: "full",
+  types: new Set(),
+  edges: new Set(),
+  sel: null,
+  hover: null,
+  query: "",
+  scope: "this",
+  palette: false,
+  hits: [],
+  cursor: 0,
+  windows: [],
+  camera: { x: 0, y: 0, k: 1 },
+  touched: false,
+};
+
+let nodes = [], links = [], W = 0, H = 0, alpha = 1;
+
+function loadGraph(g) {
+  S.graph = g;
+  S.mode = "full";
+  S.sel = null;
+  S.types = new Set(TYPE_COUNTS[g.id] ? TYPE_COUNTS[g.id].map(([t]) => t) : []);
+  S.edges = new Set(EDGE_COUNTS[g.id].map(([e]) => e));
+  const byId = new Map();
+  nodes = g.nodes.map((n) => {
+    const node = { ...n, r: n.r || 8, x: W / 2 + (Math.random() - .5) * 340, y: H / 2 + (Math.random() - .5) * 260, vx: 0, vy: 0, deg: 0 };
+    byId.set(n.id, node);
+    return node;
+  });
+  links = g.edges.map(([s, t, k]) => ({ s: byId.get(s), t: byId.get(t), k })).filter((l) => l.s && l.t);
+  for (const l of links) { l.s.deg++; l.t.deg++; }
+  for (const n of nodes) n.r = n.r || Math.min(14, 5.5 + n.deg * 0.7);
+  alpha = 1;
+  S.camera = { x: 0, y: 0, k: 1 };
+  S.touched = false;
+  for (let i = 0; i < 260; i++) step();
+  fit();
+  renderAll();
+}
+
+function fit() {
+  const vis = nodes.filter(visible);
+  if (!vis.length) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of vis) {
+    x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r);
+    x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r);
+  }
+  const padL = 300, padR = 90, padT = 150, padB = 70;
+  const k = Math.min(2, Math.max(.28, Math.min((W - padL - padR) / (x1 - x0 || 1), (H - padT - padB) / (y1 - y0 || 1))));
+  S.camera.k = k;
+  S.camera.x = padL + (W - padL - padR - (x1 - x0) * k) / 2 - x0 * k;
+  S.camera.y = padT + (H - padT - padB - (y1 - y0) * k) / 2 - y0 * k;
+  S.touched = false;
+}
+
+function resize() {
+  const dpr = devicePixelRatio || 1;
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function step() {
+  if (alpha > .005) alpha *= .992;
+  const k = alpha;
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d2 = dx * dx + dy * dy || 1;
+      if (d2 > 250000) continue;
+      const f = ((2600 + (a.r + b.r) * 210) * k) / d2;
+      const d = Math.sqrt(d2);
+      const ux = dx / d, uy = dy / d;
+      a.vx -= ux * f; a.vy -= uy * f; b.vx += ux * f; b.vy += uy * f;
+    }
+  }
+  for (const l of links) {
+    const dx = l.t.x - l.s.x, dy = l.t.y - l.s.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const rest = 118 + (l.s.r + l.t.r) * 1.6;
+    const f = ((d - rest) / d) * 0.028 * k;
+    const fx = dx * f, fy = dy * f;
+    l.s.vx += fx; l.s.vy += fy; l.t.vx -= fx; l.t.vy -= fy;
+  }
+  const cx = W / 2, cy = H / 2;
+  for (const n of nodes) {
+    n.vx += (cx - n.x) * 0.0009 * k;
+    n.vy += (cy - n.y) * 0.0009 * k;
+    n.vx *= 0.86; n.vy *= 0.86;
+    n.x += n.vx; n.y += n.vy;
+  }
+}
+
+const visible = (n) => S.types.has(n.type);
+const matches = (n) => !S.query || n.t.toLowerCase().includes(S.query);
+
+function drawGround() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  const cs = getComputedStyle(document.documentElement);
+  ctx.fillStyle = cs.getPropertyValue("--ground").trim();
+  ctx.fillRect(0, 0, W, H);
+  const sp = 26, dot = cs.getPropertyValue("--grid-dot").trim();
+  const ox = (S.camera.x * .5) % sp, oy = (S.camera.y * .5) % sp;
+  ctx.fillStyle = dot;
+  for (let x = ox - sp; x < W + sp; x += sp) {
+    for (let y = oy - sp; y < H + sp; y += sp) {
+      ctx.beginPath(); ctx.arc(x, y, 1.05, 0, 6.283); ctx.fill();
+    }
+  }
+  const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .42, W / 2, H / 2, Math.hypot(W, H) / 2);
+  v.addColorStop(0, "rgba(0,0,0,0)");
+  v.addColorStop(1, "rgba(0,0,0,.16)");
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
+
+function draw() {
+  step();
+  drawGround();
+  ctx.save();
+  ctx.translate(S.camera.x, S.camera.y);
+  ctx.scale(S.camera.k, S.camera.k);
+
+  const focus = S.sel || S.hover;
+  const near = new Set();
+  if (focus) { near.add(focus.id); for (const l of links) { if (l.s === focus) near.add(l.t.id); if (l.t === focus) near.add(l.s.id); } }
+
+  for (const l of links) {
+    if (!S.edges.has(l.k) || !visible(l.s) || !visible(l.t)) continue;
+    const lit = focus ? (l.s === focus || l.t === focus) : !S.query || (matches(l.s) && matches(l.t));
+    ctx.globalAlpha = lit ? .62 : (focus || S.query ? .05 : .24);
+    ctx.strokeStyle = EDGE[l.k] || "#888";
+    ctx.lineWidth = (lit ? 1.4 : 1) / S.camera.k;
+    ctx.beginPath(); ctx.moveTo(l.s.x, l.s.y); ctx.lineTo(l.t.x, l.t.y); ctx.stroke();
+  }
+
+  for (const n of nodes) {
+    if (!visible(n)) continue;
+    const isFocus = n === focus, isNear = near.has(n.id), hit = matches(n);
+    ctx.globalAlpha = focus ? (isFocus || isNear ? 1 : .13) : (S.query ? (hit ? 1 : .12) : 1);
+    const col = TYPE[n.type].c;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 6.283);
+    ctx.fillStyle = col; ctx.fill();
+    const k = S.camera.k;
+    if (n.portal) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 3.6 / k, 0, 6.283);
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5 / k; ctx.setLineDash([]); ctx.stroke();
+    }
+    if (n.fed) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 3.2 / k, 0, 6.283);
+      ctx.strokeStyle = col; ctx.lineWidth = 1.2 / k; ctx.setLineDash([2.6 / k, 2.2 / k]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (isFocus) {
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 6.5 / k, 0, 6.283);
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--ice").trim();
+      ctx.lineWidth = 1.8 / k; ctx.stroke();
+    }
+    const showLabel = n.portal || isFocus || isNear || (n.r >= 11 && k > .5) || k > 1.05 || (S.query && hit);
+    if (showLabel) {
+      const cs = getComputedStyle(document.documentElement);
+      ctx.font = (n.portal || isFocus ? "600 " : "") + (11.5 / k) + "px 'IBM Plex Sans', system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      const label = n.t.length > 40 ? n.t.slice(0, 39) + "…" : n.t;
+      ctx.lineWidth = 3 / k; ctx.strokeStyle = cs.getPropertyValue("--ground").trim();
+      ctx.strokeText(label, n.x, n.y + n.r + 4 / k);
+      ctx.fillStyle = isFocus || isNear ? cs.getPropertyValue("--ink").trim() : cs.getPropertyValue("--ink-2").trim();
+      ctx.fillText(label, n.x, n.y + n.r + 4 / k);
+    }
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(draw);
+}
+
+function hitTest(mx, my) {
+  const x = (mx - S.camera.x) / S.camera.k, y = (my - S.camera.y) / S.camera.k;
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    if (!visible(n)) continue;
+    if ((n.x - x) ** 2 + (n.y - y) ** 2 <= (n.r + 5 / S.camera.k) ** 2) return n;
+  }
+  return null;
+}
+
+/* ---------- HUD render ---------- */
+
+function renderTrail() {
+  const inChild = S.graph.id !== null;
+  let html = "";
+  if (inChild) {
+    html += `<button data-up="1" title="Volver a CERN graph">CERN graph</button><span class="sep">›</span>`;
+  }
+  const cur = inChild ? S.graph.title : "CERN graph";
+  const scope = S.scope === "all" ? "⇥ todos" : "⇥ este grafo";
+  html += `<span class="cur ${S.scope === "all" ? "scope-all" : ""}" title="Ámbito de búsqueda (⇥)">
+    <span class="nm">${cur}</span><span class="scope-key">${scope}</span></span>`;
+  trailEl.innerHTML = html;
+  const up = trailEl.querySelector("[data-up]");
+  if (up) up.onclick = () => leaveSubgraph();
+  trailEl.querySelector(".cur").onclick = cycleScope;
+}
+
+function renderViews() {
+  const inChild = S.graph.id !== null;
+  let html = "";
+  if (inChild) html += `<button class="chip back" data-back="1"><span class="lb">‹ Volver a CERN graph</span></button><div class="rule"></div>`;
+  for (const m of S.graph.modes) {
+    html += `<button class="chip ${m.id === S.mode ? "active" : ""}" data-mode="${m.id}">
+      <span class="lb">${m.l}</span><span class="info" data-desc="${m.id}" title="Qué muestra">ⓘ</span></button>`;
+  }
+  viewsEl.innerHTML = html;
+  const back = viewsEl.querySelector("[data-back]");
+  if (back) back.onclick = () => leaveSubgraph();
+  viewsEl.querySelectorAll("[data-mode]").forEach((b) => {
+    b.onclick = (e) => {
+      if (e.target.dataset.desc) return;
+      S.mode = b.dataset.mode; renderViews();
+    };
+  });
+  viewsEl.querySelectorAll("[data-desc]").forEach((i) => {
+    i.onclick = (e) => {
+      e.stopPropagation();
+      const m = S.graph.modes.find((x) => x.id === i.dataset.desc);
+      openSide(i, `<div class="head">El modo</div><div class="legend">${m.d}</div>`);
+    };
+  });
+}
+
+function renderFilters() {
+  const tc = TYPE_COUNTS[S.graph.id], ec = EDGE_COUNTS[S.graph.id];
+  const tOn = tc.filter(([t]) => S.types.has(t)).length, eOn = ec.filter(([e]) => S.edges.has(e)).length;
+  filtersEl.innerHTML = `
+    <button class="chip" data-menu="types"><span class="lb">Tipos</span>
+      <span class="sub">${tOn}/${tc.length}</span><span class="arrow">›</span></button>
+    <button class="chip" data-menu="edges"><span class="lb">Relaciones</span>
+      <span class="sub">${eOn}/${ec.length}</span><span class="arrow">›</span></button>
+    <div class="foot tnum">${STATS[S.graph.id]}</div>`;
+  filtersEl.querySelectorAll("[data-menu]").forEach((b) => {
+    b.onclick = (e) => { e.stopPropagation(); openFilterMenu(b, b.dataset.menu); };
+  });
+}
+
+function openFilterMenu(anchor, kind) {
+  const isTypes = kind === "types";
+  const list = isTypes ? TYPE_COUNTS[S.graph.id] : EDGE_COUNTS[S.graph.id];
+  const on = isTypes ? S.types : S.edges;
+  let html = `<div class="head">${isTypes ? "Tipos de nota" : "Relaciones"}
+    <span class="mini"><button data-all="1">Todos</button><button data-none="1">Ninguno</button></span></div>`;
+  if (!isTypes) {
+    const m = S.graph.modes.find((x) => x.id === S.mode);
+    html += `<div class="legend"><b>${m.l}.</b> ${m.d.replace(/<\/?b>/g, "")}</div>`;
+  }
+  for (const [key, n] of list) {
+    const col = isTypes ? TYPE[key].c : (EDGE[key] || "#888");
+    const label = isTypes ? TYPE[key].l : key;
+    html += `<button class="opt ${on.has(key) ? "on" : ""}" data-k="${key}">
+      <span class="box">${on.has(key) ? "✓" : ""}</span><span class="dot" style="background:${col}"></span>
+      <span class="lb">${label}</span><span class="n tnum">${n}</span></button>`;
+  }
+  openSide(anchor, html);
+  sideEl.querySelectorAll("[data-k]").forEach((b) => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const k = b.dataset.k;
+      on.has(k) ? on.delete(k) : on.add(k);
+      openFilterMenu(anchor, kind); renderFilters();
+    };
+  });
+  const all = sideEl.querySelector("[data-all]"), none = sideEl.querySelector("[data-none]");
+  all.onclick = (e) => { e.stopPropagation(); list.forEach(([k]) => on.add(k)); openFilterMenu(anchor, kind); renderFilters(); };
+  none.onclick = (e) => { e.stopPropagation(); on.clear(); openFilterMenu(anchor, kind); renderFilters(); };
+}
+
+function openSide(anchor, html) {
+  sideEl.innerHTML = html;
+  sideEl.classList.add("on");
+  const r = anchor.getBoundingClientRect();
+  const h = sideEl.offsetHeight;
+  sideEl.style.left = Math.round(r.right + 10) + "px";
+  sideEl.style.top = Math.round(Math.min(Math.max(10, r.bottom - h), innerHeight - h - 10)) + "px";
+}
+const closeSide = () => sideEl.classList.remove("on");
+
+function renderReading() {
+  if (!S.windows.length) { readingEl.classList.add("hidden"); readingEl.innerHTML = ""; return; }
+  readingEl.classList.remove("hidden");
+  const pinned = S.windows.filter((w) => w.pinned);
+  let html = `<button class="chip ${dockEl.classList.contains("on") ? "active" : ""}" data-toggle="1">
+      <span class="lb">⧉ ${S.windows.length} abierta${S.windows.length > 1 ? "s" : ""}${pinned.length ? " · " + pinned.length + " fijada" + (pinned.length > 1 ? "s" : "") : ""}</span>
+      <span class="sub">⌘W</span></button>`;
+  if (pinned.length) {
+    html += `<div class="rule"></div>`;
+    for (const w of pinned) {
+      html += `<div class="row2"><button class="chip" data-open="${w.id}">
+        <span class="dot" style="background:${TYPE[w.type].c}"></span><span class="lb">${w.t}</span></button>
+        <button class="x" data-close="${w.id}" title="Cerrar" aria-label="Cerrar ${w.t}">✕</button></div>`;
+    }
+    html += `<div class="rule"></div><button class="chip" data-closeall="1"><span class="lb">Cerrar todas</span></button>`;
+  }
+  readingEl.innerHTML = html;
+  readingEl.querySelector("[data-toggle]").onclick = () => { dockEl.classList.toggle("on"); renderReading(); };
+  readingEl.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => {
+    dockEl.classList.add("on"); setActiveWindow(b.dataset.open); renderReading();
+  });
+  readingEl.querySelectorAll("[data-close]").forEach((b) => b.onclick = (e) => {
+    e.stopPropagation(); closeWindow(b.dataset.close);
+  });
+  const ca = readingEl.querySelector("[data-closeall]");
+  if (ca) ca.onclick = () => { S.windows = []; dockEl.classList.remove("on"); renderReading(); renderDock(); };
+}
+
+function renderSelection() {
+  if (!S.sel) { selEl.classList.remove("on"); selEl.innerHTML = ""; return; }
+  const n = S.sel;
+  const rels = new Map();
+  for (const l of links) {
+    if (l.s === n) rels.set(l.k, (rels.get(l.k) || 0) + 1);
+    else if (l.t === n) {
+      const inv = { "Contains": "Part of", "Governs": "Supervised by", "Runs": "Run by", "Advises": "Advised by", "Authenticates": "Authenticated by" }[l.k] || l.k;
+      rels.set(inv, (rels.get(inv) || 0) + 1);
+    }
+  }
+  let html = `<span class="sdot" style="background:${TYPE[n.type].c}"></span>
+    <span class="stitle">${n.t}</span><span class="stype">${TYPE[n.type].l}</span><span class="sdiv"></span>`;
+  for (const [k, v] of [...rels].sort((a, b) => b[1] - a[1]).slice(0, 5)) {
+    html += `<button class="rel"><i style="background:${EDGE[k] || "#888"}"></i>${k}<span class="n tnum">${v}</span></button>`;
+  }
+  html += `<span class="sdiv"></span><button class="act" data-open="1">Abrir</button>
+    <button class="act" data-pin="1">Fijar</button>`;
+  if (n.portal) html += `<button class="act key" data-dive="1">Explorar subgrafo ↘</button>`;
+  selEl.innerHTML = html;
+  selEl.classList.add("on");
+  selEl.querySelector("[data-open]").onclick = () => openWindow(n, false);
+  selEl.querySelector("[data-pin]").onclick = () => openWindow(n, true);
+  const dive = selEl.querySelector("[data-dive]");
+  if (dive) dive.onclick = () => enterSubgraph();
+}
+
+function renderDock() {
+  const tabs = dockEl.querySelector(".tabs"), body = dockEl.querySelector(".body");
+  tabs.innerHTML = S.windows.map((w) => `
+    <button class="tab ${w.active ? "active" : ""} ${w.pinned ? "pinned" : "temp"}" data-id="${w.id}">
+      <span class="td" style="background:${TYPE[w.type].c}"></span>
+      <span class="nm">${w.t}</span><span class="pin">📌</span></button>`).join("");
+  tabs.querySelectorAll("[data-id]").forEach((b) => {
+    b.onclick = () => { setActiveWindow(b.dataset.id); };
+    b.ondblclick = () => { const w = S.windows.find((x) => x.id === b.dataset.id); w.pinned = true; renderDock(); renderReading(); };
+  });
+  const active = S.windows.find((w) => w.active);
+  body.innerHTML = active ? `
+    <div class="eyebrow">${active.id === "sso2" || active.id === "sso" ? NOTE.eyebrow : (S.graph.id ? S.graph.id + " / " : "") + active.id}</div>
+    <h1>${active.t}</h1>
+    <div class="meta">${[TYPE[active.type].l, ...(active.fed || active.portal ? ["visibility: open"] : []), "source_head 5cbcd01"].map((m) => `<span>${m}</span>`).join("")}</div>
+    ${NOTE.html}` : "";
+}
+
+function setActiveWindow(id) {
+  S.windows.forEach((w) => w.active = w.id === id);
+  renderDock(); renderReading();
+}
+
+function openWindow(n, pinned) {
+  const existing = S.windows.find((w) => w.id === n.id);
+  if (existing) { existing.pinned = existing.pinned || pinned; setActiveWindow(n.id); }
+  else {
+    if (!pinned) S.windows = S.windows.filter((w) => w.pinned);
+    S.windows.push({ id: n.id, t: n.t, type: n.type, fed: n.fed, portal: n.portal, pinned, active: true });
+    setActiveWindow(n.id);
+  }
+  dockEl.classList.add("on");
+  renderReading(); renderDock();
+}
+
+function closeWindow(id) {
+  S.windows = S.windows.filter((w) => w.id !== id);
+  if (S.windows.length && !S.windows.some((w) => w.active)) S.windows[S.windows.length - 1].active = true;
+  if (!S.windows.length) dockEl.classList.remove("on");
+  renderReading(); renderDock();
+}
+
+/* ---------- search & palette ---------- */
+
+const COMMANDS = [
+  { ic: "⌂", l: "Encajar el grafo", key: "F", run: () => fit() },
+  { ic: "◌", l: "Limpiar los filtros", run: () => { S.types = new Set(TYPE_COUNTS[S.graph.id].map(([t]) => t)); S.edges = new Set(EDGE_COUNTS[S.graph.id].map(([e]) => e)); renderFilters(); } },
+  { ic: "↘", l: "Entrar en el subgrafo", run: () => enterSubgraph() },
+  { ic: "‹", l: "Volver al grafo anterior", run: () => leaveSubgraph() },
+  { ic: "⧉", l: "Abrir la nota seleccionada", key: "⏎", run: () => S.sel && openWindow(S.sel, false) },
+  { ic: "📌", l: "Fijar la nota seleccionada", key: "⌘⇧P", run: () => S.sel && openWindow(S.sel, true) },
+  { ic: "✕", l: "Cerrar la ventana activa", key: "⌘W", run: () => { const a = S.windows.find((w) => w.active); if (a) closeWindow(a.id); } },
+  { ic: "🔗", l: "Copiar el enlace de esta vista", run: () => toast() },
+  { ic: "▤", l: "Guardar la exploración…", run: () => toast() },
+  { ic: "◑", l: "Cambiar el tema", run: () => toggleTheme() },
+  { ic: "▦", l: "Superficies planas (sin desenfoque)", run: () => document.body.classList.toggle("flat") },
+  ...ROOT.modes.map((m) => ({ ic: "◇", l: "Modo: " + m.l, run: () => { S.mode = m.id; renderViews(); } })),
+];
+
+function allNodes() {
+  const here = nodes.map((n) => ({ n, g: null }));
+  if (S.scope !== "all") return here;
+  const other = S.graph.id === null ? CHILD : ROOT;
+  return here.concat(other.nodes.map((n) => ({ n, g: other })));
+}
+
+function search() {
+  const raw = qEl.value;
+  if (raw.trim().startsWith(">")) {
+    S.palette = true;
+    const q = raw.trim().slice(1).trim().toLowerCase();
+    S.hits = COMMANDS.filter((c) => !q || c.l.toLowerCase().includes(q)).map((c) => ({ cmd: c }));
+  } else {
+    S.palette = false;
+    S.query = raw.trim().toLowerCase();
+    S.hits = !S.query ? [] : allNodes()
+      .filter(({ n }) => n.t.toLowerCase().includes(S.query))
+      .slice(0, 14);
+  }
+  S.cursor = 0;
+  renderResults();
+}
+
+function renderResults() {
+  if (!S.hits.length) {
+    if ((S.palette || S.query) && qEl.value) {
+      resultsEl.innerHTML = `<div class="empty">Sin resultados para «${qEl.value}».</div>`;
+      resultsEl.classList.add("on");
+    } else { resultsEl.classList.remove("on"); }
+    return;
+  }
+  resultsEl.innerHTML = S.hits.map((h, i) => {
+    if (h.cmd) return `<button class="row ${i === S.cursor ? "sel" : ""}" data-i="${i}">
+      <span class="ic">${h.cmd.ic}</span><span class="rt">${h.cmd.l}</span>
+      ${h.cmd.key ? `<span class="kbd">${h.cmd.key}</span>` : `<span class="kind">Comando</span>`}</button>`;
+    const badge = h.g ? `<span class="kind sub">${h.g.id ? "it-governance" : "CERN graph"}</span>`
+                      : `<span class="kind">${TYPE[h.n.type].l}</span>`;
+    return `<button class="row ${i === S.cursor ? "sel" : ""}" data-i="${i}">
+      <span class="dot" style="background:${TYPE[h.n.type].c}"></span>
+      <span class="rt">${h.n.t}</span>${badge}</button>`;
+  }).join("");
+  resultsEl.classList.add("on");
+}
+
+/* Delegado: repintar la lista dentro de `mouseenter` desconecta la fila justo antes
+   de que llegue el `mousedown`, y el resultado nunca se activa. */
+resultsEl.addEventListener("mousedown", (e) => {
+  const row = e.target.closest("[data-i]");
+  if (!row) return;
+  e.preventDefault();
+  runHit(+row.dataset.i);
+});
+resultsEl.addEventListener("mouseover", (e) => {
+  const row = e.target.closest("[data-i]");
+  if (!row) return;
+  S.cursor = +row.dataset.i;
+  resultsEl.querySelectorAll("[data-i]").forEach((b) => b.classList.toggle("sel", b === row));
+});
+
+function runHit(i) {
+  const h = S.hits[i];
+  if (!h) return;
+  if (h.cmd) { h.cmd.run(); clearQuery(); return; }
+  if (h.g) {
+    const target = h.n.id;
+    if (h.g.id) enterSubgraph(target); else leaveSubgraph(target);
+    clearQuery(); return;
+  }
+  const node = nodes.find((n) => n.id === h.n.id);
+  if (node) { S.sel = node; renderSelection(); openWindow(node, false); }
+  clearQuery();
+}
+
+function clearQuery() {
+  qEl.value = ""; S.query = ""; S.palette = false; S.hits = [];
+  resultsEl.classList.remove("on");
+}
+
+function cycleScope() {
+  S.scope = S.scope === "this" ? "all" : "this";
+  renderTrail(); search();
+}
+
+/* ---------- navigation ---------- */
+
+function enterSubgraph(focusId) {
+  if (S.graph.id) return;
+  loadGraph(CHILD);
+  if (focusId) { const n = nodes.find((x) => x.id === focusId); if (n) { S.sel = n; renderSelection(); } }
+  renderAll();
+}
+function leaveSubgraph(focusId) {
+  if (!S.graph.id) return;
+  loadGraph(ROOT);
+  const n = nodes.find((x) => x.id === (focusId || "it-governance"));
+  if (n) { S.sel = n; renderSelection(); }
+  renderAll();
+}
+
+function renderAll() {
+  renderTrail(); renderViews(); renderFilters(); renderReading(); renderSelection(); renderDock();
+  $("#brand .name").textContent = "CERN graph";
+  $("#m-graph").textContent = S.graph.id ? "Volver a la raíz" : "Entrar al subgrafo";
+  if (annotEl.classList.contains("on")) placeAnnotations();
+}
+
+function toast() {
+  const t = document.createElement("div");
+  t.textContent = "Enlace copiado";
+  t.style.cssText = `position:absolute;z-index:80;left:50%;bottom:26px;transform:translateX(-50%);
+    padding:7px 14px;border-radius:999px;font-size:12.5px;background:var(--glass);
+    border:1px solid var(--glass-edge);box-shadow:var(--shadow);backdrop-filter:blur(20px)`;
+  $("#wrap").appendChild(t);
+  setTimeout(() => t.remove(), 1600);
+}
+
+/* ---------- context menu ---------- */
+
+function openCtx(x, y, node) {
+  const items = node ? [
+    { l: "Abrir la nota", run: () => openWindow(node, false) },
+    { l: "Abrir y fijar", run: () => openWindow(node, true) },
+    ...(node.portal ? [{ l: "Explorar su grafo ↘", run: () => enterSubgraph() }] : []),
+    { sep: 1 },
+    { l: "Encuadrar su vecindad", run: () => fit() },
+    { l: `Solo el tipo «${TYPE[node.type].l}»`, run: () => { S.types = new Set([node.type]); renderFilters(); } },
+    { sep: 1 },
+    { l: "Copiar el enlace", run: toast },
+  ] : [
+    { l: "Encajar el grafo", run: () => fit() },
+    { l: "Limpiar los filtros", run: () => { S.types = new Set(TYPE_COUNTS[S.graph.id].map(([t]) => t)); S.edges = new Set(EDGE_COUNTS[S.graph.id].map(([e]) => e)); renderFilters(); } },
+    { sep: 1 },
+    { l: "Copiar el enlace de esta vista", run: toast },
+  ];
+  ctxEl.innerHTML = items.map((it, i) => it.sep ? `<div class="sep"></div>` : `<button data-i="${i}">${it.l}</button>`).join("");
+  ctxEl.classList.add("on");
+  ctxEl.style.left = Math.min(x, innerWidth - ctxEl.offsetWidth - 10) + "px";
+  ctxEl.style.top = Math.min(y, innerHeight - ctxEl.offsetHeight - 10) + "px";
+  ctxEl.querySelectorAll("[data-i]").forEach((b) => b.onclick = () => { items[+b.dataset.i].run(); ctxEl.classList.remove("on"); });
+}
+
+/* ---------- annotations ---------- */
+
+const ANNOTS = [
+  { sel: "#omnibar", n: 1, side: "right", txt: "<b>Omnibar.</b> La miga de grafos es el ámbito de búsqueda: este grafo, todos, o uno concreto (⇥)." },
+  { sel: "#sel", n: 2, side: "right", txt: "<b>Cápsula de selección.</b> Sustituye a la barra de relaciones a todo lo ancho." },
+  { sel: "#brand", n: 3, side: "right", txt: "<b>Marca.</b> Vuelta al sitio y ajustes." },
+  { sel: "#reading", n: 4, side: "right", txt: "<b>Lectura.</b> Qué notas tengo abiertas y fijadas, con el dock cerrado." },
+  { sel: "#views", n: 5, side: "right", txt: "<b>Vistas.</b> Los modos del grafo activo; dentro del hijo, los suyos tras la vuelta." },
+  { sel: "#filters", n: 6, side: "right", txt: "<b>Filtros.</b> Tipos y relaciones plegados en menús laterales, stats como pie." },
+  { sel: "#dock", n: 7, side: "left", txt: "<b>Dock de lectura.</b> Ventanas temporales y fijadas." },
+];
+
+function placeAnnotations() {
+  annotEl.innerHTML = "";
+  for (const a of ANNOTS) {
+    const el = document.querySelector(a.sel);
+    if (!el || !el.offsetParent || el.classList.contains("hidden") ||
+        (a.sel === "#sel" && !el.classList.contains("on")) ||
+        (a.sel === "#dock" && !el.classList.contains("on"))) continue;
+    const r = el.getBoundingClientRect();
+    const box = document.createElement("div");
+    box.className = "box";
+    box.style.cssText = `left:${r.left - 4}px;top:${r.top - 4}px;width:${r.width + 8}px;height:${r.height + 8}px`;
+    annotEl.appendChild(box);
+    const pin = document.createElement("div");
+    pin.className = "pin" + (a.side === "left" ? " left" : "");
+    pin.innerHTML = `<div class="num">${a.n}</div><div class="lbl">${a.txt}</div>`;
+    annotEl.appendChild(pin);
+    const top = r.top + r.height / 2;
+    if (a.side === "left") { pin.style.right = (innerWidth - r.left + 14) + "px"; pin.style.top = top + "px"; }
+    else { pin.style.left = (r.right + 14) + "px"; pin.style.top = top + "px"; }
+  }
+}
+
+/* ---------- events ---------- */
+
+let dragging = false, dragFrom = null;
+canvas.addEventListener("pointerdown", (e) => {
+  const n = hitTest(e.offsetX, e.offsetY);
+  if (n) return;
+  dragging = true; dragFrom = { x: e.offsetX - S.camera.x, y: e.offsetY - S.camera.y };
+});
+addEventListener("pointerup", () => { dragging = false; });
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0015);
+  const k = Math.min(3.5, Math.max(.2, S.camera.k * f));
+  S.camera.x = e.offsetX - (e.offsetX - S.camera.x) * (k / S.camera.k);
+  S.camera.y = e.offsetY - (e.offsetY - S.camera.y) * (k / S.camera.k);
+  S.camera.k = k; S.touched = true;
+}, { passive: false });
+canvas.addEventListener("pointermove", (e) => {
+  if (dragging) {
+    S.camera.x = e.offsetX - dragFrom.x; S.camera.y = e.offsetY - dragFrom.y; S.touched = true;
+    return;
+  }
+  const n = hitTest(e.offsetX, e.offsetY);
+  S.hover = n;
+  canvas.classList.toggle("on-node", !!n);
+  if (n) {
+    tipEl.classList.add("on");
+    tipEl.innerHTML = `<b>${n.t}</b><small>${TYPE[n.type].l}</small>` +
+      (n.portal ? `<div class="pv">${n.portal.notes} notas · ${n.portal.previewed} abiertas<br>Doble clic para entrar en su grafo</div>` : "") +
+      (n.fed ? `<div class="pv">Montada desde <code>it-governance</code></div>` : "");
+    const pad = 14;
+    let x = e.offsetX + pad, y = e.offsetY + pad;
+    if (x + tipEl.offsetWidth > W - 8) x = e.offsetX - tipEl.offsetWidth - pad;
+    if (y + tipEl.offsetHeight > H - 8) y = e.offsetY - tipEl.offsetHeight - pad;
+    tipEl.style.left = x + "px"; tipEl.style.top = y + "px";
+  } else tipEl.classList.remove("on");
+});
+canvas.addEventListener("click", (e) => {
+  const n = hitTest(e.offsetX, e.offsetY);
+  S.sel = n; renderSelection();
+  if (n) openWindow(n, false);
+  if (annotEl.classList.contains("on")) placeAnnotations();
+});
+canvas.addEventListener("dblclick", (e) => {
+  const n = hitTest(e.offsetX, e.offsetY);
+  if (n && n.portal) enterSubgraph();
+});
+canvas.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  openCtx(e.clientX, e.clientY, hitTest(e.offsetX, e.offsetY));
+});
+
+document.addEventListener("click", (e) => {
+  if (!sideEl.contains(e.target) && !filtersEl.contains(e.target) && !viewsEl.contains(e.target)) closeSide();
+  if (!ctxEl.contains(e.target)) ctxEl.classList.remove("on");
+});
+
+qEl.addEventListener("input", search);
+qEl.addEventListener("focus", search);
+qEl.addEventListener("blur", () => setTimeout(() => resultsEl.classList.remove("on"), 150));
+qEl.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") { e.preventDefault(); cycleScope(); return; }
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    if (!S.hits.length) return;
+    S.cursor = (S.cursor + (e.key === "ArrowDown" ? 1 : -1) + S.hits.length) % S.hits.length;
+    renderResults();
+  } else if (e.key === "Enter") { runHit(S.cursor); qEl.blur(); }
+  else if (e.key === "Escape") { clearQuery(); qEl.blur(); }
+});
+
+document.addEventListener("keydown", (e) => {
+  const typing = e.target === qEl || /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w") {
+    e.preventDefault();
+    const a = S.windows.find((w) => w.active); if (a) closeWindow(a.id);
+    return;
+  }
+  if (typing) return;
+  if (e.key === "/") { e.preventDefault(); qEl.focus(); return; }
+  if (e.key === "Escape") { S.sel = null; renderSelection(); closeSide(); ctxEl.classList.remove("on"); return; }
+  if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    qEl.focus(); qEl.value += e.key; search();
+  }
+});
+
+function toggleTheme() {
+  const dark = document.documentElement.dataset.theme !== "light";
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  $("#m-theme").textContent = dark ? "Oscuro" : "Claro";
+}
+
+$("#m-graph").onclick = () => (S.graph.id ? leaveSubgraph() : enterSubgraph());
+$("#m-theme").onclick = toggleTheme;
+$("#m-flat").onclick = (e) => { document.body.classList.toggle("flat"); e.target.classList.toggle("on"); };
+$("#m-annot").onclick = (e) => {
+  annotEl.classList.toggle("on"); e.target.classList.toggle("on");
+  if (annotEl.classList.contains("on")) placeAnnotations();
+};
+$("#dock-close").onclick = () => { dockEl.classList.remove("on"); renderReading(); };
+$("#dock-wide").onclick = () => {
+  const wide = dockEl.style.flexBasis === "72%";
+  dockEl.style.flexBasis = wide ? "38%" : "72%";
+  dockEl.style.maxWidth = wide ? "40rem" : "none";
+  $("#dock-wide").textContent = wide ? "Ampliar" : "Reducir";
+};
+$("#brand .home").onclick = toast;
+$("#brand .gear").onclick = (e) => openSide(e.currentTarget, `
+  <div class="head">Ajustes</div>
+  <button class="opt on"><span class="box">✓</span><span class="lb">Etiquetas de nodo</span></button>
+  <button class="opt on"><span class="box">✓</span><span class="lb">Leyenda del modo</span></button>
+  <button class="opt"><span class="box"></span><span class="lb">Superficies planas</span></button>
+  <div class="legend">El tema sigue al del sistema.</div>`);
+
+addEventListener("resize", () => { resize(); if (annotEl.classList.contains("on")) placeAnnotations(); });
+resize();
+loadGraph(ROOT);
+requestAnimationFrame(draw);
+setTimeout(() => { const n = nodes.find((x) => x.portal); if (n) { S.sel = n; renderSelection(); } }, 700);
+</script>
+</body>
+</html>

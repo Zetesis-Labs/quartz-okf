@@ -290,6 +290,41 @@ Con esas cuatro respuestas, `/speckit-plan` y `/speckit-tasks` sobre la rama `00
 
 ---
 
+## Anexo C. Maqueta interactiva
+
+`mock/hud.html` — un solo fichero, sin dependencias más allá de las fuentes de Google.
+Para verlo:
+
+```bash
+cd specs/002-explorer-hud/mock && python3 -m http.server 8791
+# http://127.0.0.1:8791/hud.html
+```
+
+No es el explorer: es una maqueta que implementa el HUD propuesto sobre datos reales de
+los dos corpus (26 nodos del padre con sus 9 tipos y 13 relaciones; 66 del hijo con sus
+19 tipos, 12 relaciones y los 12 modos), con una simulación de fuerzas propia de 40
+líneas. Sirve para discutir la interfaz, no para medir rendimiento.
+
+Qué se puede probar:
+
+| Gesto | Qué demuestra |
+|---|---|
+| Escribir en cualquier sitio, o `/` | La omnibar toma las teclas (D2) |
+| `⇥` en la omnibar | Cambia el ámbito: este grafo ↔ todos los grafos |
+| Buscar `token` con ámbito «todos» desde la raíz | Las tres notas del hijo aparecen con su badge; activarlas **entra** en el subgrafo (D2, FR-004) |
+| `>` en la omnibar | Paleta de comandos (D3) |
+| Clic en un nodo | Cápsula de selección con las relaciones agrupadas + dock de lectura (D4, D8) |
+| Doble clic en el portal, o `Explorar subgrafo ↘` | Entra en el hijo: sus 12 modos, sus 19 tipos, su miga (D2, D5) |
+| `Tipos ›` / `Relaciones ›` | Menús laterales con cuenta y checkbox; el lienzo responde (D5) |
+| Clic derecho en un nodo o en el fondo | Menú contextual (D6) |
+| `⌘W` | Cierra la ventana activa (D8) |
+| Botón **Anatomía** | Superpone la numeración de las piezas del HUD |
+| Botones **Claro** / **Plano** | Los dos temas y la alternativa sin desenfoque (D12, FR-017) |
+
+Lo que la maqueta **no** trae, a propósito: teclado espacial (D7), estado en la URL (D9),
+catálogos de idioma (D10) y las exploraciones guardadas. Son requisitos de la spec, no
+piezas visuales que discutir.
+
 ## Anexo A. Ficheros consultados en graphacker
 
 `newtab.html` · `newtab.css` · `src/panels.tsx` · `src/hud-brand.tsx` · `src/windows-nav.tsx` · `src/tabs-badge.tsx` · `src/views-nav.tsx` · `src/source-nav.tsx` · `src/layout-picker.tsx` · `src/search.tsx` · `src/commands.ts` · `src/ui/modal.tsx` · `src/ui/menu.tsx` · `src/ui/dismiss.ts` · `src/ui/toast.tsx` · `src/ui/tour.tsx` · `src/ui/dom.ts` · `src/ui/empty.tsx` · `src/ui/legend.tsx` · `src/lib/badge-label.ts` · `src/lib/view-axes.ts` · `src/lib/command-palette.ts` · `src/interactions/keyboard.ts` · `src/interactions/subgraph.ts` · `src/interactions/tooltip.ts` · `src/render/backdrop.ts` · `src/render/selection.ts` · `src/render/labels.ts` · `src/locales/es.json` · `CLAUDE.md` · `docs/ux-colecciones.md` · `docs/layouts-del-grafo.md` · `docs/plan-remediacion-apple-floating-ui.md` · `scripts/smoke-ui.mjs`.
