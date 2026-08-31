@@ -70,6 +70,12 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
 - El script inline intercepta `popstate` en fase de captura cuando solo cambia la query
   de la misma página: el router SPA de Quartz recarga la página en cualquier `popstate`
   y rompería la navegación por pasos del explorador.
+- Los textos del panel viven en `plugins/quartz-okf-panels/lib/i18n.ts` y viajan al
+  navegador resueltos en `data-okf-panels`: el script de cliente no lleva ni una palabra
+  propia. Antes tres consumidores lo traducían reescribiendo su fuente en el build.
+- Los plugins de la comunidad NO se purgan de `.quartz/plugins` entre builds (solo los
+  del toolkit): un parche sobre uno de ellos se queda pegado en la caché y su recuento
+  de ficheros parcheados no vale como señal de salud.
 - `quartz-okf-panels` y `quartz-graph-okf` dependen de los tipos de Quartz
   (`@quartz-community/*`) que solo existen en el consumidor: su `tsc` no forma parte del
   gate del repo; los verifica el build del consumidor.

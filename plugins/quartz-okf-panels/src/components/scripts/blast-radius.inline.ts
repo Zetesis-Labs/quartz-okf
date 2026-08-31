@@ -161,7 +161,7 @@
       if (configured.length) {
         sections +=
           '<div class="okf-properties"><h3>' +
-          esc(group.label || group.id || "Properties") +
+          esc(group.label || group.id || t("panel.properties")) +
           "</h3>" +
           propertyRows(configured) +
           "</div>";
@@ -213,9 +213,33 @@
     return html + "</div>";
   }
 
+  // El catálogo lo deja el componente en el contenedor: aquí no hay ni una palabra escrita
+  // a fuego, así que un consumidor no tiene que parchear este fichero para traducirlo.
+  var FALLBACK = {
+    "panel.title": "Blast radius",
+    "panel.relations": "Relations",
+    "panel.referenced": "Referenced by",
+    "panel.knowledge": "Related knowledge",
+    "panel.properties": "Properties",
+  };
+  function wordingOf(container) {
+    try {
+      var declared = JSON.parse(container.getAttribute("data-okf-panels") || "{}");
+      return function (key) {
+        return declared[key] || FALLBACK[key];
+      };
+    } catch (error) {
+      console.warn("[quartz-okf-panels] wording: " + (error && error.message));
+      return function (key) {
+        return FALLBACK[key];
+      };
+    }
+  }
+
   function render() {
     var container = document.querySelector(".okf-blast");
     if (!container) return;
+    var t = wordingOf(container);
     var slug = simplifySlug(getFullSlugFromUrl());
     loadGraph().then(function (graphData) {
       if (!graphData || !graphData.edges) {
@@ -237,22 +261,20 @@
           delete inGroups[label];
         }
       }
-      var out = section("Relations", group(graphData.edges, slug, "out"), nodeMap, m);
-      var inc = section("Referenced by", inGroups, nodeMap, m);
-      var knowledge = section("Related knowledge", knowledgeGroups, nodeMap, m);
-      var properties = propertyPanel(nodeMap[slug], graphData.propertyGroups);
+      var out = section(t("panel.relations"), group(graphData.edges, slug, "out"), nodeMap, m);
+      var inc = section(t("panel.referenced"), inGroups, nodeMap, m);
+      var knowledge = section(t("panel.knowledge"), knowledgeGroups, nodeMap, m);
+      var properties = propertyPanel(nodeMap[slug], graphData.propertyGroups, t);
       if (!properties && !out && !inc && !knowledge) {
         container.style.display = "none";
         return;
       }
       container.style.display = "";
       // Plegado y cerrado por defecto: el panel es contexto de consulta, no lectura
-      // principal, y desplegado le roba al índice el alto del panel derecho. El <h3> se
-      // mantiene literal dentro del <summary> para que la traducción del cromo que hacen
-      // los consumidores en su build siga encontrando la cadena.
+      // principal, y desplegado le roba al índice el alto del panel derecho.
       var relations =
         out || inc || knowledge
-          ? '<details class="okf-blast-fold"><summary><h3>Blast radius</h3></summary>' +
+          ? '<details class="okf-blast-fold"><summary><h3>' + esc(t("panel.title")) + "</h3></summary>" +
             out + inc + knowledge +
             "</details>"
           : "";
