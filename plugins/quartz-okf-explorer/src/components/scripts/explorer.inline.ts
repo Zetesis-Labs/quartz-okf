@@ -91,6 +91,9 @@ async function open(cfg: ExplorerEmitConfig, initial: { graph: string | null; fo
   stage.setAttribute("aria-label", cfg.title || t("title.default"))
   document.body.appendChild(stage)
   document.documentElement.classList.add("okf-explorer-open")
+  // Claimed before the first await: a second click while the graph loads must not mount a
+  // second explorer on top of this one.
+  mounted = { stage, cleanup: () => {} }
 
   let raw: RawGraph
   try {
@@ -102,7 +105,6 @@ async function open(cfg: ExplorerEmitConfig, initial: { graph: string | null; fo
     const msg = t("error.load", { url: cfg.graphUrl, message: err instanceof Error ? err.message : String(err) })
     console.error(`[quartz-okf-explorer] ${msg}`)
     stage.textContent = msg
-    mounted = { stage, cleanup: () => {} }
     return
   }
 
@@ -129,8 +131,16 @@ async function open(cfg: ExplorerEmitConfig, initial: { graph: string | null; fo
     navigate: (url) => {
       close()
       const target = new URL(url, location.href)
-      if (window.spaNavigate) void window.spaNavigate(target)
-      else location.href = target.href
+      if (!window.spaNavigate) {
+        location.href = target.href
+        return
+      }
+      // The router's navigation can fail (network, a page it cannot parse): the reader has
+      // already left the explorer, so the plain navigation takes over rather than nothing.
+      window.spaNavigate(target).catch((err: unknown) => {
+        console.warn(`[quartz-okf-explorer] spa navigation failed, loading the page instead: ${err instanceof Error ? err.message : String(err)}`)
+        location.href = target.href
+      })
     },
     omnibar: () => stage.querySelector<HTMLInputElement>("#q"),
     canvasRect: () => stage.querySelector("canvas")?.getBoundingClientRect() ?? null,
@@ -155,6 +165,7 @@ function wireWidget(cfg: ExplorerEmitConfig): void {
   if (!host || host.dataset.okfWired === "1") return
   host.dataset.okfWired = "1"
   const openHere = () => {
+    if (mounted) return
     const focus = currentSlug() || null
     writeUrl(null, focus, "push")
     void open(cfg, { graph: null, focus })
@@ -171,7 +182,10 @@ function wireWidget(cfg: ExplorerEmitConfig): void {
         const edges = (g.stats && g.stats.edges) || (g.edges || []).length
         stats.textContent = fill(cfg.wording["access.stats"], { notes, edges })
       })
-      .catch(() => stats.remove())
+      .catch((err: unknown) => {
+        console.warn(`[quartz-okf-explorer] widget counts: could not load ${cfg.graphUrl}: ${err instanceof Error ? err.message : String(err)}`)
+        stats.remove()
+      })
   }
 }
 

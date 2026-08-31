@@ -90,6 +90,17 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
   let searchCamera: { transform: ReturnType<Engine["transform"]>; moves: number } | null = null
   let toastTimer: ReturnType<typeof setTimeout> | undefined
 
+  // Moving between graphs awaits a document and then rewrites the level stack and the
+  // history: two moves in flight would interleave those writes. Every move the HUD asks
+  // for runs after the previous one has finished; the internal steps of a move call the
+  // unqueued functions.
+  let chain: Promise<unknown> = Promise.resolve()
+  function serial<T>(task: () => Promise<T>): Promise<T> {
+    const run = chain.then(task, task)
+    chain = run.catch(() => undefined)
+    return run
+  }
+
   function loadGraph(url: string): Promise<HudModel> {
     // A failure is not kept: the next attempt asks for the file again.
     if (!graphs.has(url)) {
@@ -459,13 +470,29 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
     state.selected.value = null
   }
 
+  // The note is read, not run: nothing that executes or embeds survives the copy into the
+  // explorer's own document — same origin or not, the dock is for reading.
+  const INERT_TAGS = "script, iframe, object, embed, link, meta, base, form"
+  function disarm(article: Element): void {
+    for (const el of article.querySelectorAll(INERT_TAGS)) el.remove()
+    for (const el of article.querySelectorAll("*")) {
+      for (const attr of [...el.attributes]) {
+        const name = attr.name.toLowerCase()
+        const value = attr.value.trim().toLowerCase()
+        if (name.startsWith("on") || ((name === "href" || name === "src" || name === "xlink:href") && value.startsWith("javascript:"))) {
+          el.removeAttribute(attr.name)
+        }
+      }
+    }
+  }
+
   async function fetchNote(url: string): Promise<string> {
     const r = await fetch(url)
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const doc = new DOMParser().parseFromString(await r.text(), "text/html")
     const article = doc.querySelector("article") ?? doc.querySelector(".center")
     if (!article) throw new Error(t("dock.missing"))
-    for (const s of article.querySelectorAll("script")) s.remove()
+    disarm(article)
     return article.innerHTML
   }
 
@@ -538,22 +565,22 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
   }
 
   return {
-    start,
+    start: (initial) => serial(() => start(initial)),
     restart,
-    changeMode,
+    changeMode: (id) => serial(() => changeMode(id)),
     applyFilter,
-    enterSubgraph,
-    backTo,
-    enterDirect,
-    goToGraph,
-    enterWithFocus,
+    enterSubgraph: (n, opts) => serial(() => enterSubgraph(n, opts)),
+    backTo: (level, opts) => serial(() => backTo(level, opts)),
+    enterDirect: (id) => serial(() => enterDirect(id)),
+    goToGraph: (key) => serial(() => goToGraph(key)),
+    enterWithFocus: (value) => serial(() => enterWithFocus(value)),
     search,
     toggleScope,
     clearSearch,
     hideResults,
     showResults,
     moveHighlight,
-    activateHit,
+    activateHit: (hit) => serial(() => activateHit(hit)),
     select,
     deselect,
     openNote,
@@ -564,7 +591,7 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
     fit: (nodes, scale) => engine.fit(nodes ?? null, scale ?? null),
     frame: (n) => frame(n),
     clearAll,
-    popstate,
+    popstate: (url) => serial(() => popstate(url)),
     toast,
     displayOf,
     graphCount: () => registry.size,

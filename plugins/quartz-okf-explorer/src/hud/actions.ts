@@ -45,6 +45,7 @@ const typing = (el: Element | null): boolean =>
   Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable))
 
 const DIRECTIONS: Record<string, Direction> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" }
+const WALK_KEYS = new Set(["Tab", "Enter", " ", ...Object.keys(DIRECTIONS)])
 
 export function createActions({ t, state, ctl, engine, close, navigate, omnibar, canvasRect }: ActionsOptions): Actions {
   function commandContext(): CommandContext {
@@ -145,11 +146,16 @@ export function createActions({ t, state, ctl, engine, close, navigate, omnibar,
     }
     if (typing(active)) return
     if (ev.metaKey || ev.ctrlKey || ev.altKey) return
+    // Reading in the dock keeps its own keyboard: Space scrolls the article, Tab and Enter
+    // walk its links; the canvas's walk only answers when nothing on the HUD has the focus.
+    if (active?.closest("#dock")) return
     if (ev.key === "/") {
       ev.preventDefault()
       focusOmnibar()
       return
     }
+    const onCanvas = !active || active === document.body || active.tagName === "CANVAS"
+    if (!onCanvas && WALK_KEYS.has(ev.key)) return
     const nodes = state.view.value?.nodes.filter((n) => n.x !== undefined) ?? []
     const focused = state.keyboardFocus.value
     if (ev.key === "Tab" && nodes.length) {
