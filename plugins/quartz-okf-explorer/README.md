@@ -72,33 +72,35 @@ island reserves layout space. An island with nothing to say is not rendered.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│              [ CERN graph › IT governance  ⇥ this graph | Search… ]     │  omnibar
+│ [ CERN graph › CERN IT Governance & Identity   (⇥ this graph|Search…) ← home ] │  top bar
 │              [ ● Selected note · Part of …  · ← Contains … · Explore ↘ ]│  selection capsule
 │                                                                         │
 │                          ·  ·   ●━━━ Explore ↘                          │  portal door
 │                       ·    ●    ·      ·                                │
-│  ┌ CERN graph ─────── ← home ┐                          ┌──────────────┐│
-│  │ ↘ IT governance  Full view │ ┌ Types ──────────────┐ │ dock         ││
+│                                                         ┌──────────────┐│
+│  ┌ ↘ IT governance  Full view ┐ ┌ Types ──────────────┐ │ dock         ││
 │  │ Chain of authority      ?  │ │ ☑ ● Service     33  │ │ tabs + note  ││
 │  ├ Types 19 › Relations 33 › ─┤ │ ☑ ● Concept     18  │ │              ││
 │  │ 274 nodes · 806 links Fit  │ └─────────────────────┘ └──────────────┘│
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Omnibar** (top centre). Its left side is the *trail*: the graph on screen and every
-  ancestor as a control that returns to it. With more than one graph published, a `⇥`
-  key cycles the search scope between *this graph* and *all graphs*. Results carry a
-  colour dot, the kind label and — for notes of another graph — that graph's badge;
-  activating one enters that graph with the note selected. A graph that could not be
-  loaded is named at the top of the list, never skipped in silence.
+- **Top bar**. Left, the *trail*: the graph on screen and every ancestor as a control
+  that returns to it, with the whole width to itself so long titles read in full.
+  Right, the **omnibar** — search box plus, with more than one graph published, a `⇥`
+  key that cycles the scope between *this graph* and *all graphs* — and the way home
+  (`backTo`). Results carry a colour dot, the kind label and — for notes of another
+  graph — that graph's badge; activating one enters that graph with the note selected.
+  A graph that could not be loaded is named at the top of the list, never skipped in
+  silence. Framed by the note-page modal, the trail and the home link move to the
+  modal's own bar (the explorer posts them; clicking a level there navigates the
+  explorer) and the bar keeps only the search, centred.
 - **Selection capsule** (under the omnibar). The selected note with its relations grouped
   by label — incoming ones marked `←` — each group listing up to six notes and a `+n`;
   clicking a note selects it and opens it in the dock. A portal offers *Explore subgraph*.
 - **Portal doors**. Every portal (a node that stands for another graph) gets an `Explore ↘`
   pill glued to it on the canvas and a `↘ <graph>` chip at the top of the views island,
   whatever the current mode hides. Double-click on the node does the same.
-- **Brand island** (bottom left): the site title and the way home (`backTo`). Hidden when
-  the explorer is framed by the note-page modal, whose bar already offers close.
 - **Views island**: the modes of the graph on screen as chips, preceded inside a subgraph
   by `‹ <parent>`; `?` toggles the active mode's description.
 - **Filters island**: `Types n ›` and `Relations m ›` open side menus with a row per
@@ -133,7 +135,7 @@ island reserves layout space. An island with nothing to say is not rendered.
 | `graphInput` | `static/okf-graph.json` | the `okf-graph/v1` document |
 | `output` | `static/explorer.html` | path of the emitted page |
 | `injectAccess`, `accessTitle`, `mountSelector` | `true`, catalogue, `.right.sidebar` | the note-page widget and modal (see below) |
-| `title`, `backTo` | `accessTitle`, `/` | brand island |
+| `title`, `backTo` | `accessTitle`, `/` | root of the trail and the way home in the top bar |
 | `typeColors`, `typeLabels`, `edgeColors`, `knowledgeTypes`, `typeOrder` | — | vocabulary |
 | `layout`, `radius`, `tooltip` | — | shape (see below) |
 | `modes` | one *full graph* mode | the questions |
@@ -229,9 +231,10 @@ carries two kinds of marked nodes, and the explorer reads the marks — no confi
   consumer did not declare them (`display` on the graph root).
 
 Inside a subgraph the explorer is the child's: its colours, labels, tooltips and **its own
-view modes** replace the consumer's for as long as you stay. The omnibar's trail reads
-`parent › child`, every earlier level returning to that graph (several levels at once), and
-the views island starts with `‹ parent`. Entering pushes `?graph=<id>` to the browser
+view modes** replace the consumer's for as long as you stay. The top bar's trail reads
+`parent › child` — in the note-page modal, the modal's bar does — every earlier level
+returning to that graph (several levels at once), and the views island starts with
+`‹ parent`. Entering pushes `?graph=<id>` to the browser
 history, so the browser's back button also returns to the parent — always with the portal
 selected and the previous mode restored. `?graph=<id>` opens the explorer already inside a
 subgraph; the copied graph knows its parent (`federatedFrom`) so the way back still works.

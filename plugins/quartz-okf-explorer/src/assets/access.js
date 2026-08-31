@@ -58,8 +58,16 @@
       display: flex; flex-direction: column; }
     .okf-explorer-modal .bar { display: flex; align-items: center; gap: .6rem; padding: .45rem .7rem;
       border-bottom: 1px solid var(--lightgray); font-size: .85rem; }
-    .okf-explorer-modal .bar b { font-weight: 650; }
-    .okf-explorer-modal .bar .sp { margin-left: auto; display: flex; gap: .35rem; }
+    .okf-explorer-modal .bar b { font-weight: 650; white-space: nowrap; }
+    /* La miga de grafos del explorador: cada nivel anterior devuelve a ese grafo. */
+    .okf-explorer-modal .bar .trail { display: flex; align-items: center; gap: .1rem; flex: 1 1 auto;
+      min-width: 0; white-space: nowrap; }
+    .okf-explorer-modal .bar .trail .lvl { border: 0; background: none; color: var(--secondary); cursor: pointer;
+      font: inherit; padding: .1rem .35rem; border-radius: 6px; min-width: 3rem; overflow: hidden; text-overflow: ellipsis; }
+    .okf-explorer-modal .bar .trail .lvl:hover { background: var(--lightgray); }
+    .okf-explorer-modal .bar .trail .cur { font-weight: 600; padding: .1rem .35rem; overflow: hidden; text-overflow: ellipsis; }
+    .okf-explorer-modal .bar .trail .sep { color: var(--gray); }
+    .okf-explorer-modal .bar .sp { margin-left: auto; display: flex; gap: .35rem; flex: 0 0 auto; }
     .okf-explorer-modal .bar a, .okf-explorer-modal .bar button { padding: .2rem .6rem; border-radius: 999px;
       border: 1px solid var(--lightgray); background: transparent; color: inherit;
       font: inherit; font-size: .8rem; cursor: pointer; text-decoration: none; }
@@ -127,6 +135,7 @@
       <div class="box" role="dialog" aria-modal="true" aria-label="__TITLE__">
         <div class="bar">
           <b>__TITLE__</b>
+          <nav class="trail" aria-label="__TITLE__"></nav>
           <span class="sp">
             <button class="full" type="button" aria-pressed="false">${W.expand}</button>
             <button class="close" aria-label="${W.close}">✕</button>
@@ -141,7 +150,17 @@
       if (b) { b.setAttribute("aria-pressed", "false"); b.textContent = W.expand }
       const f = m.querySelector("iframe")
       if (f) f.remove()
+      m.querySelector(".trail").innerHTML = ""
     }
+    // La miga la manda el explorador desde su iframe; solo se atiende a ese iframe y a
+    // este origen, y sus textos se pintan como texto, nunca como marcado.
+    window.addEventListener("message", (e) => {
+      const f = m.querySelector("iframe")
+      if (e.origin !== location.origin || !f || e.source !== f.contentWindow) return
+      const d = e.data
+      if (!d || d.type !== "okf-explorer:trail") return
+      pintarMiga(m, f, Array.isArray(d.levels) ? d.levels : [])
+    })
     const full = m.querySelector(".full")
     full.addEventListener("click", () => {
       const wide = m.classList.toggle("wide")
@@ -154,6 +173,38 @@
       if (e.key === "Escape" && m.classList.contains("open")) close()
     })
     return m
+  }
+
+  // Solo hay camino que enseñar dentro de un subgrafo: con un único nivel la barra se queda
+  // con el título del widget.
+  function pintarMiga(m, frame, levels) {
+    const nav = m.querySelector(".trail")
+    nav.innerHTML = ""
+    if (levels.length < 2) return
+    levels.forEach((l, i) => {
+      if (l.current) {
+        const cur = document.createElement("b")
+        cur.className = "cur"
+        cur.textContent = String(l.text)
+        cur.title = String(l.text)
+        nav.appendChild(cur)
+        return
+      }
+      const b = document.createElement("button")
+      b.type = "button"
+      b.className = "lvl"
+      b.textContent = String(l.text)
+      b.title = String(l.back || l.text)
+      b.addEventListener("click", () =>
+        frame.contentWindow.postMessage({ type: "okf-explorer:go", level: Number(l.index) }, location.origin))
+      nav.appendChild(b)
+      if (i < levels.length - 1) {
+        const sep = document.createElement("span")
+        sep.className = "sep"
+        sep.textContent = "›"
+        nav.appendChild(sep)
+      }
+    })
   }
 
   function openModal(slug) {

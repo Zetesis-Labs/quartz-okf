@@ -44,7 +44,10 @@ document.documentElement.lang = CFG.locale
 document.title = CFG.title || t("title.default")
 document.body.dataset.surfaces = (CFG.hud && CFG.hud.surfaces) || "flat"
 for (const [k, v] of Object.entries((CFG.hud && CFG.hud.tokens) || {})) document.documentElement.style.setProperty(k, v)
-if (window.self !== window.top) document.body.classList.add("framed")
+// Dentro del modal de las notas la miga se pinta en la barra del modal, que tiene el ancho
+// entero: el explorador se la manda y recibe de vuelta a qué nivel volver.
+const FRAMED = window.self !== window.top
+if (FRAMED) document.body.classList.add("framed")
 
 cargarGrafo(GRAFO_BASE).then((inicial) => {
   let data = inicial
@@ -61,7 +64,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
 
   const canvas = $("c"), tip = $("tip"), ctx = canvas.getContext("2d")
   const q = $("q"), qClear = $("q-clear"), resultsEl = $("results"), selEl = $("sel"), sideEl = $("side")
-  const statsEl = $("stats"), stackEl = $("stack"), topEl = $("top"), dockEl = $("dock")
+  const statsEl = $("stats"), stackEl = $("stack"), northEl = $("north"), dockEl = $("dock")
 
   let graph, sim = null, W, H
   let transform = d3.zoomIdentity, hover = null, selected = null
@@ -543,15 +546,27 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
       return l.current
         ? `<b class="cur" title="${esc(l.text)}">${esc(l.text)}</b>`
         : `<button class="lvl" type="button" data-nivel="${l.index}" title="${esc(t("trail.back", { graph: l.text }))}">${esc(l.text)}</button>${sep}`
-    }).join("") + (v.scopeKey
-      ? `<button class="scope${v.scopeKey.active ? " active" : ""}" type="button" title="${esc(t("scope.toggle"))}">⇥ ${esc(v.scopeKey.text)}</button>`
-      : "")
+    }).join("")
     trailEl.querySelectorAll(".lvl").forEach((b) => b.addEventListener("click", () => volverA(+b.dataset.nivel)))
-    const sc = trailEl.querySelector(".scope")
+    $("scope").innerHTML = v.scopeKey
+      ? `<button class="scope${v.scopeKey.active ? " active" : ""}" type="button" title="${esc(t("scope.toggle"))}">⇥ ${esc(v.scopeKey.text)}</button>`
+      : ""
+    const sc = $("scope").querySelector(".scope")
     if (sc) sc.addEventListener("click", () => { cambiarAmbito(); q.focus() })
     q.placeholder = scope === "all" ? t("search.placeholder.all") : t("search.placeholder")
     q.title = t("search.hint")
+    if (FRAMED) {
+      window.parent.postMessage({
+        type: "okf-explorer:trail",
+        levels: v.levels.map((l) => ({ text: l.text, index: l.index, current: l.current, back: t("trail.back", { graph: l.text }) })),
+      }, location.origin)
+    }
   }
+  window.addEventListener("message", (ev) => {
+    if (ev.origin !== location.origin || ev.source !== window.parent) return
+    const d = ev.data
+    if (d && d.type === "okf-explorer:go" && Number.isInteger(d.level)) volverA(d.level)
+  })
 
   function cambiarAmbito() {
     scope = nextScope(scope, scopes())
@@ -891,8 +906,8 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     let x0 = pad, y0 = pad, x1 = W - pad, y1 = H - pad
     const s = stackEl.getBoundingClientRect()
     if (s.width > W * 0.6) y1 = Math.min(y1, s.top - pad); else x0 = Math.max(x0, s.right + pad)
-    const top = topEl.getBoundingClientRect()
-    y0 = Math.max(y0, top.bottom + pad)
+    const north = northEl.getBoundingClientRect()
+    y0 = Math.max(y0, north.bottom + pad)
     if (dockOpen()) {
       const d = dockEl.getBoundingClientRect()
       if (d.width < W * 0.9) x1 = Math.min(x1, d.left - pad)
@@ -986,7 +1001,6 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => tick())
 
   // ---- arranque ------------------------------------------------------------------------------
-  $("ptitle").textContent = CFG.title || t("graph.default")
   const back = $("pback")
   back.href = (CFG.backTo && CFG.backTo.href) || "/"
   back.textContent = "← " + ((CFG.backTo && CFG.backTo.label) || t("back.default"))

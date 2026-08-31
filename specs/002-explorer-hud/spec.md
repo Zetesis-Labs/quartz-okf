@@ -58,10 +58,11 @@ at both sizes; opening a side menu or the dock never moves the canvas.
    site title as scope, the views island lists the consumer's modes, the filters island
    shows `Types › (n)` and `Relations › (m)` and the stats; no mode description is
    permanently visible.
-2. **Given** the reader is inside a subgraph, **When** they look at the omnibar, **Then**
-   the scope reads `<parent> › <child>` with each ancestor as a control that returns to
+2. **Given** the reader is inside a subgraph, **When** they look at the top bar, **Then**
+   it reads `<parent> › <child>` in full, with each ancestor as a control that returns to
    it, and the views island starts with a `‹ <parent>` chip followed by the child's
-   modes.
+   modes. Framed by the note-page modal, the same trail is shown in the modal's own bar
+   and the explorer's bar keeps only the search.
 3. **Given** the child graph with 19 types and 20 relations, **When** the reader opens
    `Types ›`, **Then** a side menu lists every type with colour dot, count and checkbox
    state, offers *all* / *none*, scrolls inside itself and closes on outside click or
@@ -177,9 +178,11 @@ still point at the right ones; deferred requirements say so.
   rendered as a floating island or capsule that does not reserve layout space; the
   reading dock MUST overlay the canvas.
 - **FR-002**: An island MUST NOT render when it contains no visible control.
-- **FR-003**: The omnibar MUST show the graph trail as its scope: the current graph, and
-  every ancestor as a control that returns to it; in the root graph the scope is the
-  site title.
+- **FR-003**: The top bar MUST show the graph trail in full: the current graph, and
+  every ancestor as a control that returns to it; in the root graph the trail is the
+  site title. When the explorer is framed by the note-page modal, the trail MUST be
+  rendered in the modal's bar (the explorer hands it over and receives the level to
+  return to) and the explorer's bar MUST keep only the search.
 - **FR-004**: The omnibar MUST search the current graph by default and MUST offer *all
   graphs* (root and every published subgraph) as a scope when more than one graph is
   published; results from another graph MUST carry that graph's badge and, when
@@ -268,7 +271,8 @@ still point at the right ones; deferred requirements say so.
 - One corpus per site and one layout: no origin composition, no layout picker (see
   `research.md` §4).
 - The note-page modal host (`access.js`) keeps its bar; the explorer detects being
-  framed and hides its own back link.
+  framed, hides its own trail and back link, and posts the trail to the modal's bar
+  (same-origin `postMessage`, levels rendered as text, never as markup).
 - Wording catalogues start with `es` and `en`; consumers with other languages override
   keys.
 

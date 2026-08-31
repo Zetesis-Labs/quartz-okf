@@ -49,7 +49,8 @@ node -e '
 
 | Step | Expect |
 |---|---|
-| Open the root explorer | Graph edge to edge; omnibar top-centre reads `CERN graph · ⇥ this graph`; bottom-left islands: brand (`CERN graph · ← portal`), views (`↘ CERN IT Governance & Identity` door chip, `Full view`, `Chain of authority`, `?`), filters (`Types 9 ›`, `Relations 13 ›`, `26 nodes · 72 links`, `Fit`, `Clear`). Wording in the site's language (`en-US` → English). |
+| Open the root explorer | Graph edge to edge; top bar reads `CERN graph` on the left, `⇥ this graph · Search notes…` and `← portal` on the right; bottom-left islands: views (`↘ CERN IT Governance & Identity` door chip, `Full view`, `Chain of authority`, `?`), filters (`Types 9 ›`, `Relations 13 ›`, `26 nodes · 72 links`, `Fit`, `Clear`). Wording in the site's language (`en-US` → English). |
+| Open a mounted note (`/it-governance/compute/batch-service`) and press *Open the graph* | The modal's bar reads `Knowledge graph  CERN graph › CERN IT Governance & Identity`; inside, the explorer shows only the search bar, centred, with *The batch service* selected. Clicking `CERN graph` in the modal's bar returns the explorer to the root and the modal's bar keeps only the title. |
 | Look at the portal node | An `Explore ↘` pill sits next to it on the canvas and follows it on pan/zoom. |
 | Type `token` | Results say *No note matches* (the root has no such note). |
 | Press `⇥` | Scope becomes `⇥ all graphs`; seven results appear, each with the `CERN IT Governance & Identity` badge, a colour dot and its kind. |

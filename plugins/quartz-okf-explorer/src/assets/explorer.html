@@ -69,33 +69,49 @@
   .chip.door { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .chip.door:hover { background: var(--accent-soft); color: var(--accent); }
 
-  /* ---- arriba, centrado: omnibar, resultados, cápsula de selección ---- */
-  #top { position: absolute; top: .8rem; left: 50%; transform: translateX(-50%);
-         width: min(40rem, calc(100% - 1.6rem)); display: flex; flex-direction: column; gap: .45rem; z-index: 20;
-         transition: left .25s var(--hud-motion), width .25s var(--hud-motion); }
-  /* Con el dock abierto la omnibar se centra en lo que queda de lienzo, no debajo del dock. */
-  body.dock-open #top { left: 29%; width: min(40rem, calc(58% - 1.6rem)); }
-  #omnibar { display: flex; align-items: center; gap: .3rem; padding: .3rem .4rem .3rem .45rem;
-             transition: border-color .15s var(--hud-motion), box-shadow .15s var(--hud-motion); }
-  #omnibar:focus-within { border-color: var(--accent); box-shadow: var(--hud-shadow), 0 0 0 3px var(--accent-soft); }
-  #trail { display: flex; align-items: center; gap: .1rem; flex: 0 1 auto; min-width: 0; max-width: 58%;
-           font-size: .82rem; white-space: nowrap; }
+  /* ---- arriba: la barra (miga, búsqueda, vuelta) y, debajo, resultados y cápsula ---- */
+  #north { position: absolute; top: .6rem; left: .8rem; right: .8rem; display: flex; flex-direction: column;
+           align-items: center; gap: .45rem; z-index: 20; pointer-events: none;
+           transition: right .25s var(--hud-motion), left .25s var(--hud-motion), width .25s var(--hud-motion); }
+  #north > * { pointer-events: auto; }
+  /* Con el dock abierto la barra se queda con el lienzo que el dock no tapa. */
+  body.dock-open #north { right: calc(max(min(42%, 46rem), 22rem) + 1.6rem); }
+  #bar { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: .6rem;
+         padding: .3rem .5rem .3rem .75rem; }
+  #trail { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: .1rem; font-size: .86rem; white-space: nowrap; }
   /* Los ancestros ceden antes que el nivel actual: lo que importa es dónde se está. */
   #trail .lvl { border: 0; background: none; color: var(--hud-fg-2); padding: .12rem .35rem; border-radius: 7px;
-                cursor: pointer; flex: 0 4 auto; min-width: 2.6rem; overflow: hidden; text-overflow: ellipsis; }
+                cursor: pointer; flex: 0 4 auto; min-width: 3rem; max-width: 18rem; overflow: hidden; text-overflow: ellipsis; }
   #trail .lvl:hover { background: var(--hud-hover); color: var(--hud-fg); }
-  #trail .cur { font-weight: 650; color: var(--hud-fg); padding: .12rem .35rem; flex: 0 1 auto; min-width: 6rem;
+  #trail .cur { font-weight: 650; color: var(--hud-fg); padding: .12rem .35rem; flex: 0 1 auto; min-width: 4rem;
                 overflow: hidden; text-overflow: ellipsis; }
   #trail .sep { color: var(--hud-fg-3); }
-  #trail .scope { flex: 0 0 auto; margin-left: .2rem; font: 600 .68rem/1.6 var(--hud-mono); letter-spacing: .02em;
-                  border: 1px solid var(--hud-border); border-radius: 999px; padding: 0 .45rem;
-                  background: transparent; color: var(--hud-fg-2); cursor: pointer; }
-  #trail .scope:hover { background: var(--hud-hover); }
-  #trail .scope.active { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+  #omnibar { flex: 0 1 30rem; min-width: 12rem; display: flex; align-items: center; gap: .3rem;
+             padding: .12rem .3rem .12rem .45rem; border: 1px solid var(--hud-border); border-radius: 999px;
+             background: var(--hud-hover);
+             transition: border-color .15s var(--hud-motion), box-shadow .15s var(--hud-motion); }
+  #omnibar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  #omnibar .scope { flex: 0 0 auto; font: 600 .68rem/1.6 var(--hud-mono); letter-spacing: .02em;
+                    border: 1px solid var(--hud-border); border-radius: 999px; padding: 0 .45rem;
+                    background: transparent; color: var(--hud-fg-2); cursor: pointer; }
+  #omnibar .scope:hover { background: var(--hud-active); }
+  #omnibar .scope.active { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
   #q { flex: 1; min-width: 5rem; border: 0; background: transparent; color: inherit; font: inherit;
-       font-size: .9rem; padding: .25rem .3rem; outline: none; }
+       font-size: .88rem; padding: .2rem .3rem; outline: none; }
   #q::placeholder { color: var(--hud-fg-3); }
   #q::-webkit-search-cancel-button { display: none; }
+  #pback { flex: 0 0 auto; color: var(--hud-fg-2); text-decoration: none; font-size: .8rem; white-space: nowrap; }
+  #pback:hover { color: var(--accent); }
+  /* Dentro del modal de las notas la miga y la vuelta viven en la barra del modal: aquí
+     solo queda la búsqueda, centrada como una isla. */
+  body.framed #north { left: 50%; right: auto; transform: translateX(-50%); width: min(40rem, calc(100% - 1.6rem)); }
+  body.framed.dock-open #north { left: 29%; width: min(40rem, calc(58% - 1.6rem)); }
+  body.framed #trail, body.framed #pback { display: none; }
+  body.framed #bar { padding: .3rem .4rem; }
+  body.framed #omnibar { flex: 1 1 auto; border-color: transparent; background: transparent; }
+  body.framed #omnibar:focus-within { box-shadow: none; }
+  body.framed #bar:focus-within { border-color: var(--accent); box-shadow: var(--hud-shadow), 0 0 0 3px var(--accent-soft); }
+  #top { width: min(40rem, 100%); display: flex; flex-direction: column; gap: .45rem; }
 
   #results { max-height: min(22rem, 50vh); overflow-y: auto; overscroll-behavior: contain; padding: .3rem; }
   #results .hd { font-size: .72rem; color: var(--hud-fg-3); padding: .25rem .55rem; }
@@ -120,11 +136,6 @@
   /* ---- abajo a la izquierda: pila de islas ---- */
   #stack { position: absolute; left: .8rem; bottom: .8rem; width: 17rem; max-height: calc(100% - 1.6rem);
            display: flex; flex-direction: column; justify-content: flex-end; gap: .5rem; z-index: 20; }
-  #brand { display: flex; align-items: center; gap: .5rem; padding: .45rem .7rem; }
-  #brand b { font-size: .88rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #brand a { color: var(--hud-fg-2); text-decoration: none; font-size: .78rem; white-space: nowrap; }
-  #brand a:hover { color: var(--accent); }
-  body.framed #brand a { display: none; }
   #views, #filters { padding: .45rem .5rem; display: flex; flex-direction: column; gap: .35rem; }
   #views { max-height: 40vh; overflow-y: auto; overscroll-behavior: contain; }
   .chips { display: flex; flex-wrap: wrap; gap: .25rem; align-items: center; }
@@ -165,7 +176,7 @@
   #side .lg span { display: flex; align-items: center; gap: .35rem; }
 
   /* ---- dock de lectura: flota a la derecha, no estrecha el lienzo ---- */
-  #dock { position: absolute; top: .8rem; right: .8rem; bottom: .8rem; width: min(42%, 46rem); min-width: 22rem;
+  #dock { position: absolute; top: .6rem; right: .8rem; bottom: .8rem; width: min(42%, 46rem); min-width: 22rem;
           display: flex; flex-direction: column; overflow: hidden; z-index: 25; }
   #dock header { display: flex; align-items: stretch; gap: .4rem; padding: .35rem .5rem;
                  border-bottom: 1px solid var(--hud-border); min-height: 2.1rem; }
@@ -199,13 +210,14 @@
              font-size: .78rem; line-height: 1.35; color: var(--hud-fg-2); }
 
   @media (max-width: 900px) {
-    #top, body.dock-open #top { left: 50%; width: calc(100% - 1rem); top: .5rem; }
-    /* En estrecho la miga va en su propia línea y la caja de búsqueda debajo, a todo el ancho. */
-    #omnibar { flex-wrap: wrap; }
-    #trail { max-width: 100%; flex: 1 1 100%; }
-    #q { flex: 1 1 auto; }
+    #north, body.dock-open #north, body.framed #north { left: .5rem; right: .5rem; top: .5rem; width: auto; transform: none; }
+    /* En estrecho la miga va en su propia línea y la búsqueda debajo, a todo el ancho. */
+    #bar { flex-wrap: wrap; gap: .35rem .6rem; padding: .35rem .5rem; }
+    #trail { flex: 1 1 100%; }
+    #omnibar { flex: 1 1 auto; }
+    #top { width: 100%; }
     #stack { width: calc(100% - 1.6rem); }
-    #side { left: .8rem; right: .8rem; width: auto; bottom: auto; top: 3.6rem; max-height: 50vh; }
+    #side { left: .8rem; right: .8rem; width: auto; bottom: auto; top: 6.5rem; max-height: 50vh; }
     #dock { inset: 0; width: auto; min-width: 0; border-radius: 0; }
   }
 </style>
@@ -215,17 +227,22 @@
   <canvas id="c"></canvas>
   <div id="hud">
     <div id="portals"></div>
-    <div id="top">
-      <div id="omnibar" class="island">
+    <div id="north">
+      <div id="bar" class="island">
         <nav id="trail"></nav>
-        <input id="q" type="search" autocomplete="off" spellcheck="false">
-        <button id="q-clear" class="icon" type="button" hidden>✕</button>
+        <div id="omnibar">
+          <span id="scope"></span>
+          <input id="q" type="search" autocomplete="off" spellcheck="false">
+          <button id="q-clear" class="icon" type="button" hidden>✕</button>
+        </div>
+        <a id="pback" href="/"></a>
       </div>
-      <div id="results" class="island" hidden></div>
-      <div id="sel" class="island" hidden></div>
+      <div id="top">
+        <div id="results" class="island" hidden></div>
+        <div id="sel" class="island" hidden></div>
+      </div>
     </div>
     <aside id="stack">
-      <section id="brand" class="island"><b id="ptitle"></b><a id="pback" href="/"></a></section>
       <section id="views" class="island" hidden>
         <div class="chips" id="doors" hidden></div>
         <div class="chips" id="mode"></div>
