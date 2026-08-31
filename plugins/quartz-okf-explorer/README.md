@@ -113,9 +113,12 @@ island reserves layout space. An island with nothing to say is not rendered.
   page in a *temporary* tab that the next click replaces; pinning it (double click or the
   pin) keeps it. Each tab holds its own frame, so scroll position survives switching.
   Under 900px the dock takes the screen.
-- **A stable camera.** The view never recentres on its own: fitting is a decision the
-  reader takes, from the button, a search result, or a `?focus=<slug>` entry link. Fitting
-  targets the part of the canvas the islands leave free.
+- **A stable camera.** A graph appears already laid out and fitted — the simulation is
+  warmed up before the first frame, in a bounded slice of time — and from then on the
+  view never recentres on its own: fitting is a decision the reader takes, from the
+  button, a search result, or a `?focus=<slug>` entry link. Changing mode or filter keeps
+  the positions of the notes that stay. Fitting targets the part of the canvas the
+  islands leave free.
 
 ### Keyboard
 

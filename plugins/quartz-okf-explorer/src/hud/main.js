@@ -73,9 +73,6 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   let query = "", scope = "graph", hits = [], hi = 0, unavailable = [], cargandoGrafos = false
   let camaraBusqueda = null, movidaDesdeBusqueda = false
   let menu = null
-  // Tras cambiar de grafo la cámara se reencuadra sola en cuanto el layout toma forma,
-  // sin esperar a que la simulación termine: con cientos de nodos tarda segundos.
-  let fitPendiente = false, ticksDesdeCambio = 0
   // Si el lector mueve la cámara, nada vuelve a moverla por él.
   let camaraTocada = false
   let firstFit = true
@@ -124,9 +121,33 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     return f == null ? null : f * Math.min(W, H) * 0.5 * (RING.scale ?? 0.94)
   }
 
+  // Los nodos nuevos nacen alrededor del centro del lienzo (la espiral de d3, pero aquí y
+  // no en el origen), y los que ya estaban conservan su sitio: un cambio de modo ajusta
+  // el dibujo en vez de volver a volar desde una esquina.
+  function sembrar(nodes, previo) {
+    let nuevos = 0
+    nodes.forEach((n, i) => {
+      const p = previo && previo.idx.get(n.id)
+      if (p && p.x != null) { n.x = p.x; n.y = p.y; n.vx = p.vx || 0; n.vy = p.vy || 0; return }
+      const r = 10 * Math.sqrt(0.5 + i), a = i * Math.PI * (3 - Math.sqrt(5))
+      n.x = W / 2 + r * Math.cos(a); n.y = H / 2 + r * Math.sin(a)
+      nuevos++
+    })
+    return nuevos
+  }
+
+  // La simulación se calienta en silencio antes del primer dibujo, acotada en tiempo: el
+  // grafo aparece ya colocado y se encuadra de una vez, sin vaivén de cámara después.
+  function precalentar(simulacion, ticks) {
+    const limite = performance.now() + 160
+    for (let i = 0; i < ticks && performance.now() < limite; i++) simulacion.tick()
+  }
+
   function restart(refit = true) {
+    const previo = graph
     modoActual = modeById(display, curMode)
     graph = buildView(data, display, modoActual, { types: checkedTypes, edges: checkedEdges })
+    const nuevos = sembrar(graph.nodes, previo)
     if (selected) selected = graph.idx.get(selected.id) || null
     renderViews(); renderFilters(); renderSel(); renderSide(); renderPortalButtons()
     if (sim) sim.stop()
@@ -142,9 +163,12 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
       .force("radial", RING
         ? d3.forceRadial((n) => ringOf(n), W / 2, H / 2).strength((n) => (ringOf(n) == null ? 0 : RING.strength))
         : null)
-      .on("tick", tick)
-      // Solo al abrir: después, cada cambio de modo o de filtro respeta el encuadre del lector.
-      .on("end", () => { if (refit && firstFit) { firstFit = false; fit() } })
+      .stop()
+    precalentar(sim, nuevos > graph.nodes.length / 2 ? 300 : 40)
+    // Solo al abrir un grafo: después, cada cambio de modo o de filtro respeta el encuadre del lector.
+    if (refit && firstFit) { firstFit = false; fit(null, null, { instant: true }) }
+    sim.on("tick", tick).restart()
+    tick()
   }
 
   function drawLabel(n, dark, k, bold) {
@@ -190,10 +214,6 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
 
   function tick() {
     if (!graph) return
-    if (fitPendiente && ++ticksDesdeCambio >= 40) {
-      fitPendiente = false
-      if (!camaraTocada) fit()
-    }
     placePortalButtons()
     ctx.clearRect(0, 0, W, H)
     ctx.save(); ctx.translate(transform.x, transform.y); ctx.scale(transform.k, transform.k)
@@ -471,10 +491,12 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     closeMenu(); hideResults()
     if (tabs.length) closePeek()
     renderTrail()
-    // Cámara a cero: el encuadre del grafo anterior no significa nada en este.
+    // Cámara a cero y layout desde cero: el encuadre y las posiciones del grafo anterior
+    // no significan nada en este.
     camaraTocada = false
     d3.select(canvas).call(zoomBehavior.transform, d3.zoomIdentity)
-    firstFit = true; fitPendiente = true; ticksDesdeCambio = 0
+    firstFit = true
+    graph = null
     restart()
   }
 
@@ -920,7 +942,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     return { x0, y0, x1, y1 }
   }
 
-  function fit(nodes, scale) {
+  function fit(nodes, scale, { instant = false } = {}) {
     const set = nodes && nodes.length ? nodes : graph ? graph.nodes : []
     if (!set.length) return
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
@@ -936,7 +958,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
       .translate(v.x0 + vw / 2 - k * (x0 + x1) / 2, v.y0 + vh / 2 - k * (y0 + y1) / 2).scale(k)
     // En una pestaña oculta el navegador no despacha requestAnimationFrame y la transición
     // nunca avanza: ahí se aplica de golpe. La animación es solo para quien está mirando.
-    if (document.visibilityState === "hidden" || REDUCED_MOTION) {
+    if (instant || document.visibilityState === "hidden" || REDUCED_MOTION) {
       d3.select(canvas).call(zoomBehavior.transform, to)
       return
     }
@@ -944,12 +966,12 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   }
 
   // Seleccionar no mueve la cámara. `zoomTo` la mueve solo cuando el lector lo pide.
-  function select(n, zoomTo = false) {
+  function select(n, zoomTo = false, { instant = false } = {}) {
     selected = n
     renderSel()
     if (zoomTo) {
       const hood = [n, ...[...(graph.adj.get(n.id) || [])].map((id) => graph.idx.get(id)).filter(Boolean)]
-      fit(hood, 2.6)
+      fit(hood, 2.6, { instant })
     }
     tick()
   }
@@ -1061,13 +1083,9 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     if (n) marcarYEncuadrar(n)
   }
 
-  // Marcar y encuadrar son dos momentos: se marca ya; el encuadre espera a que la simulación
-  // se asiente, y se cancela si para entonces el lector ya movió la cámara él mismo.
+  // Con la simulación ya caliente, la nota de llegada se marca y se encuadra de una vez —
+  // salvo que el lector haya movido la cámara mientras tanto.
   function marcarYEncuadrar(n) {
-    select(n)
-    sim.on("end.focus", () => {
-      sim.on("end.focus", null)
-      if (!camaraTocada) select(n, true)
-    })
+    select(n, !camaraTocada, { instant: true })
   }
 })
