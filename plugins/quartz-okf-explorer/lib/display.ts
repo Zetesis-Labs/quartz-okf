@@ -12,7 +12,7 @@ export function fullMode(t: Translator): ExplorerMode {
 }
 
 /** The vocabulary the consumer declared in `okf.config.*` — the options, or the config the emitter inlined. */
-export type DisplaySource = Pick<ExplorerOptions, "typeColors" | "typeLabels" | "edgeColors" | "modes" | "typeOrder" | "knowledgeTypes" | "tooltip"> & {
+export type DisplaySource = Pick<ExplorerOptions, "typeColors" | "typeLabels" | "edgeColors" | "modes" | "knowledgeTypes"> & {
   typeOrder?: string[] | null
   tooltip?: Record<string, string> | null
 }

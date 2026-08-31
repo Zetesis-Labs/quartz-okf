@@ -37,6 +37,15 @@ export function findNode<N extends HudNode>(nodes: Iterable<N>, keys: string[], 
   return null
 }
 
+/**
+ * What to look for inside a subgraph being entered: the selected note, if it is on loan from
+ * that very subgraph — first by the page url both graphs share, then by its mounted id.
+ */
+export function carriedFocus(selected: { id: string; url: string; federated: string | null } | null, subgraphId: string): string[] | null {
+  if (!selected || selected.federated !== subgraphId) return null
+  return [...new Set([normalise(selected.url), selected.id.toLowerCase()])]
+}
+
 export interface FocusHit {
   key: string
   node: HudNode

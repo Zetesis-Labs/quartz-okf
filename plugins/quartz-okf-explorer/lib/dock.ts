@@ -6,6 +6,10 @@ export interface DockTab {
   pinned: boolean
 }
 
+/**
+ * The reading dock shows one note at a time (`active`); the pinned ones live in the bar and
+ * come back on a click. There is at most one temporary tab: the note being looked at now.
+ */
 export interface DockState {
   tabs: DockTab[]
   active: string | null
@@ -15,23 +19,21 @@ export type DockNote = Pick<DockTab, "id" | "title" | "type" | "url">
 
 export const EMPTY_DOCK: DockState = { tabs: [], active: null }
 
-export const dockOpen = (dock: DockState): boolean => dock.tabs.length > 0
+export const dockOpen = (dock: DockState): boolean => dock.active !== null && dock.tabs.some((t) => t.id === dock.active)
 
-/**
- * A note opens as the dock's one temporary tab: it takes the place of the previous
- * temporary tab, or goes after the pinned ones. A note already open is only activated.
- */
+export const pinnedTabs = (dock: DockState): DockTab[] => dock.tabs.filter((t) => t.pinned)
+
 export function openTab(dock: DockState, note: DockNote): DockState {
   if (dock.tabs.some((t) => t.id === note.id)) return { tabs: dock.tabs, active: note.id }
   const tab: DockTab = { id: note.id, title: note.title, type: note.type, url: note.url, pinned: false }
-  const temp = dock.tabs.findIndex((t) => !t.pinned)
-  const tabs = temp >= 0 ? dock.tabs.map((t, i) => (i === temp ? tab : t)) : [...dock.tabs, tab]
-  return { tabs, active: note.id }
+  return { tabs: [...pinnedTabs(dock), tab], active: note.id }
 }
 
+/** Pinning moves the note to the bar; unpinning makes it the one temporary tab. */
 export function pinTab(dock: DockState, id: string, pinned = true): DockState {
   if (!dock.tabs.some((t) => t.id === id)) return dock
-  return { tabs: dock.tabs.map((t) => (t.id === id ? { ...t, pinned } : t)), active: dock.active }
+  const tabs = dock.tabs.filter((t) => t.pinned || t.id === id).map((t) => (t.id === id ? { ...t, pinned } : t))
+  return { tabs, active: pinned ? dock.active : id }
 }
 
 export function activateTab(dock: DockState, id: string): DockState {
@@ -39,12 +41,14 @@ export function activateTab(dock: DockState, id: string): DockState {
   return { tabs: dock.tabs, active: id }
 }
 
-/** Closing a tab activates the one that takes its place; closing the last one empties the dock. */
+/** Closing the shown note hides the dock; closing a pinned one takes it off the bar. */
 export function closeTab(dock: DockState, id: string): DockState {
-  const i = dock.tabs.findIndex((t) => t.id === id)
-  if (i < 0) return dock
+  if (!dock.tabs.some((t) => t.id === id)) return dock
   const tabs = dock.tabs.filter((t) => t.id !== id)
-  if (!tabs.length) return { tabs: [], active: null }
-  if (dock.active !== id) return { tabs, active: dock.active }
-  return { tabs, active: tabs[Math.min(i, tabs.length - 1)].id }
+  return { tabs, active: dock.active === id ? null : dock.active }
+}
+
+export function hideDock(dock: DockState): DockState {
+  if (!dock.active && !dock.tabs.some((t) => !t.pinned)) return dock
+  return { tabs: pinnedTabs(dock), active: null }
 }

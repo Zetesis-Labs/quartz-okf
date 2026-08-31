@@ -14,7 +14,8 @@ import type {
 
 export type { Display, ExplorerMode, ExplorerOptions, RadiusOptions, SubgraphMarker }
 
-export type Translator = (key: string, vars?: Record<string, unknown>) => string
+/** `vars` is anything `fill()` can read a path from: a flat bag or a node. */
+export type Translator = (key: string, vars?: unknown) => string
 
 /** A node as the bundle writes it, plus the older spellings the model still accepts. */
 export type RawNode = Partial<GraphNode> & { id?: string; label?: string; desc?: string }
@@ -30,6 +31,7 @@ export interface RawGraph {
   nodes?: RawNode[]
   edges?: RawEdge[]
   site?: string
+  stats?: { notes?: number; edges?: number }
   federatedFrom?: FederatedFrom | null
   display?: Display | null
   types?: readonly string[]
@@ -175,5 +177,5 @@ export interface ExplorerEmitConfig {
   modes: ExplorerMode[]
   locale: string
   wording: Record<string, string>
-  hud: { surfaces: "flat" | "glass"; tokens: Record<string, string> }
+  hud: { surfaces: "flat" | "glass"; tokens: Record<string, string>; ground: "flat" | "dots" }
 }

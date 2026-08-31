@@ -3,8 +3,11 @@ import type { ExplorerEmitConfig, ExplorerOptions } from "./types.ts"
 
 const SURFACES = ["flat", "glass"] as const
 type Surfaces = (typeof SURFACES)[number]
+const GROUNDS = ["flat", "dots"] as const
+type Ground = (typeof GROUNDS)[number]
 
 const isSurfaces = (value: string): value is Surfaces => (SURFACES as readonly string[]).includes(value)
+const isGround = (value: string): value is Ground => (GROUNDS as readonly string[]).includes(value)
 
 export interface EmittedConfig {
   config: ExplorerEmitConfig
@@ -26,6 +29,10 @@ export function explorerConfig(opts: ExplorerOptions, siteLocale?: string): Emit
   let surfaces: Surfaces = "flat"
   if (isSurfaces(requested)) surfaces = requested
   else all.push(`hud.surfaces "${requested}" is not one of ${SURFACES.join(", ")}; using "flat"`)
+  const requestedGround = hud.ground ?? "flat"
+  let ground: Ground = "flat"
+  if (isGround(requestedGround)) ground = requestedGround
+  else all.push(`hud.ground "${requestedGround}" is not one of ${GROUNDS.join(", ")}; using "flat"`)
 
   const accessTitle = opts.accessTitle ?? catalogue["access.title"]
   const graphInput = (opts.graphInput ?? "static/okf-graph.json").replace(/^\/+/, "")
@@ -46,7 +53,7 @@ export function explorerConfig(opts: ExplorerOptions, siteLocale?: string): Emit
       modes: opts.modes ?? [],
       locale,
       wording: catalogue,
-      hud: { surfaces, tokens: hud.tokens ?? {} },
+      hud: { surfaces, tokens: hud.tokens ?? {}, ground },
     },
     problems: all,
   }

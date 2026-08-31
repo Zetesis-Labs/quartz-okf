@@ -11,7 +11,7 @@ test("the config carries the consumer's vocabulary and the site's language", () 
   assert.equal(config.wording["search.placeholder"], "Search notes…")
   assert.equal(config.title, "Knowledge graph")
   assert.deepEqual(config.modes, opts.modes)
-  assert.deepEqual(config.hud, { surfaces: "flat", tokens: {} })
+  assert.deepEqual(config.hud, { surfaces: "flat", tokens: {}, ground: "flat" })
   assert.deepEqual(problems, [])
 })
 
@@ -40,8 +40,15 @@ test("the title falls back from title to accessTitle to the catalogue", () => {
 
 test("hud surfaces accept flat or glass and tokens pass through; anything else is reported", () => {
   const ok = explorerConfig({ ...opts, hud: { surfaces: "glass", tokens: { "--accent": "#f00" } } }, "en")
-  assert.deepEqual(ok.config.hud, { surfaces: "glass", tokens: { "--accent": "#f00" } })
+  assert.deepEqual(ok.config.hud, { surfaces: "glass", tokens: { "--accent": "#f00" }, ground: "flat" })
   const bad = explorerConfig({ ...opts, hud: { surfaces: "neon" } }, "en")
   assert.equal(bad.config.hud.surfaces, "flat")
   assert.match(bad.problems[0], /neon/)
+})
+
+test("hud ground accepts flat or dots; anything else is reported and stays flat", () => {
+  assert.equal(explorerConfig({ ...opts, hud: { ground: "dots" } }, "en").config.hud.ground, "dots")
+  const bad = explorerConfig({ ...opts, hud: { ground: "grid" } }, "en")
+  assert.equal(bad.config.hud.ground, "flat")
+  assert.match(bad.problems[0], /grid/)
 })

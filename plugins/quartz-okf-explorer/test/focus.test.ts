@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { findNode, focusKeys, resolveFocus } from "../lib/focus.ts"
+import { carriedFocus, findNode, focusKeys, resolveFocus } from "../lib/focus.ts"
 import { indexGraph } from "../lib/model.ts"
 import { RAW_CHILD, RAW_ROOT } from "./fixtures.ts"
 
@@ -35,3 +35,12 @@ test("resolveFocus never enters a subgraph on a leaf-only match, and skips unloa
 })
 
 const pick = (hit) => (hit ? { key: hit.key, id: hit.node.id } : null)
+
+test("carriedFocus keeps the selection when it is a note on loan from the subgraph being entered", () => {
+  const cio = { id: "it/roles/cio", url: "/it/roles/cio", federated: "it" }
+  assert.deepEqual(carriedFocus(cio, "it"), ["it/roles/cio"])
+  assert.deepEqual(carriedFocus({ id: "topics/it/roles/cio", url: "/it/roles/cio/", federated: "it" }, "it"), ["it/roles/cio", "topics/it/roles/cio"])
+  assert.equal(carriedFocus(cio, "grid"), null)
+  assert.equal(carriedFocus({ id: "org", url: "/org", federated: null }, "it"), null)
+  assert.equal(carriedFocus(null, "it"), null)
+})

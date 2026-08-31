@@ -1,7 +1,7 @@
 {
   "name": "@zetesis/quartz-okf-explorer",
   "version": "0.1.0",
-  "description": "Full-page explorer for an OKF typed graph: declarative view modes, node/edge filters and a tabbed reading panel",
+  "description": "In-page explorer for an OKF typed graph: a Quartz component with declarative view modes, cross-graph search, node/edge filters, a command palette and a reading dock",
   "type": "module",
   "license": "MIT",
   "main": "./dist/index.js",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "import": "./dist/components/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -23,18 +27,39 @@
     "quartz-plugin",
     "okf",
     "graph",
-    "explorer"
+    "explorer",
+    "component"
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
-    "prepare": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@quartz-community/types": "github:quartz-community/types"
   },
+  "peerDependencies": {
+    "preact": "^10.0.0"
+  },
   "devDependencies": {
+    "@preact/signals": "^2.11.1",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/d3-drag": "^3.0.7",
+    "@types/d3-ease": "^3.0.2",
+    "@types/d3-force": "^3.0.10",
+    "@types/d3-selection": "^3.0.11",
+    "@types/d3-transition": "^3.0.9",
+    "@types/d3-zoom": "^3.0.8",
     "@types/node": "^24.10.0",
+    "d3-drag": "^3.0.0",
+    "d3-ease": "^3.0.1",
+    "d3-force": "^3.0.0",
+    "d3-selection": "^3.0.0",
+    "d3-transition": "^3.0.1",
+    "d3-zoom": "^3.0.0",
+    "esbuild": "^0.24.0",
+    "postcss": "^8.5.0",
+    "preact": "^10.28.2",
+    "tailwindcss": "^4.1.0",
     "tsup": "^8.5.0",
     "typescript": "^5.9.3"
   },
@@ -46,6 +71,7 @@
     "name": "quartz-okf-explorer",
     "displayName": "OKF Explorer",
     "category": [
+      "component",
       "emitter"
     ],
     "version": "0.1.0",
@@ -55,8 +81,14 @@
     "defaultOptions": {
       "graphInput": "static/okf-graph.json",
       "output": "static/explorer.html",
-      "injectAccess": true,
-      "mountSelector": ".right.sidebar"
+      "injectAccess": true
+    },
+    "components": {
+      "OkfExplorer": {
+        "displayName": "OKF Explorer",
+        "defaultPosition": "right",
+        "defaultPriority": 15
+      }
     }
   }
 }
