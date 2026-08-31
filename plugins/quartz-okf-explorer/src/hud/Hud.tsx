@@ -28,14 +28,19 @@ export function Hud({ initial }: HudProps) {
   useEffect(() => {
     const el = canvas.current
     if (!el) return
-    // The bar is always on screen; on narrow viewports the dock sits under it, so its height
-    // is published as a custom property whenever it changes.
+    // The bar is always on screen; on narrow viewports the dock spans the whole width and has to
+    // clear the search capsule too, or the capsule covers its header. Both heights are published
+    // as custom properties whenever they change.
     const bar = north.current?.querySelector<HTMLElement>("#bar")
+    const omni = north.current?.querySelector<HTMLElement>("#omnibar")
     const root = el.parentElement
     const barSize = new ResizeObserver(() => {
-      if (bar && root) root.style.setProperty("--bar-h", `${bar.offsetHeight}px`)
+      if (!root) return
+      if (bar) root.style.setProperty("--bar-h", `${bar.offsetHeight}px`)
+      if (omni) root.style.setProperty("--omni-h", `${omni.offsetHeight}px`)
     })
     if (bar) barSize.observe(bar)
+    if (omni) barSize.observe(omni)
     engine.mount(el, {
       onHover: (node, px, py) => {
         state.tip.value = node ? { node, px, py } : null
@@ -83,7 +88,7 @@ export function Hud({ initial }: HudProps) {
   }, [])
 
   return (
-    <div class="tw:relative tw:h-full tw:w-full" style={{ "--bar-h": "3rem" }}>
+    <div class="tw:relative tw:h-full tw:w-full" style={{ "--bar-h": "3rem", "--omni-h": "2.2rem" }}>
       <canvas ref={canvas} class="okf-canvas tw:absolute tw:inset-0 tw:block tw:h-full tw:w-full" />
       <div class="okf-layer tw:absolute tw:inset-0">
         <Portals />

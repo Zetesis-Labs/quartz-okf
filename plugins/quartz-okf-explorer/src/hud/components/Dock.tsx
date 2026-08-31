@@ -13,7 +13,9 @@ export function Dock() {
   return (
     <aside
       id="dock"
-      class="okf-island tw:absolute tw:top-[calc(var(--bar-h)+1.1rem)] tw:right-3 tw:bottom-3 tw:z-25 tw:flex tw:w-(--dock-w) tw:flex-col tw:overflow-hidden tw:max-[900px]:right-0 tw:max-[900px]:bottom-0 tw:max-[900px]:left-0 tw:max-[900px]:w-auto tw:max-[900px]:rounded-b-none"
+      // Wide: the dock hangs under the bar, beside the search capsule. Narrow: it spans the whole
+      // width, so it starts under the capsule as well — otherwise the capsule hides this header.
+      class="okf-island tw:absolute tw:top-[calc(var(--bar-h)+1.1rem)] tw:right-3 tw:bottom-3 tw:z-25 tw:flex tw:w-(--dock-w) tw:flex-col tw:overflow-hidden tw:max-[900px]:top-[calc(var(--bar-h)+var(--omni-h)+1.6rem)] tw:max-[900px]:right-0 tw:max-[900px]:bottom-0 tw:max-[900px]:left-0 tw:max-[900px]:w-auto tw:max-[900px]:rounded-b-none"
     >
       <header class="tw:flex tw:min-h-8 tw:items-center tw:gap-2 tw:border-b tw:border-(--hud-border) tw:py-1.5 tw:pr-2 tw:pl-3">
         <span class="okf-dot" style={{ background: state.display.value.colors[tab.type] || "#888" }} />
