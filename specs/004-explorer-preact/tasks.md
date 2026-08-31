@@ -61,4 +61,4 @@ quickstart walk on a consumer build.
       in the gate).
 - [X] T023 Docs: `plugins/quartz-okf-explorer/README.md`, root `README.md`, `CLAUDE.md`,
       `docs/METHODOLOGY.md` mention; `quickstart.md` of this feature.
-- [ ] T024 Commits per scope; PR stacked on `003-typescript-toolkit`.
+- [X] T024 Commits per scope; PR [#6](https://github.com/Zetesis-Labs/quartz-okf/pull/6) stacked on `003-typescript-toolkit`.
