@@ -92,14 +92,19 @@ candidate; `grep -c innerHTML plugins/quartz-okf-explorer/src` returns 0.
 
 ### User Story 3 - Read a note in the dock without a frame (Priority: P2)
 
-Clicking a node opens its note in the dock as a temporary tab; double-click pins it.
-The note's content is the page's own article, fetched and placed in the dock — the
-same mechanism Quartz's popovers use — so it inherits the site's styles and theme. The
-dock keeps temporary/pinned tabs, *Open*, *Explore subgraph* and close.
+Clicking a node opens its note in the dock — one note at a time, the *temporary* one
+the next click replaces. The note's content is the page's own article, fetched and
+placed in the dock — the same mechanism Quartz's popovers use — so it inherits the
+site's styles and theme. Pinning a note moves it to the always-visible top bar as a
+chip that brings it back; the dock offers pin/unpin, *Open ↗* (navigate to the page),
+*Explore subgraph* for portals, and `»` to tuck the dock away (pins stay). The bar
+keeps the whole width; the dock hangs under it, at the right (the whole width under
+900px), and the trail never truncates — the pins scroll sideways instead.
 
-**Independent Test**: open two notes, pin one, switch between them, close one; the
-dock never contains an `<iframe>`; the content shows the note's body with headings and
-links styled like the site.
+**Independent Test**: open two notes, pin one, tuck the dock away, bring the pinned one
+back from the bar, close it from its chip; the dock never contains an `<iframe>`; the
+content shows the note's body with headings and links styled like the site; the bar is
+visible at 390px with the dock open.
 
 ---
 
@@ -191,7 +196,8 @@ draws the grid, the default does not.
   `preact`.
 - **FR-013**: The plugin MUST keep the 002/003 options (`locale`, `wording`, `hud`,
   `modes`, `radius`, `layout`, …) with the same meaning; `mountSelector` is deprecated
-  (warning), `injectAccess: false` hides the widget but keeps the host so `?explorer`
+  (warning), `backTo` is accepted but no longer shown (the bar's `✕` is the way out),
+  `injectAccess: false` hides the widget but keeps the configuration so `?explorer`
   still works.
 - **FR-014**: Nothing in the engine MAY name a consumer, domain, type or label
   (constitution IV); the consumer's `okf.config.*` `explorer` block is the only source
@@ -215,16 +221,19 @@ draws the grid, the default does not.
 
 - **SC-001**: The 002 quickstart walk passes on the consumer build at 1440×900 and
   390×844, from the in-page explorer.
-- **SC-002**: `grep -rc "innerHTML\|postMessage\|<iframe" plugins/quartz-okf-explorer/src`
-  is 0; `src/hud/main.js`, `src/assets/explorer.html` and `src/assets/access.js` are
-  gone.
+- **SC-002**: `grep -rc "\.innerHTML =\|postMessage\|<iframe" plugins/quartz-okf-explorer/src`
+  is 0 (the fetched article is handed to Preact as content, never assembled as a
+  string); `src/hud/main.js`, `src/assets/explorer.html` and `src/assets/access.js`
+  are gone.
 - **SC-003**: `npm test` and `npm run typecheck` are green at the root with the
   explorer's `src/**/*.tsx` in the gate; every pure module of FR-012 has its test file.
 - **SC-004**: On the 274-note child graph, opening a menu, typing a query or toggling a
   filter paints within one frame; a simulation tick costs no component render
   (verified with Preact's render counter in the walk).
-- **SC-005**: The browser script of the plugin (inline, minified) stays under 120 KB
-  with Preact, signals and the five d3 modules bundled.
+- **SC-005**: The browser script of the plugin (inline, minified) is measured at every
+  build (the loader logs it) and stays under 150 KB with Preact, signals and the six
+  d3 modules bundled — 144.6 KB at the time of writing; `d3-transition` alone is a
+  third of that and is the first candidate if it must shrink.
 - **SC-006**: A published link `/static/explorer?graph=it-governance&focus=…` from the
   002 era opens the same view in the in-page explorer.
 

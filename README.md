@@ -28,9 +28,10 @@ plugins/              Quartz v5 plugins
 ├── quartz-graph-okf/ graph view: nodes colored by type, edges by relation family,
 │                     legends (fork of @quartz-community/graph)
 ├── quartz-okf-panels/ per-note blast-radius panel from the typed graph
-└── quartz-okf-explorer/ full-page explorer: declarative view modes, filters and a
-                      tabbed reading panel. Modes, layout, radius and wording are
-                      the consumer's — the engine ships no vocabulary
+└── quartz-okf-explorer/ in-page explorer (a Quartz component, Preact HUD over a
+                      d3 canvas): declarative view modes, filters, cross-graph
+                      search, palette, reading dock. Modes, layout, radius and
+                      wording are the consumer's — the engine ships no vocabulary
 
 harness/              site build support: content collection, Quartz pin, finalizer
 ```

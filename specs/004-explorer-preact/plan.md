@@ -104,6 +104,37 @@ IIFE build, `tsconfig.build.json`'s iife entry.
 4. Consumer build (cern-it-governance-graph, local toolkit), walk in Chrome, fix.
 5. Docs: README, CLAUDE.md, quickstart, tasks ticked; commits per scope.
 
+### Decisions taken while implementing
+
+- **Tailwind v4 instead of SCSS** (owner's call): the stylesheet is `@import "tailwindcss"
+  prefix(tw) source(none)` compiled by `@tailwindcss/postcss` inside the tsup loader; the
+  loader then drops `@layer base` (preflight would restyle the whole Quartz page) and
+  unwraps the remaining layers (Quartz's own rules are unlayered and would always win).
+  Partial imports (`utilities.css`) ignore `prefix()`, hence the full import. `dark:` is a
+  custom variant on `[saved-theme="dark"]`, Quartz's switch. A few `okf-*` classes carry
+  what utilities express badly (islands, chips, rows, the portal pill).
+- **Quartz's router and history**: its `popstate` handler re-navigates the page whatever
+  changed, so the inline script takes `popstate` in the capture phase when only the query
+  of the same page changed and stops it there; the entries the explorer pushed are counted
+  in `history.state.okfDepth` so closing walks back exactly over them.
+- **The stage lives on `<body>`**, appended at open and removed at close/`prenav`, not
+  inside the sidebar component: a fixed overlay inside the layout would depend on the
+  theme's containing blocks.
+- **`@quartz-community/types` ships no `dist`** from GitHub: `types/modules.d.ts` declares
+  the slice of the contract the plugin uses so the repo gate type-checks it.
+- **Pins in the bar, one note in the dock** (owner's review of the first walk): the
+  browser-like tab strip of 002 was dropped; the bar is always visible and never squeezed
+  by the dock, which hangs under it; the trail never truncates (pins scroll instead); the
+  dock's own control is `»`, so the only `✕` is the explorer's.
+- **Carried focus**: entering a subgraph with one of its loaned notes selected keeps that
+  note selected inside (`lib/focus.ts` `carriedFocus`).
+- **`.okf-layer > * { pointer-events: auto }` was a bug** found in the walk (the portal
+  layer covering the canvas swallowed every gesture); only islands and portal buttons take
+  the pointer.
+- **A 003 regression surfaced in the consumer build** and was fixed on 003 (`5f43405`):
+  the TypeScript port of `topology.ts` had lost the private-use markers of the code-span
+  mask, replacing every digit of a note by a code span at export.
+
 ### Risks and mitigations
 
 | Risk | Mitigation |

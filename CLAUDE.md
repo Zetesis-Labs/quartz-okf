@@ -44,10 +44,23 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   `../../lib` igual que la caché), el shim `core/profile.js` y los shims
   `core/bin/*.js` (comprueban el suelo de Node y luego importan `core/lib/cli/*.ts`).
   No renombrar ni mover ninguno de esos tres.
-- `plugins/quartz-okf-explorer/src/hud/main.js` (el shell del HUD en el navegador) es el
-  único módulo JS que queda en el explorer: 004 lo sustituye por el componente Preact.
-  Los módulos puros del HUD (`plugins/quartz-okf-explorer/lib/*.ts`) y sus tests sí son
-  TS y entran en el `typecheck` del plugin.
+- `quartz-okf-explorer` es un **componente** de Quartz (`quartz.category: [component,
+  emitter]`): el widget se renderiza en SSR (`src/components/OkfExplorer.tsx`) y el HUD
+  es una app Preact + signals montada en la página por `scripts/explorer.inline.ts`
+  (`src/hud/**`). El lienzo (`src/hud/canvas/engine.ts`) no usa framework: posiciones,
+  cámara, hover y drag son campos planos; un tick nunca renderiza un componente. Las
+  decisiones viven en `lib/*.ts` con tests; los componentes y el motor entran en el
+  `typecheck`. El emitter solo escribe `static/explorer.html` como redirect.
+- La hoja de estilos del explorer es Tailwind v4 compilado en el loader de tsup
+  (`tsup.config.ts`): import completo con `prefix(tw)`, y después se quita `@layer base`
+  (preflight restilizaría toda la página de Quartz) y se desenvuelven las capas (las
+  reglas de Quartz no van en capas y ganarían siempre). `dark:` sigue a `saved-theme`
+  en `<html>`, no al sistema. Hay un puñado de clases `okf-*` para lo que las utilidades
+  no expresan bien; ninguna capa con `pointer-events: auto` sobre el lienzo, o se traga
+  los gestos.
+- El script inline intercepta `popstate` en fase de captura cuando solo cambia la query
+  de la misma página: el router SPA de Quartz recarga la página en cualquier `popstate`
+  y rompería la navegación por pasos del explorador.
 - `quartz-okf-panels` y `quartz-graph-okf` dependen de los tipos de Quartz
   (`@quartz-community/*`) que solo existen en el consumidor: su `tsc` no forma parte del
   gate del repo; los verifica el build del consumidor.

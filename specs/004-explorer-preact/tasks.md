@@ -20,45 +20,45 @@ quickstart walk on a consumer build.
 
 ## Phase 2: Package plumbing
 
-- [ ] T008 `package.json`: `quartz.category: ["component", "emitter"]`,
+- [X] T008 `package.json`: `quartz.category: ["component", "emitter"]`,
       `quartz.components.OkfExplorer` (right, 15), `exports["./components"]`, deps
       (`preact` peer + dev, `@preact/signals`, `d3-*`, `@types/d3-*`, `sass`), scripts
       `build`/`typecheck`.
-- [ ] T009 `tsup.config.ts`: esm dist with `external: preact*`, inline-script and scss
+- [X] T009 `tsup.config.ts`: esm dist with `external: preact*`, inline-script and scss
       loaders (as `quartz-okf-panels`), entries `index` + `components/index`.
-- [ ] T010 `tsconfig.json` (`jsx: react-jsx`, `jsxImportSource: preact`, include
+- [X] T010 `tsconfig.json` (`jsx: react-jsx`, `jsxImportSource: preact`, include
       `src`, `lib`, `types`) and `types/globals.d.ts`.
-- [ ] T011 `src/components/OkfExplorer.tsx` + `components/index.ts`: widget (title,
+- [X] T011 `src/components/OkfExplorer.tsx` + `components/index.ts`: widget (title,
       preview, *Open*, stats slot), stage host, `data-cfg` from `explorerConfig`;
       warnings logged once per options object; `mountSelector` deprecation warning.
-- [ ] T012 `src/index.ts`: redirect emitter (`static/explorer.html` →
+- [X] T012 `src/index.ts`: redirect emitter (`static/explorer.html` →
       `legacyRedirect`), type re-exports; delete `src/hud/main.js`, `src/assets/*`.
 
 ## Phase 3: The HUD (User Stories 1–4)
 
-- [ ] T013 [US2] `src/hud/state.ts`: signals and derived views.
-- [ ] T014 [US1] `src/hud/graphs.ts`: fetch/cache, registry, enter/back/direct/route,
+- [X] T013 [US2] `src/hud/state.ts`: signals and derived views.
+- [X] T014 [US1] `src/hud/graphs.ts`: fetch/cache, registry, enter/back/direct/route,
       focus resolution, mode change, note fetch for the dock.
-- [ ] T015 [US2] `src/hud/canvas/engine.ts` (+ `ground.ts`): simulation, camera, draw,
+- [X] T015 [US2] `src/hud/canvas/engine.ts` (+ `ground.ts`): simulation, camera, draw,
       gestures, portal positioning; `requestDraw` coalescing; viewport culling.
-- [ ] T016 [US2] Components: `Bar` (trail, omnibar, close), `Results` (rows + palette
+- [X] T016 [US2] Components: `Bar` (trail, omnibar, close), `Results` (rows + palette
       rows), `Selection`, `Views`, `Filters`, `SideMenu`, `Dock`, `Tooltip`, `Portals`,
       `ContextMenu`, `Toast`; `Hud.tsx` root.
-- [ ] T017 [US4] `src/hud/actions.ts`: dispatcher for command and menu ids; keyboard
+- [X] T017 [US4] `src/hud/actions.ts`: dispatcher for command and menu ids; keyboard
       (omnibar keys, walk, `Space`, `Escape` chain, printable → omnibar).
-- [ ] T018 [US1] `scripts/explorer.inline.ts`: boot, widget wiring, URL open, history,
+- [X] T018 [US1] `scripts/explorer.inline.ts`: boot, widget wiring, URL open, history,
       `addCleanup`, body scroll lock.
-- [ ] T019 [US2] `styles/explorer.scss`: 002 rules scoped to the stage + widget + new
+- [X] T019 [US2] `styles/explorer.scss`: 002 rules scoped to the stage + widget + new
       pieces; `hud.tokens` applied on the stage; reduced motion/transparency.
 
 ## Phase 4: Gate
 
-- [ ] T020 Build the plugin locally (`npm run build`), check the inline bundle size.
-- [ ] T021 Consumer build of `cern-it-governance-graph` against the working tree
+- [X] T020 Build the plugin locally (`npm run build`), check the inline bundle size.
+- [X] T021 Consumer build of `cern-it-governance-graph` against the working tree
       (`layout.position: right` on the plugin); quickstart walk in Chrome at 1440×900
       and 390×844; `?explorer` deep link; legacy redirect; back button.
-- [ ] T022 `npm test`, `npm run typecheck` green at the root (explorer `src/**/*.tsx`
+- [X] T022 `npm test`, `npm run typecheck` green at the root (explorer `src/**/*.tsx`
       in the gate).
-- [ ] T023 Docs: `plugins/quartz-okf-explorer/README.md`, root `README.md`, `CLAUDE.md`,
+- [X] T023 Docs: `plugins/quartz-okf-explorer/README.md`, root `README.md`, `CLAUDE.md`,
       `docs/METHODOLOGY.md` mention; `quickstart.md` of this feature.
 - [ ] T024 Commits per scope; PR stacked on `003-typescript-toolkit`.
