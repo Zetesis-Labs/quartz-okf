@@ -142,9 +142,9 @@ async function readAsset(name: string): Promise<string> {
   throw new Error(`quartz-okf-explorer: missing asset ${name}`)
 }
 
-// `String.replace` interprets `$&`, `$1`… in the replacement: a bundle or a JSON document
-// with a `$` inside would come out corrupted. A function replacer inserts it verbatim.
-const inject = (page: string, slot: string, text: string) => page.replace(slot, () => text)
+// `String.replace` interprets `$&`, `$1`… in the replacement: a bundle, a JSON document or
+// a title with a `$` inside would come out corrupted. Split/join inserts it verbatim, everywhere.
+const inject = (page: string, slot: string, text: string) => page.split(slot).join(text)
 
 interface EmitContext {
   argv: { output: string }
@@ -207,10 +207,9 @@ export const OkfExplorer = (userOpts?: ExplorerOptions) => {
         }
         let access = await readAsset("access.js")
         access = inject(access, "__OKF_WORDING__", JSON.stringify(wording))
-        access = access
-          .replaceAll("__EXPLORER_URL__", "/" + opts.output.replace(/\.html$/, ""))
-          .replaceAll("__TITLE__", config.accessTitle)
-          .replaceAll("__MOUNT__", opts.mountSelector)
+        access = inject(access, "__EXPLORER_URL__", "/" + opts.output.replace(/\.html$/, ""))
+        access = inject(access, "__TITLE__", config.accessTitle)
+        access = inject(access, "__MOUNT__", opts.mountSelector)
         const accessFile = path.join(out, accessPath)
         await fs.writeFile(accessFile, access)
         written.push(accessFile)
