@@ -562,10 +562,14 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
       }, location.origin)
     }
   }
+  // La miga propia solo se esconde cuando el host confirma que la ha pintado: un host
+  // antiguo, o ajeno, no la conoce y el lector se quedaría sin camino de vuelta.
   window.addEventListener("message", (ev) => {
     if (ev.origin !== location.origin || ev.source !== window.parent) return
     const d = ev.data
-    if (d && d.type === "okf-explorer:go" && Number.isInteger(d.level)) volverA(d.level)
+    if (!d) return
+    if (d.type === "okf-explorer:trail-shown") document.body.classList.add("hosted")
+    if (d.type === "okf-explorer:go" && Number.isInteger(d.level)) volverA(d.level)
   })
 
   function cambiarAmbito() {

@@ -160,6 +160,7 @@
       const d = e.data
       if (!d || d.type !== "okf-explorer:trail") return
       pintarMiga(m, f, Array.isArray(d.levels) ? d.levels : [])
+      f.contentWindow.postMessage({ type: "okf-explorer:trail-shown" }, location.origin)
     })
     const full = m.querySelector(".full")
     full.addEventListener("click", () => {
@@ -175,12 +176,11 @@
     return m
   }
 
-  // Solo hay camino que enseñar dentro de un subgrafo: con un único nivel la barra se queda
-  // con el título del widget.
+  // La barra del modal dice siempre dónde está el lector: el grafo de partida solo, o el
+  // camino entero dentro de un subgrafo.
   function pintarMiga(m, frame, levels) {
     const nav = m.querySelector(".trail")
     nav.innerHTML = ""
-    if (levels.length < 2) return
     levels.forEach((l, i) => {
       if (l.current) {
         const cur = document.createElement("b")

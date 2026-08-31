@@ -102,15 +102,16 @@
   #q::-webkit-search-cancel-button { display: none; }
   #pback { flex: 0 0 auto; color: var(--hud-fg-2); text-decoration: none; font-size: .8rem; white-space: nowrap; }
   #pback:hover { color: var(--accent); }
-  /* Dentro del modal de las notas la miga y la vuelta viven en la barra del modal: aquí
-     solo queda la búsqueda, centrada como una isla. */
-  body.framed #north { left: 50%; right: auto; transform: translateX(-50%); width: min(40rem, calc(100% - 1.6rem)); }
-  body.framed.dock-open #north { left: 29%; width: min(40rem, calc(58% - 1.6rem)); }
-  body.framed #trail, body.framed #pback { display: none; }
-  body.framed #bar { padding: .3rem .4rem; }
-  body.framed #omnibar { flex: 1 1 auto; border-color: transparent; background: transparent; }
-  body.framed #omnibar:focus-within { box-shadow: none; }
-  body.framed #bar:focus-within { border-color: var(--accent); box-shadow: var(--hud-shadow), 0 0 0 3px var(--accent-soft); }
+  /* Enmarcado, la vuelta a casa no tiene sentido (navegaría el iframe). Y cuando el host
+     confirma que pinta la miga en su barra, aquí solo queda la búsqueda, centrada. */
+  body.framed #pback { display: none; }
+  body.hosted #north { left: 50%; right: auto; transform: translateX(-50%); width: min(40rem, calc(100% - 1.6rem)); }
+  body.hosted.dock-open #north { left: 29%; width: min(40rem, calc(58% - 1.6rem)); }
+  body.hosted #trail { display: none; }
+  body.hosted #bar { padding: .3rem .4rem; }
+  body.hosted #omnibar { flex: 1 1 auto; border-color: transparent; background: transparent; }
+  body.hosted #omnibar:focus-within { box-shadow: none; }
+  body.hosted #bar:focus-within { border-color: var(--accent); box-shadow: var(--hud-shadow), 0 0 0 3px var(--accent-soft); }
   #top { width: min(40rem, 100%); display: flex; flex-direction: column; gap: .45rem; }
 
   #results { max-height: min(22rem, 50vh); overflow-y: auto; overscroll-behavior: contain; padding: .3rem; }
@@ -210,7 +211,7 @@
              font-size: .78rem; line-height: 1.35; color: var(--hud-fg-2); }
 
   @media (max-width: 900px) {
-    #north, body.dock-open #north, body.framed #north { left: .5rem; right: .5rem; top: .5rem; width: auto; transform: none; }
+    #north, body.dock-open #north, body.hosted #north { left: .5rem; right: .5rem; top: .5rem; width: auto; transform: none; }
     /* En estrecho la miga va en su propia línea y la búsqueda debajo, a todo el ancho. */
     #bar { flex-wrap: wrap; gap: .35rem .6rem; padding: .35rem .5rem; }
     #trail { flex: 1 1 100%; }
