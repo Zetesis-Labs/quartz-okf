@@ -33,7 +33,13 @@ export function TrailBar() {
         )}
       </nav>
       {pins.length > 0 && (
-        <div id="pins" class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1 tw:overflow-x-auto tw:overscroll-x-contain tw:max-[900px]:order-last tw:max-[900px]:w-full" style={{ scrollbarWidth: "thin" }}>
+        <div
+          id="pins"
+          // On a narrow screen the pins take a row of their own: a basis of 100% is what
+          // makes the flex line break, which `flex-1` (basis 0) would never do.
+          class="tw:flex tw:min-w-0 tw:flex-1 tw:items-center tw:gap-1 tw:overflow-x-auto tw:overscroll-x-contain tw:max-[900px]:order-last tw:max-[900px]:w-full tw:max-[900px]:flex-[1_0_100%]"
+          style={{ scrollbarWidth: "thin" }}
+        >
           {pins.map((tab) => (
             <span
               key={tab.id}
