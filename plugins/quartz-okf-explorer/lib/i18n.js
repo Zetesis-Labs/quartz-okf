@@ -59,6 +59,8 @@ const en = {
   "dock.tab.close": "Close",
   "dock.tab.temp": "{title} — temporary tab, double-click to pin",
   "focus.missing": "focus \"{focus}\" is not in any published graph",
+  "error.load": "could not load {url}: {message}",
+  "route.missing": "no portal to \"{graph}\" in this graph",
 }
 
 const es = {
@@ -120,6 +122,8 @@ const es = {
   "dock.tab.close": "Cerrar",
   "dock.tab.temp": "{title} — pestaña temporal, doble clic para anclar",
   "focus.missing": "focus \"{focus}\" no está en ningún grafo publicado",
+  "error.load": "no se pudo cargar {url}: {message}",
+  "route.missing": "no hay portal a \"{graph}\" en este grafo",
 }
 
 export const CATALOGUES = { en, es }

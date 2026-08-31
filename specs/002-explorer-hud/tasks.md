@@ -139,3 +139,12 @@ walk.
       wording keys.
 - [X] T025 Commits per scope (`test(quartz-okf-explorer)`, `feat(quartz-okf-explorer)`,
       `chore: test glob`, `docs(002)`); branch stays rebased on `001-subgraph-federation`.
+
+---
+
+## Phase 7: Review before the PR
+
+- [X] T026 Silent failures named: a graph that fails to load says so where *loading…*
+      was and in the console; trail, history and stack move only after the file arrived;
+      the modal protocol warns on a malformed message; the dock's trim logs when it cannot.
+- [X] T027 `lib/viewport.js` (+ tests): wheel step, visible rect and frame leave the shell.

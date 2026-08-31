@@ -159,7 +159,13 @@
       if (e.origin !== location.origin || !f || e.source !== f.contentWindow) return
       const d = e.data
       if (!d || d.type !== "okf-explorer:trail") return
-      pintarMiga(m, f, Array.isArray(d.levels) ? d.levels : [])
+      // Sin miga válida no se confirma: el explorador conserva la suya y el lector no se
+      // queda sin camino de vuelta.
+      if (!Array.isArray(d.levels)) {
+        console.warn("[quartz-okf-explorer] okf-explorer:trail without a levels array", d)
+        return
+      }
+      pintarMiga(m, f, d.levels)
       f.contentWindow.postMessage({ type: "okf-explorer:trail-shown" }, location.origin)
     })
     const full = m.querySelector(".full")

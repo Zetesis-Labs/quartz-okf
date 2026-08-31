@@ -37,8 +37,18 @@ async function fetchGraph(url) {
   return r.json()
 }
 function cargarGrafo(url) {
-  if (!CACHE_GRAFOS.has(url)) CACHE_GRAFOS.set(url, fetchGraph(url).then(indexGraph))
+  // Un fallo no se guarda: el siguiente intento vuelve a pedir el fichero.
+  if (!CACHE_GRAFOS.has(url)) {
+    CACHE_GRAFOS.set(url, fetchGraph(url).then(indexGraph).catch((err) => { CACHE_GRAFOS.delete(url); throw err }))
+  }
   return CACHE_GRAFOS.get(url)
+}
+// Sin el grafo de partida no hay explorador: se dice qué fichero faltó donde iría la miga.
+function fallarArranque(err) {
+  const msg = t("error.load", { url: GRAFO_BASE, message: err.message })
+  $("trail").textContent = msg
+  $("stats").textContent = msg
+  console.error(`[quartz-okf-explorer] ${msg}`)
 }
 
 document.documentElement.lang = CFG.locale
@@ -422,7 +432,9 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
         .left.sidebar, .right.sidebar, .page-footer, .mobile-only { display: none !important; }
         .center { margin: 0 !important; padding: 1rem 1.4rem 3rem !important; max-width: none !important; }`
       d.head.appendChild(css)
-    } catch (_) { /* si el navegador lo impide, se ve la página completa */ }
+    } catch (err) {
+      console.warn(`[quartz-okf-explorer] dock: could not trim the page layout (${err.message}); showing it whole`)
+    }
   }
 
   function addFrame(n) {
@@ -480,9 +492,24 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   const currentPath = () => trailFor().map((g) => g.id)
   const currentKey = () => idActual || ""
 
-  async function cambiarGrafo(url, modeId) {
+  // Un fichero que no llega no deja el HUD a medias: se pide antes de tocar el estado, y
+  // donde decía "cargando…" el lector lee qué faltó.
+  async function cargarOAvisar(url) {
     statsEl.textContent = t("stats.loading")
-    data = await cargarGrafo(url)
+    try {
+      return await cargarGrafo(url)
+    } catch (err) {
+      const msg = t("error.load", { url, message: err.message })
+      statsEl.textContent = msg
+      console.warn(`[quartz-okf-explorer] ${msg}`)
+      return null
+    }
+  }
+
+  async function cambiarGrafo(url, modeId) {
+    const nuevo = await cargarOAvisar(url)
+    if (!nuevo) return false
+    data = nuevo
     urlActual = url
     urlNivel = url
     if (idActual) {
@@ -503,38 +530,45 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     firstFit = true
     graph = null
     restart()
+    return true
   }
 
   async function entrarEnSubgrafo(n, { push = true } = {}) {
+    if (!(await cargarOAvisar(n.subgraph.graph))) return false
     pila.push({ url: urlActual, selectedId: n.id, title: data.title, modeId: curMode, id: idActual })
     idActual = n.subgraph.id
     if (push) history.pushState({ graph: idActual }, "", urlDeNivel(idActual))
-    await cambiarGrafo(n.subgraph.graph)
+    return cambiarGrafo(n.subgraph.graph)
   }
 
   // Volver a un nivel del rastro: 0 es el grafo de partida.
   async function volverA(nivel, { push = true } = {}) {
-    if (nivel < 0 || nivel >= pila.length) return
+    if (nivel < 0 || nivel >= pila.length) return false
     const destino = pila[nivel]
+    if (!(await cargarOAvisar(destino.url))) return false
     pila.length = nivel
     idActual = destino.id || null
     if (push) history.pushState(idActual ? { graph: idActual } : {}, "", urlDeNivel(idActual))
     await cambiarGrafo(destino.url, destino.modeId)
     const n = destino.selectedId ? graph.idx.get(destino.selectedId) : null
     if (n) select(n)
+    return true
   }
 
   // Abierto directamente sobre un subgrafo (?graph=<id>): el camino de vuelta lo dice el
   // propio fichero, que sabe desde qué grafo y qué portal se publicó.
   async function entrarDirecto(id) {
+    const url = registry.has(id) ? registry.get(id).url : urlDeSubgrafo(id)
+    if (!(await cargarOAvisar(url))) return false
     pila.push({ url: GRAFO_BASE, selectedId: null, title: null, modeId: BASE.modes[0].id, id: null })
     idActual = id
     history.replaceState({ graph: id }, "", location.href)
-    await cambiarGrafo(registry.has(id) ? registry.get(id).url : urlDeSubgrafo(id))
+    await cambiarGrafo(url)
     const desde = data.federatedFrom || {}
     pila[0].selectedId = desde.node || null
     pila[0].title = desde.title || null
     renderTrail()
+    return true
   }
 
   // Ir a cualquier grafo del registro: atrás hasta el ancestro común, y una inmersión por portal.
@@ -542,10 +576,16 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     const target = registry.get(key)
     if (!target) return false
     for (const step of routeTo(currentPath(), target.path)) {
-      if ("back" in step) { await volverA(step.back); continue }
+      if ("back" in step) {
+        if (!(await volverA(step.back))) return false
+        continue
+      }
       const portal = [...data.nodes.values()].find((n) => n.subgraph && n.subgraph.id === step.dive)
-      if (!portal) return false
-      await entrarEnSubgrafo(portal)
+      if (!portal) {
+        console.warn(`[quartz-okf-explorer] ${t("route.missing", { graph: step.dive })}`)
+        return false
+      }
+      if (!(await entrarEnSubgrafo(portal))) return false
     }
     return true
   }
@@ -596,7 +636,10 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     const d = ev.data
     if (!d) return
     if (d.type === "okf-explorer:trail-shown") document.body.classList.add("hosted")
-    if (d.type === "okf-explorer:go" && Number.isInteger(d.level)) volverA(d.level)
+    if (d.type === "okf-explorer:go") {
+      if (Number.isInteger(d.level)) volverA(d.level)
+      else console.warn("[quartz-okf-explorer] okf-explorer:go without an integer level", d)
+    }
   })
 
   function cambiarAmbito() {
@@ -979,14 +1022,15 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   }
 
   async function cambiarModo(id) {
-    curMode = id
     // Un modo puede vivir sobre otro corpus: se carga la primera vez y queda en caché.
     const url = modeGraphUrl(modeById(display, id), urlNivel)
     if (url !== urlActual) {
-      statsEl.textContent = t("stats.loading")
-      data = await cargarGrafo(url)
+      const nuevo = await cargarOAvisar(url)
+      if (!nuevo) return
+      data = nuevo
       urlActual = url
     }
+    curMode = id
     selected = null
     // Los filtros se reconstruyen desde cero: si el modo nuevo agrupa por otra cosa,
     // conservar lo marcado dejaría el grafo vacío.
@@ -1033,7 +1077,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   ;(async () => {
     if (subgrafo) await entrarDirecto(subgrafo)
     if (focus) await entrarConFoco(focus)
-  })()
+  })().catch((err) => console.error(`[quartz-okf-explorer] ${err.message}`))
 
   // Los modos pueden filtrar lo que dibujan, así que la nota no tiene por qué existir en el
   // modo activo: se recorren en orden y se abre en el primero que la contenga.
@@ -1052,12 +1096,14 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   }
 
   async function activarModo(id) {
-    curMode = id
     const url = modeGraphUrl(modeById(display, id), urlNivel)
     if (url !== urlActual) {
-      data = await cargarGrafo(url)
+      const nuevo = await cargarOAvisar(url)
+      if (!nuevo) return
+      data = nuevo
       urlActual = url
     }
+    curMode = id
     checkedTypes = null; checkedEdges = null
     restart(false)
   }
@@ -1081,4 +1127,4 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   function marcarYEncuadrar(n) {
     select(n, !camaraTocada, { instant: true })
   }
-})
+}, fallarArranque)
