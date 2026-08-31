@@ -123,13 +123,18 @@ test("a repository is remote when it is a URL, local when it is a path", () => {
 test("a complete declaration validates clean; edge defaults to Contains", () => {
   assert.deepEqual(validateFederationConfig(federation(), profile, localSlugs), [])
   assert.deepEqual(validateFederationConfig(federation({ ...ENTRY, repo: "../child", ref: undefined }), profile, localSlugs), [])
+  assert.deepEqual(
+    validateFederationConfig(federation({ ...ENTRY, repo: undefined, ref: undefined, path: "subgraphs/it-governance" }), profile, localSlugs),
+    [],
+  )
 })
 
 test("validation names every configuration problem with its subgraph id", () => {
   const cases = [
     [{ ...ENTRY, node: undefined }, "federation/node-required"],
     [{ ...ENTRY, node: "topics/missing" }, "federation/node-unknown"],
-    [{ ...ENTRY, repo: undefined }, "federation/repo-required"],
+    [{ ...ENTRY, repo: undefined }, "federation/source-required"],
+    [{ ...ENTRY, path: "subgraphs/it-governance" }, "federation/source-ambiguous"],
     [{ ...ENTRY, ref: undefined }, "federation/ref-required"],
     [{ ...ENTRY, preview: undefined }, "federation/preview-required"],
     [{ ...ENTRY, preview: { property: "visibility" } }, "federation/preview-required"],

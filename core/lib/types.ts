@@ -315,8 +315,11 @@ export interface Problem {
 export interface MountRecord {
   id: string
   node: string
+  /** Where the corpus came from; for a path source, the resolved absolute directory. */
+  source: CorpusSource
   repo?: string
   ref?: string
+  /** The head of the repository the corpus belongs to; absent outside any repository. */
   head?: string
   remoteHead?: string
   mount: string

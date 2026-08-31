@@ -153,6 +153,7 @@ test("mounts a local child repository: notes under the id, artifacts with graph,
   assert.equal(entry.head, head)
   assert.equal(entry.mount, `/${ID}`)
   assert.equal(entry.remoteHead, undefined)
+  assert.deepEqual(entry.source, { kind: "path", path: childRoot })
   assert.deepEqual(entry.display.typeColors, { service: "#10b981", policy: "#ef4444" })
   assert.deepEqual(entry.display.modes, [{ id: "full", label: "Full view", edges: "*" }])
   assert.equal("layout" in entry.display, false)
@@ -188,6 +189,61 @@ test("mounts a remote child by cloning it at the pinned ref into the cache and r
   const manifest = JSON.parse(await fs.readFile(path.join(root, "site", "okf-federation", "manifest.json"), "utf8"))
   assert.equal(manifest.subgraphs[0].head, head)
   assert.equal(manifest.subgraphs[0].remoteHead, head)
+  assert.deepEqual(manifest.subgraphs[0].source, { kind: "git", repo: `file://${childRoot}`, ref: head })
+})
+
+async function makeChildDirectory(root) {
+  await makeChildRepo(root)
+  await fs.rm(path.join(root, ".git"), { recursive: true, force: true })
+}
+
+test("a corpus directory inside the parent's repository mounts by path at the parent's own head", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "okf-mount-"))
+  const parentRoot = path.join(root, "parent")
+  const childRoot = path.join(parentRoot, "subgraphs", "it")
+  await makeChildDirectory(childRoot)
+  await makeParent(parentRoot, {
+    node: "topics/it-governance",
+    path: "subgraphs/it",
+    preview: { property: "visibility", equals: "open" },
+  })
+  git(parentRoot, "init", "-q", "-b", "main")
+  git(parentRoot, "-c", "user.email=t@example.org", "-c", "user.name=t", "add", "-A")
+  git(parentRoot, "-c", "user.email=t@example.org", "-c", "user.name=t", "commit", "-q", "-m", "one repository")
+  const parentHead = git(parentRoot, "rev-parse", "HEAD")
+  const artifactsOut = path.join(root, "site", "okf-federation")
+  const result = await mountSubgraphs(parentRoot, path.join(root, "site", "content"), artifactsOut, {
+    cacheRoot: path.join(root, "cache"),
+    log: () => {},
+  })
+  const entry = result.mounted[0]
+  assert.deepEqual(entry.source, { kind: "path", path: childRoot })
+  assert.equal(entry.head, parentHead)
+  assert.equal(entry.remoteHead, undefined)
+  assert.equal(entry.ref, undefined)
+  assert.equal(entry.notes, 2)
+  const graph = JSON.parse(await fs.readFile(path.join(artifactsOut, ID, "okf-graph.json"), "utf8"))
+  assert.equal(graph.source_head, parentHead)
+})
+
+test("a corpus directory outside any repository mounts by path with no head", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "okf-mount-"))
+  const childRoot = path.join(root, "child")
+  await makeChildDirectory(childRoot)
+  const parentRoot = path.join(root, "parent")
+  await makeParent(parentRoot, {
+    node: "topics/it-governance",
+    path: "../child",
+    preview: { property: "visibility", equals: "open" },
+  })
+  const result = await mountSubgraphs(parentRoot, path.join(root, "site", "content"), path.join(root, "site", "okf-federation"), {
+    cacheRoot: path.join(root, "cache"),
+    log: () => {},
+  })
+  const entry = result.mounted[0]
+  assert.deepEqual(entry.source, { kind: "path", path: childRoot })
+  assert.equal("head" in entry, false)
+  assert.equal(entry.notes, 2)
 })
 
 test("a child that fails its own validation is not mounted; the failure names the file", async () => {

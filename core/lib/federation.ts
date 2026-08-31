@@ -1,5 +1,6 @@
 import { deriveInverseEdges } from "./graph.ts"
 import { PROFILE } from "./reference-profile.ts"
+import { sourceOf } from "./source.ts"
 import type {
   Display,
   FederatedFrom,
@@ -66,11 +67,7 @@ export function validateFederationConfig(
         problem(id, "federation/node-unknown", `node "${entry.node}" is not a note of this corpus`),
       )
     }
-    if (!entry.repo) {
-      problems.push(problem(id, "federation/repo-required", "declare the child's repository in `repo` (URL or local path)"))
-    } else if (isRemoteRepo(entry.repo) && !entry.ref) {
-      problems.push(problem(id, "federation/ref-required", `pin the commit of ${entry.repo} in \`ref\``))
-    }
+    problems.push(...sourceOf(entry, id).problems)
     if (!entry.preview?.property || entry.preview.equals === undefined) {
       problems.push(problem(id, "federation/preview-required", "declare `preview.property` and `preview.equals`"))
     }
@@ -155,7 +152,7 @@ function federateEntry({ entry, id, child, portal, graph, profile, subgraphsPath
     result.warnings.push({
       id,
       code: "federation/child-unreachable",
-      message: `${id}: cannot mount ${child?.location ?? entry.repo}: ${child?.error ?? "no graph provided"}`,
+      message: `${id}: cannot mount ${child?.location ?? entry.repo ?? entry.path}: ${child?.error ?? "no graph provided"}`,
     })
     portal.subgraph = { id, mount, graph: copyPath, notes: 0, previewed: 0 }
     return result

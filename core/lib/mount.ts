@@ -4,10 +4,11 @@ import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { loadConsumerConfig, readModuleConfig } from "./consumer-config.ts"
 import { exportBundle } from "./exporter.ts"
-import { isRemoteRepo, subgraphId, validateFederationConfig } from "./federation.ts"
+import { subgraphId, validateFederationConfig } from "./federation.ts"
 import { walk } from "./files.ts"
 import { gitHead } from "./git.ts"
-import type { Branding, Display, ExplorerOptions, Federation, GraphStats, MountRecord, Problem, SubgraphEntry } from "./types.ts"
+import { sourceOf } from "./source.ts"
+import type { Branding, CorpusSource, Display, ExplorerOptions, Federation, GraphStats, MountRecord, Problem, SubgraphEntry } from "./types.ts"
 
 const ASSET_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"])
 // The part of a child's explorer configuration that travels with its graph: what the
@@ -80,26 +81,29 @@ async function exists(target: string): Promise<boolean> {
 
 interface ObtainedChild {
   root: string
-  head: string
+  source: CorpusSource
+  /** The head of the repository the corpus belongs to; undefined outside any repository. */
+  head: string | undefined
   remoteHead: string | undefined
 }
 
 async function obtainChild(entry: SubgraphEntry, { parentRoot, cacheRoot }: { parentRoot: string; cacheRoot: string }): Promise<ObtainedChild> {
-  const repo = entry.repo ?? ""
-  if (!isRemoteRepo(repo)) {
-    const root = path.resolve(parentRoot, repo)
-    if (!(await exists(root))) throw new Error(`repository path does not exist: ${root}`)
-    return { root, head: gitHead(root), remoteHead: undefined }
+  const { source, problems } = sourceOf(entry)
+  if (!source) throw failure(problems)
+  if (source.kind === "path") {
+    const root = path.resolve(parentRoot, source.path)
+    if (!(await exists(root))) throw new Error(`corpus path does not exist: ${root}`)
+    const head = gitHead(root)
+    return { root, source: { kind: "path", path: root }, head: head === "unknown" ? undefined : head, remoteHead: undefined }
   }
-  const ref = entry.ref ?? ""
-  const root = childCacheDir(cacheRoot, subgraphId(entry), ref)
+  const root = childCacheDir(cacheRoot, subgraphId(entry), source.ref)
   if (!(await exists(path.join(root, ".git")))) {
     await fs.rm(root, { recursive: true, force: true })
     await fs.mkdir(path.dirname(root), { recursive: true })
-    git(process.cwd(), ["clone", "--quiet", "--no-checkout", repo, root])
-    git(root, ["checkout", "--quiet", ref])
+    git(process.cwd(), ["clone", "--quiet", "--no-checkout", source.repo, root])
+    git(root, ["checkout", "--quiet", source.ref])
   }
-  return { root, head: gitHead(root), remoteHead: remoteHeadOf(repo) }
+  return { root, source, head: gitHead(root), remoteHead: remoteHeadOf(source.repo) }
 }
 
 async function displayOf(root: string): Promise<Display | undefined> {
@@ -139,7 +143,7 @@ interface MountContext {
 
 async function mountOne(entry: SubgraphEntry, { parentRoot, cacheRoot, contentOut, artifactsOut, log }: MountContext): Promise<MountRecord> {
   const id = subgraphId(entry)
-  const { root, head, remoteHead } = await obtainChild(entry, { parentRoot, cacheRoot })
+  const { root, source, head, remoteHead } = await obtainChild(entry, { parentRoot, cacheRoot })
   const consumer = await loadConsumerConfig(root)
   const display = await displayOf(root)
   const corpus = path.join(root, entry.content ?? "content")
@@ -179,10 +183,11 @@ async function mountOne(entry: SubgraphEntry, { parentRoot, cacheRoot, contentOu
     const graph = { ...result.graph, source_head: head }
     await fs.mkdir(path.join(artifactsOut, id), { recursive: true })
     await fs.writeFile(path.join(artifactsOut, id, "okf-graph.json"), `${JSON.stringify(graph, null, 2)}\n`)
-    log(`[okf] federation: mounted ${id} ← ${graph.stats.notes} notes at ${String(head).slice(0, 7)} under /${id}/`)
+    log(`[okf] federation: mounted ${id} ← ${graph.stats.notes} notes at ${head ? head.slice(0, 7) : "no head"} under /${id}/`)
     return compact({
       id,
       node: entry.node,
+      source,
       repo: entry.repo,
       ref: entry.ref,
       head,

@@ -40,6 +40,19 @@ test("loads a consumer profile overlay without losing reference defaults", async
   )
 })
 
+test("okf.config.ts is read directly and comes before the .mjs spelling", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "okf-config-ts-"))
+  await fs.writeFile(
+    path.join(root, "okf.config.ts"),
+    `export const branding: { site: string } = { site: "TS" }\nexport const profile = { types: ["service"] as string[] }\n`,
+  )
+  await fs.writeFile(path.join(root, "okf.config.mjs"), `export const branding = { site: "MJS" }\n`)
+
+  const consumer = await loadConsumerConfig(root)
+  assert.equal(consumer.branding.site, "TS")
+  assert.deepEqual(consumer.profile.types, ["service"])
+})
+
 test("loads the profile serialized into an exported bundle", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "okf-exported-profile-"))
   await fs.writeFile(

@@ -5,7 +5,7 @@ import { mergeProfile } from "./profile.ts"
 import { BRANDING, PROFILE } from "./reference-profile.ts"
 import type { Branding, OkfConfig, Profile, ProfileOverlay } from "./types.ts"
 
-export const CONFIG_FILE_NAMES = ["okf.config.mjs", "okf.config.js"]
+export const CONFIG_FILE_NAMES = ["okf.config.ts", "okf.config.mjs", "okf.config.js"]
 
 type ConfigModule = OkfConfig & { default?: OkfConfig }
 

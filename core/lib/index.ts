@@ -6,6 +6,7 @@ export {
   subgraphId,
   validateFederationConfig,
 } from "./federation.ts"
+export { sourceOf } from "./source.ts"
 export { buildResolver, conceptId } from "./resolver.ts"
 export { validateDocument, validateDocuments, isReserved } from "./rules.ts"
 export { extractSection, parseTopologyEdges, convertWikilinks, WIKILINK_RE } from "./topology.ts"
