@@ -58,6 +58,15 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   en `<html>`, no al sistema. Hay un puñado de clases `okf-*` para lo que las utilidades
   no expresan bien; ninguna capa con `pointer-events: auto` sobre el lienzo, o se traga
   los gestos.
+- El preflight de Tailwind se quita a propósito, y con él el `box-sizing: border-box`:
+  el CSS del explorador lo repone acotado a su capa. Sin eso, `w-full` más padding
+  desborda (la barra medía 396px en una pantalla de 390).
+- Una fila flex decide dónde parte con el tamaño **natural** del contenido, antes de
+  encoger a nadie: por eso la miga larga lleva `flex-1` (base 0) en móvil, o tiraba la
+  ✕ a una segunda fila. Los pins hacen lo contrario a propósito (`flex-[1_0_100%]`).
+- El hover es del ratón: se escucha en `pointermove` y se descarta lo que no sea
+  `pointerType === "mouse"`. Un toque emite un `mousemove` sintético y jamás un
+  `mouseleave`, así que la tarjeta flotante se quedaba clavada en el móvil.
 - El script inline intercepta `popstate` en fase de captura cuando solo cambia la query
   de la misma página: el router SPA de Quartz recarga la página en cualquier `popstate`
   y rompería la navegación por pasos del explorador.
@@ -104,6 +113,20 @@ debería publicarse. El `okf/build-site.sh` del consumidor son 25 líneas de arr
 # leer: [okf] knowledge graph: N typed notes, M edges (K unresolved)
 #       [okf] verified <sitio>: N nodes, M edges
 ```
+
+El HUD tiene además su propia auditoría, que no entra en `npm test` porque necesita un
+sitio servido y Playwright:
+
+```bash
+cd <consumidor> && python3 serve.py 8815 &
+NODE_PATH=~/.cache/singular-solving-okf/pw/node_modules \
+  node harness/audit-site.cjs http://127.0.0.1:8815 /una/nota
+```
+
+Comprueba a 390×844 con dedo (desbordamientos, islas dentro de pantalla, objetivos
+táctiles, que un toque abra la nota y que se pueda volver) y a 1440×900 con teclado
+(el foco entra al abrir y vuelve al cerrar, `⇥` no se escapa detrás del explorador,
+anillo de foco visible, `/`, flechas, `⏎`, `Esc`). Sale 1 con la lista de hallazgos.
 
 La puerta de un cambio en la receta es comparar el árbol `public/` construido con el de
 la receta anterior. Ojo al ruido: dos builds cualesquiera ya difieren en las páginas de
