@@ -38,6 +38,8 @@
 
   #stage { position: relative; width: 100%; height: 100%; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+  @keyframes okf-entra { from { opacity: 0; } to { opacity: 1; } }
+  canvas.entra { animation: okf-entra .42s ease-out; }
   canvas.on-node { cursor: pointer; }
   canvas.dragging { cursor: grabbing; }
 

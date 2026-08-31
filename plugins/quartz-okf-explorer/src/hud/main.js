@@ -136,11 +136,12 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     return nuevos
   }
 
-  // La simulación se calienta en silencio antes del primer dibujo, acotada en tiempo: el
-  // grafo aparece ya colocado y se encuadra de una vez, sin vaivén de cámara después.
-  function precalentar(simulacion, ticks) {
+  // La simulación se calienta en silencio antes del primer dibujo, acotada en tiempo, hasta
+  // que le queda poca energía: el grafo aparece ya colocado y se encuadra de una vez, y
+  // el último asentamiento —suave— ocurre a la vista, para que no llegue congelado.
+  function precalentar(simulacion, { hastaAlpha, maxTicks }) {
     const limite = performance.now() + 160
-    for (let i = 0; i < ticks && performance.now() < limite; i++) simulacion.tick()
+    for (let i = 0; i < maxTicks && simulacion.alpha() > hastaAlpha && performance.now() < limite; i++) simulacion.tick()
   }
 
   function restart(refit = true) {
@@ -164,9 +165,12 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
         ? d3.forceRadial((n) => ringOf(n), W / 2, H / 2).strength((n) => (ringOf(n) == null ? 0 : RING.strength))
         : null)
       .stop()
-    precalentar(sim, nuevos > graph.nodes.length / 2 ? 300 : 40)
+    const desdeCero = nuevos > graph.nodes.length / 2
+    // Con posiciones heredadas la simulación arranca ya templada: ajusta, no reordena.
+    if (!desdeCero) sim.alpha(0.3)
+    precalentar(sim, desdeCero ? { hastaAlpha: 0.12, maxTicks: 300 } : { hastaAlpha: 0.2, maxTicks: 30 })
     // Solo al abrir un grafo: después, cada cambio de modo o de filtro respeta el encuadre del lector.
-    if (refit && firstFit) { firstFit = false; fit(null, null, { instant: true }) }
+    if (refit && firstFit) { firstFit = false; fit(null, null, { enter: true }) }
     sim.on("tick", tick).restart()
     tick()
   }
@@ -942,7 +946,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     return { x0, y0, x1, y1 }
   }
 
-  function fit(nodes, scale, { instant = false } = {}) {
+  function fit(nodes, scale, { instant = false, enter = false } = {}) {
     const set = nodes && nodes.length ? nodes : graph ? graph.nodes : []
     if (!set.length) return
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
@@ -952,14 +956,25 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
     }
     const v = rectVisible()
     const vw = v.x1 - v.x0, vh = v.y1 - v.y0
-    const pad = 40, w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1)
+    // Al entrar el layout aún se abre un poco al asentarse: se le deja sitio.
+    const pad = enter ? 72 : 40, w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1)
     const k = Math.max(0.15, Math.min(scale || 2.4, (vw - pad) / w, (vh - pad) / h))
-    const to = d3.zoomIdentity
-      .translate(v.x0 + vw / 2 - k * (x0 + x1) / 2, v.y0 + vh / 2 - k * (y0 + y1) / 2).scale(k)
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
+    const encuadre = (esc) => d3.zoomIdentity.translate(v.x0 + vw / 2 - esc * cx, v.y0 + vh / 2 - esc * cy).scale(esc)
+    const to = encuadre(k)
     // En una pestaña oculta el navegador no despacha requestAnimationFrame y la transición
     // nunca avanza: ahí se aplica de golpe. La animación es solo para quien está mirando.
     if (instant || document.visibilityState === "hidden" || REDUCED_MOTION) {
       d3.select(canvas).call(zoomBehavior.transform, to)
+      return
+    }
+    if (enter) {
+      // Un solo gesto de entrada: fundido y un zoom leve hasta el encuadre definitivo.
+      canvas.classList.remove("entra")
+      void canvas.offsetWidth
+      canvas.classList.add("entra")
+      d3.select(canvas).call(zoomBehavior.transform, encuadre(k * 0.9))
+      d3.select(canvas).transition().duration(520).ease(d3.easeCubicOut).call(zoomBehavior.transform, to)
       return
     }
     d3.select(canvas).transition().duration(450).call(zoomBehavior.transform, to)
