@@ -104,11 +104,13 @@ export function convertWikilinks(
   let converted = 0
   let unresolved = 0
   // Mask fenced and inline code so wikilink examples inside code (e.g. the
-  // `[[slug]]` syntax shown in documentation) are never rewritten into links.
+  // `[[slug]]` syntax shown in documentation) are never rewritten into links. The
+  // placeholder wraps the index in a private-use character: bare digits would make
+  // every number in the note a code span when the mask is lifted.
   const codeSpans: string[] = []
   const masked = source.replace(/(```[\s\S]*?```|`[^`\n]*`)/g, (span) => {
     codeSpans.push(span)
-    return `${codeSpans.length - 1}`
+    return `\uE000${codeSpans.length - 1}\uE000`
   })
   const replaced = masked.replace(WIKILINK_RE, (_all, targetValue: string, aliasValue?: string) => {
     const target = targetValue.trim()
@@ -121,6 +123,6 @@ export function convertWikilinks(
     converted += 1
     return `[${text}](/${resolved})`
   })
-  const content = replaced.replace(/(\d+)/g, (_m, index: string) => codeSpans[Number(index)])
+  const content = replaced.replace(/\uE000(\d+)\uE000/g, (_m, index: string) => codeSpans[Number(index)])
   return { content, converted, unresolved }
 }

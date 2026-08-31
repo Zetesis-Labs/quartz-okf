@@ -104,3 +104,11 @@ test("la topología termina en el primer encabezado, aunque sea de nivel inferio
   const edges = parseTopologyEdges(source)
   assert.deepEqual(edges.map((e) => e.label), ["Cites"])
 })
+
+test("convertWikilinks keeps digits outside code spans and restores every span in place", () => {
+  const source = "v1.3 of 2026-06-17: `[[not-a-link]]` and `x = 42` then [[a]] and 7 more."
+  const result = convertWikilinks(source, (target) => (target === "a" ? "a" : null))
+  assert.equal(result.content, "v1.3 of 2026-06-17: `[[not-a-link]]` and `x = 42` then [a](/a) and 7 more.")
+  assert.equal(result.converted, 1)
+  assert.equal(result.unresolved, 0)
+})
