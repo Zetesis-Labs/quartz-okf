@@ -9,6 +9,7 @@ import { nextScope, scopesFor, searchAcross } from "../../lib/search.js"
 import { fillOf, sizeOf } from "../../lib/style.js"
 import { fill } from "../../lib/template.js"
 import { buildView } from "../../lib/view.js"
+import { frameFor, visibleRect, wheelStep } from "../../lib/viewport.js"
 
 // Configuración del consumidor, incrustada por el emitter en el mismo script que este
 // código. El motor no conoce ningún dominio; todo el vocabulario visible viene de aquí o
@@ -881,15 +882,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
   canvas.addEventListener("wheel", (e) => e.preventDefault(), { passive: false })
 
   const zoomBehavior = d3.zoom().scaleExtent([0.15, 8])
-    // Firefox entrega la rueda en LÍNEAS (deltaMode 1) y Chrome en píxeles (0). En modo
-    // línea cada evento ES una muesca y vale lo que una muesca en Chrome; el modo píxel
-    // —trackpad— sigue siendo proporcional, que es lo que le da su suavidad.
-    .wheelDelta((e) => {
-      const mult = e.ctrlKey ? 10 : 1
-      if (e.deltaMode === 1) return -Math.sign(e.deltaY) * 0.2 * mult
-      const px = e.deltaMode === 2 ? e.deltaY * (H || 600) : e.deltaY
-      return -Math.max(-120, Math.min(120, px)) * 0.002 * mult
-    })
+    .wheelDelta((e) => wheelStep(e, { height: H || 600 }))
     .filter((e) => e.type === "wheel" || !nodeAt(e.offsetX, e.offsetY))
     .on("zoom", (ev) => {
       transform = ev.transform
@@ -932,36 +925,21 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
 
   // El hueco que las islas no tapan: ahí se encaja el grafo.
   function rectVisible() {
-    const pad = 12
-    let x0 = pad, y0 = pad, x1 = W - pad, y1 = H - pad
-    const s = stackEl.getBoundingClientRect()
-    if (s.width > W * 0.6) y1 = Math.min(y1, s.top - pad); else x0 = Math.max(x0, s.right + pad)
-    const north = northEl.getBoundingClientRect()
-    y0 = Math.max(y0, north.bottom + pad)
-    if (dockOpen()) {
-      const d = dockEl.getBoundingClientRect()
-      if (d.width < W * 0.9) x1 = Math.min(x1, d.left - pad)
-    }
-    if (x1 - x0 < 120 || y1 - y0 < 120) return { x0: pad, y0: pad, x1: W - pad, y1: H - pad }
-    return { x0, y0, x1, y1 }
+    return visibleRect({
+      width: W, height: H,
+      stack: stackEl.getBoundingClientRect(),
+      north: northEl.getBoundingClientRect(),
+      dock: dockOpen() ? dockEl.getBoundingClientRect() : null,
+    })
   }
 
   function fit(nodes, scale, { instant = false, enter = false } = {}) {
     const set = nodes && nodes.length ? nodes : graph ? graph.nodes : []
-    if (!set.length) return
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-    for (const n of set) {
-      x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y)
-      x1 = Math.max(x1, n.x); y1 = Math.max(y1, n.y)
-    }
-    const v = rectVisible()
-    const vw = v.x1 - v.x0, vh = v.y1 - v.y0
     // Al entrar el layout aún se abre un poco al asentarse: se le deja sitio.
-    const pad = enter ? 72 : 40, w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1)
-    const k = Math.max(0.15, Math.min(scale || 2.4, (vw - pad) / w, (vh - pad) / h))
-    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
-    const encuadre = (esc) => d3.zoomIdentity.translate(v.x0 + vw / 2 - esc * cx, v.y0 + vh / 2 - esc * cy).scale(esc)
-    const to = encuadre(k)
+    const f = frameFor(set, rectVisible(), { pad: enter ? 72 : 40, maxScale: scale || 2.4 })
+    if (!f) return
+    const encuadre = (esc) => d3.zoomIdentity.translate(f.vx - esc * f.cx, f.vy - esc * f.cy).scale(esc)
+    const to = encuadre(f.k)
     // En una pestaña oculta el navegador no despacha requestAnimationFrame y la transición
     // nunca avanza: ahí se aplica de golpe. La animación es solo para quien está mirando.
     if (instant || document.visibilityState === "hidden" || REDUCED_MOTION) {
@@ -973,7 +951,7 @@ cargarGrafo(GRAFO_BASE).then((inicial) => {
       canvas.classList.remove("entra")
       void canvas.offsetWidth
       canvas.classList.add("entra")
-      d3.select(canvas).call(zoomBehavior.transform, encuadre(k * 0.9))
+      d3.select(canvas).call(zoomBehavior.transform, encuadre(f.k * 0.9))
       d3.select(canvas).transition().duration(520).ease(d3.easeCubicOut).call(zoomBehavior.transform, to)
       return
     }
