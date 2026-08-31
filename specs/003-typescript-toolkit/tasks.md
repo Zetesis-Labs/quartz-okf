@@ -87,7 +87,7 @@ the existing suite, which stays green after every task.
 - [X] T025 README.md, CLAUDE.md (floor, "TypeScript runs directly", the symlink, no
       committed dist, where the types live), `plugins/quartz-okf/README.md` (`path`
       source, `okf.config.ts`), docs/METHODOLOGY.md (typecheck gate).
-- [ ] T026 Consumer walk per quickstart.md: single-repository CERN layout (path source),
+- [X] T026 Consumer walk per quickstart.md: single-repository CERN layout (path source),
       `cern-it-governance-graph` unchanged (git source), diff of `okf-graph.json`.
-- [ ] T027 Commits per scope (`chore`, `feat(core)`, `refactor(core)`, `feat(quartz-okf)`,
+- [X] T027 Commits per scope (`chore`, `feat(core)`, `refactor(core)`, `feat(quartz-okf)`,
       `docs(003)`), branch rebased on `main`.
