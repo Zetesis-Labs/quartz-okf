@@ -272,6 +272,18 @@ export interface ExplorerOptions {
   /** Where the back link returns to, and what that place is called. */
   backTo?: { href?: string; label?: string }
   modes?: ExplorerMode[]
+  /** Wording catalogue (`es`, `en`). Defaults to the site's Quartz locale. */
+  locale?: string
+  /** Per-key overrides of the engine wording. */
+  wording?: Record<string, string>
+  hud?: ExplorerHud
+}
+
+export interface ExplorerHud {
+  /** `flat` (default) or `glass` — blurred surfaces, always flat under `prefers-reduced-transparency`. */
+  surfaces?: "flat" | "glass"
+  /** CSS custom properties applied on `:root` (`--accent`, `--hud-bg`, `--hud-radius`, …). */
+  tokens?: Record<string, string>
 }
 
 // ---- federation: a site composes corpora -------------------------------------------------------
