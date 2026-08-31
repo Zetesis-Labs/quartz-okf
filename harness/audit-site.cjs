@@ -78,8 +78,12 @@ const overlap = (a, b) => a && b && a.x < b.right && b.x < a.right && a.y < b.bo
     await page.goto(`${BASE}/?explorer${FOCUS ? `&focus=${FOCUS}` : ""}`, { waitUntil: "networkidle" })
     await page.waitForSelector(".okf-explorer-stage canvas.okf-canvas")
     await page.waitForTimeout(2500)
+    // El nodo enfocado no queda en el centro geométrico: `fit` lo centra en el hueco libre
+    // que dejan la cápsula de búsqueda y la pila de controles.
     const c = await box(page, "canvas.okf-canvas")
-    await page.touchscreen.tap(Math.round(c.w / 2), Math.round(c.h / 2))
+    const topEdge = (await box(page, "#omnibar"))?.bottom ?? 0
+    const bottomEdge = (await box(page, "aside.okf-layer"))?.y ?? c.h
+    await page.touchscreen.tap(Math.round(c.w / 2), Math.round((topEdge + bottomEdge) / 2))
     await page.waitForTimeout(1500)
     const dock = await box(page, "#dock")
     if (!dock) add("móvil", "tap-nodo", "un toque sobre el nodo enfocado no abrió el dock")
