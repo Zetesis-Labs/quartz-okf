@@ -159,7 +159,7 @@ async function stamp(content: string): Promise<void> {
       if (!top) continue
       let dates = byToplevel.get(top)
       if (!dates) {
-        dates = parseGitDates(git(top, ["log", "--format=%at", "--name-status", "-M", "--no-merges"]) ?? "")
+        dates = parseGitDates(git(top, ["-c", "core.quotePath=false", "log", "--format=%at", "--name-status", "-M", "--no-merges"]) ?? "")
         byToplevel.set(top, dates)
       }
       stampedAt = dates.get(path.relative(top, source).replaceAll(path.sep, "/"))

@@ -43,6 +43,14 @@ test("a chain of moves walks back to the last time the note was actually written
   assert.equal(dates.get("c.md"), 1700000100)
 })
 
+// macOS guarda los nombres descompuestos y git los entrega compuestos: sin normalizar,
+// 64 de las 339 notas de una wiki en castellano se quedaban sin fecha, en silencio.
+test("accented names match however the filesystem spells them", () => {
+  const dates = parseGitDates(["1700000100", "", "M\tlibros/La-construcci\u00f3n.md", ""].join("\n"))
+  assert.equal(dates.get("libros/La-construcci\u00f3n.md"), 1700000100, "compuesto")
+  assert.equal(dates.get("libros/La-construccio\u0301n.md"), 1700000100, "descompuesto")
+})
+
 test("an empty log is an empty map, not a crash", () => {
   assert.equal(parseGitDates("").size, 0)
   assert.equal(parseGitDates("\n\n").size, 0)

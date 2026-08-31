@@ -21,12 +21,29 @@ export interface SourceLookup {
 }
 
 /**
+ * A path is the same path however the filesystem spells its accents: macOS decomposes them
+ * and git hands them composed. Without this, a corpus in Spanish loses the dates of every
+ * note with an accent in its name, and says nothing.
+ */
+class NormalisedDates extends Map<string, number> {
+  override get(key: string): number | undefined {
+    return super.get(key.normalize("NFC"))
+  }
+  override set(key: string, value: number): this {
+    return super.set(key.normalize("NFC"), value)
+  }
+  override has(key: string): boolean {
+    return super.has(key.normalize("NFC"))
+  }
+}
+
+/**
  * `git log --format=%at --name-status -M`: a timestamp, a blank line, then a status and a
  * path per file. A rename with no edit (`R100`) is not a change to the note — it carries
  * the date across, so moving a corpus does not re-date every note in it.
  */
 export function parseGitDates(output: string): Map<string, number> {
-  const dates = new Map<string, number>()
+  const dates = new NormalisedDates()
   const movedFrom = new Map<string, string>()
   let timestamp: number | null = null
   for (const line of output.split("\n")) {
