@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { convertWikilinks, parseTopologyEdges } from "../lib/topology.js"
+import { convertWikilinks, parseTopologyEdges } from "../lib/topology.ts"
 
 test("parses multiple typed edge segments from one prose bullet", () => {
   const source = `# Topology

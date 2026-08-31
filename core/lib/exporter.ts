@@ -1,8 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
-import { PROFILE } from "../profile.js"
-import { buildGraph, buildResolver, convertWikilinks } from "./index.js"
-import { emptyDirectory, loadDocuments, walk } from "./files.js"
+import { emptyDirectory, loadDocuments, walk } from "./files.ts"
+import { parseFrontmatter, withFrontmatter } from "./frontmatter.ts"
 import {
   gitFilesChangedSince,
   gitHead,
@@ -12,20 +11,25 @@ import {
   gitStatusPaths,
   gitTimestamp,
   gitTrackedFiles,
-} from "./git.js"
-import { parseFrontmatter, stringifyFrontmatter, withFrontmatter } from "./frontmatter.js"
+  type GitLogEntry,
+} from "./git.ts"
+import { buildGraph } from "./graph.ts"
+import { PROFILE } from "./reference-profile.ts"
+import { buildResolver } from "./resolver.ts"
+import { convertWikilinks } from "./topology.ts"
+import type { Branding, GraphStats, OkfGraph, Profile, ValidatedDocument } from "./types.ts"
 
 const ASSET_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"])
 
 // Generic defaults: the machinery must not mention any specific consumer.
 // A consumer overrides these through options.branding.
-const DEFAULT_BRANDING = Object.freeze({
+const DEFAULT_BRANDING: Branding = Object.freeze({
   site: undefined,
   bundleTitle: "Knowledge bundle",
   indexTitle: "Knowledge bundle",
 })
 
-function titleFromPath(filePath) {
+function titleFromPath(filePath: string): string {
   return path
     .posix.basename(filePath, ".md")
     .replaceAll("-", " ")
@@ -33,15 +37,19 @@ function titleFromPath(filePath) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
-async function readState(repo) {
+interface MaintenanceState {
+  last_maintained_head?: string | null
+}
+
+async function readState(repo: string): Promise<MaintenanceState> {
   try {
-    return JSON.parse(await fs.readFile(path.join(repo, "okf/state.json"), "utf8"))
+    return JSON.parse(await fs.readFile(path.join(repo, "okf/state.json"), "utf8")) as MaintenanceState
   } catch {
     return {}
   }
 }
 
-async function copyAssets(repo, output) {
+async function copyAssets(repo: string, output: string): Promise<void> {
   for (const asset of await walk(repo, { extensions: ASSET_EXTENSIONS })) {
     const destination = path.join(output, asset.relative)
     await fs.mkdir(path.dirname(destination), { recursive: true })
@@ -49,24 +57,14 @@ async function copyAssets(repo, output) {
   }
 }
 
-function groupByDirectory(files) {
-  const groups = new Map()
-  for (const file of files) {
-    const directory = path.posix.dirname(file)
-    if (!groups.has(directory)) groups.set(directory, [])
-    groups.get(directory).push(file)
-  }
-  return groups
-}
-
 function makeIndex(
-  directory,
-  concepts,
-  directories,
+  directory: string,
+  concepts: ValidatedDocument[],
+  directories: string[],
   root = false,
-  branding = DEFAULT_BRANDING,
-  profile = PROFILE,
-) {
+  branding: Branding = DEFAULT_BRANDING,
+  profile: Profile = PROFILE,
+): string {
   const title = root ? branding.indexTitle : titleFromPath(directory)
   const lines = [`# ${title}`, ""]
   if (directories.length) {
@@ -91,9 +89,9 @@ function makeIndex(
   return `---\nokf_version: "${profile.okfVersion}"\nokf_profile: "${profile.id}"\n---\n\n${body}`
 }
 
-function makeLog(entries) {
+function makeLog(entries: GitLogEntry[]): string {
   const lines = ["# Bundle Update Log", ""]
-  let currentDate = null
+  let currentDate: string | null = null
   for (const entry of entries) {
     if (entry.date !== currentDate) {
       currentDate = entry.date
@@ -105,25 +103,30 @@ function makeLog(entries) {
   return `${lines.join("\n").trim()}\n`
 }
 
-function makeLlms(documents, graph, branding = DEFAULT_BRANDING) {
+function typedDocuments(documents: ValidatedDocument[]): ValidatedDocument[] {
+  return documents
+    .filter((document) => !document.reserved && document.frontmatter?.type)
+    .sort((left, right) => left.id.localeCompare(right.id))
+}
+
+function makeLlms(documents: ValidatedDocument[], graph: OkfGraph, branding: Branding = DEFAULT_BRANDING): string {
   const lines = [
     `# ${branding.bundleTitle}`,
     "",
     `> OKF ${graph.okf_version}; profile ${graph.okf_profile}; ${graph.stats.notes} typed concepts and ${graph.stats.edges} typed topology edges.`,
     "",
   ]
-  const typed = documents
-    .filter((document) => !document.reserved && document.frontmatter?.type)
-    .sort((left, right) => left.id.localeCompare(right.id))
-  const entry = (document) => {
-    const title = document.frontmatter.title ?? titleFromPath(document.path)
-    const description = document.frontmatter.description
-    return `- [${title}](/${document.path}): type=${document.frontmatter.type}${description ? ` — ${description}` : ""}`
+  const typed = typedDocuments(documents)
+  const entry = (document: ValidatedDocument): string => {
+    const frontmatter = document.frontmatter ?? {}
+    const title = frontmatter.title ?? titleFromPath(document.path)
+    const description = frontmatter.description
+    return `- [${title}](/${document.path}): type=${frontmatter.type}${description ? ` — ${description}` : ""}`
   }
-  for (const document of typed.filter((item) => !item.frontmatter.okf_generated_frontmatter)) {
+  for (const document of typed.filter((item) => !item.frontmatter?.okf_generated_frontmatter)) {
     lines.push(entry(document))
   }
-  const imported = typed.filter((item) => item.frontmatter.okf_generated_frontmatter)
+  const imported = typed.filter((item) => item.frontmatter?.okf_generated_frontmatter)
   if (imported.length) {
     lines.push("", "## Imported documentation", "")
     lines.push(
@@ -135,40 +138,70 @@ function makeLlms(documents, graph, branding = DEFAULT_BRANDING) {
   return `${lines.join("\n")}\n`
 }
 
-function makeLlmsFull(documents, graph, branding = DEFAULT_BRANDING) {
+function makeLlmsFull(documents: ValidatedDocument[], graph: OkfGraph, branding: Branding = DEFAULT_BRANDING): string {
   const lines = [
     `# ${branding.bundleTitle} — full corpus`,
     "",
     `> OKF ${graph.okf_version}; profile ${graph.okf_profile}; ${graph.stats.notes} typed concepts inline. Generated for LLM ingestion; the authoritative source is the repository.`,
     "",
   ]
-  const typed = documents
-    .filter((document) => !document.reserved && document.frontmatter?.type)
-    .sort((left, right) => left.id.localeCompare(right.id))
-  for (const document of typed) {
-    const title = document.frontmatter.title ?? titleFromPath(document.path)
+  for (const document of typedDocuments(documents)) {
+    const frontmatter = document.frontmatter ?? {}
+    const title = frontmatter.title ?? titleFromPath(document.path)
     lines.push(`# ${title}`, "")
-    lines.push(`> path: ${document.path} · type: ${document.frontmatter.type}`, "")
+    lines.push(`> path: ${document.path} · type: ${frontmatter.type}`, "")
     lines.push(document.body.trim(), "")
     lines.push("---", "")
   }
   return `${lines.join("\n")}\n`
 }
 
-export async function exportBundle(repoPath, outputPath, options = {}) {
+export interface ExportOptions {
+  trackedOnly?: boolean
+  branding?: Branding
+  profile?: Profile
+  site?: string
+}
+
+export interface ExportManifest {
+  okf_version: string
+  okf_profile: string
+  schema: string
+  source_head: string
+  last_export_head: string
+  last_maintained_head: string | null
+  dirty: boolean
+  stale: boolean
+  changes_since_maintenance: string[]
+  dirty_paths: string[]
+  untracked_in_bundle: string[]
+  generated_at: string
+  stats: GraphStats
+}
+
+export interface ExportResult {
+  output: string
+  graph: OkfGraph
+  manifest: ExportManifest
+  documents: ValidatedDocument[]
+  converted: number
+  unresolvedLinks: number
+}
+
+export async function exportBundle(repoPath: string, outputPath: string, options: ExportOptions = {}): Promise<ExportResult> {
   const repo = path.resolve(repoPath)
   const output = path.resolve(outputPath)
   if (output === repo || repo.startsWith(`${output}${path.sep}`)) {
     throw new Error("output must not contain the repository")
   }
-  const branding = { ...DEFAULT_BRANDING, ...(options.branding ?? {}) }
+  const branding: Branding = { ...DEFAULT_BRANDING, ...(options.branding ?? {}) }
   const profile = options.profile ?? PROFILE
   await emptyDirectory(output)
   const state = await readState(repo)
   const sourceHead = gitHead(repo)
   const dirty = gitIsDirty(repo)
   const lastMaintainedHead = state.last_maintained_head ?? null
-  const documentationOnly = (filePath) =>
+  const documentationOnly = (filePath: string): boolean =>
     filePath.endsWith(".md") ||
     filePath.startsWith("okf/") ||
     filePath.startsWith(".github/") ||
@@ -181,9 +214,9 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
     changesSinceMaintenance.some((filePath) => !documentationOnly(filePath)) ||
     dirtyPaths.some((filePath) => !documentationOnly(filePath))
   const tracked = sourceHead === "unknown" ? null : gitTrackedFiles(repo)
-  const untrackedInBundle = []
+  const untrackedInBundle: string[] = []
   const sourceFiles = await walk(repo, { extensions: new Set([".md"]) })
-  const exportedPaths = []
+  const exportedPaths: string[] = []
 
   for (const file of sourceFiles) {
     if (file.relative === "README.md") continue
@@ -228,7 +261,6 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
   }
 
   documents = await loadDocuments(output, { profile })
-  const byDirectory = groupByDirectory(exportedPaths)
   const allDirectories = new Set(["."])
   for (const file of exportedPaths) {
     let directory = path.posix.dirname(file)
@@ -266,7 +298,7 @@ export async function exportBundle(repoPath, outputPath, options = {}) {
     stale,
     site: options.site ?? branding.site,
   })
-  const manifest = {
+  const manifest: ExportManifest = {
     okf_version: profile.okfVersion,
     okf_profile: profile.id,
     schema: profile.graphSchema,

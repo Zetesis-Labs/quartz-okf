@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { buildGraph, deriveInverseEdges } from "../lib/graph.js"
-import { PROFILE } from "../profile.js"
+import { buildGraph, deriveInverseEdges } from "../lib/graph.ts"
+import { PROFILE } from "../lib/reference-profile.ts"
 
 test("exports typed nodes, typed edges, and unresolved evidence", () => {
   const documents = [

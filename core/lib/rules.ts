@@ -1,22 +1,30 @@
 import path from "node:path"
-import { DEFAULT_RULE_LEVELS, PROFILE } from "../profile.js"
-import { parseTopologyEdges } from "./topology.js"
-import { buildResolver } from "./resolver.js"
+import { DEFAULT_RULE_LEVELS, PROFILE } from "./reference-profile.ts"
+import { buildResolver } from "./resolver.ts"
+import { parseTopologyEdges } from "./topology.ts"
+import type { Document, Frontmatter, Profile, RuleLevel, TopologyEdge, ValidatedDocument, Violation } from "./types.ts"
 
-function violation(rule, message, configuredLevels, detail = {}) {
+type Levels = Record<string, RuleLevel>
+
+function violation(rule: string, message: string, configuredLevels: Levels, detail: { edge?: TopologyEdge } = {}): Violation | null {
   const level = configuredLevels[rule] ?? DEFAULT_RULE_LEVELS[rule] ?? "off"
   if (level === "off") return null
   return { level, rule, message, ...detail }
 }
 
-function missing(value) {
+function missing(value: unknown): boolean {
   return value === undefined || value === null || (typeof value === "string" && value.trim() === "")
 }
 
-function validatePropertyGroups(frontmatter, profile, levels, add) {
+function validatePropertyGroups(
+  frontmatter: Frontmatter,
+  profile: Profile,
+  levels: Levels,
+  add: (entry: Violation | null) => void,
+): void {
   for (const group of profile.propertyGroups ?? []) {
-    if (!(group.appliesTo ?? []).includes(frontmatter.type)) continue
-    const problems = []
+    if (!(group.appliesTo ?? []).includes(frontmatter.type ?? "")) continue
+    const problems: string[] = []
     for (const field of group.fields ?? []) {
       const value = frontmatter[field.source]
       if (missing(value)) {
@@ -43,16 +51,28 @@ function validatePropertyGroups(frontmatter, profile, levels, add) {
   }
 }
 
-export function isReserved(filePath) {
+export function isReserved(filePath: string): boolean {
   const name = path.posix.basename(String(filePath).replaceAll("\\", "/"))
   return name === "index.md" || name === "log.md"
 }
 
-export function validateDocument(document, options = {}) {
+export interface ValidateOptions {
+  profile?: Profile
+  ruleLevels?: Levels
+}
+
+function aliasesOf(frontmatter: Frontmatter): string[] {
+  if (Array.isArray(frontmatter.aliases)) return frontmatter.aliases.map(String)
+  return frontmatter.aliases ? [String(frontmatter.aliases)] : []
+}
+
+export function validateDocument(document: Document, options: ValidateOptions = {}): ValidatedDocument {
   const profile = options.profile ?? PROFILE
-  const levels = { ...profile.ruleLevels, ...(options.ruleLevels ?? {}) }
-  const violations = []
-  const add = (entry) => entry && violations.push(entry)
+  const levels: Levels = { ...profile.ruleLevels, ...(options.ruleLevels ?? {}) }
+  const violations: Violation[] = []
+  const add = (entry: Violation | null): void => {
+    if (entry) violations.push(entry)
+  }
   const relativePath = String(document.path).replaceAll("\\", "/")
   const basename = path.posix.basename(relativePath, ".md")
   const directory = path.posix.basename(path.posix.dirname(relativePath))
@@ -102,7 +122,7 @@ export function validateDocument(document, options = {}) {
     return { ...document, reserved, edges: [], violations }
   }
 
-  const frontmatter = document.frontmatter ?? {}
+  const frontmatter: Frontmatter = document.frontmatter ?? {}
   if (typeof frontmatter.type !== "string" || frontmatter.type.trim() === "") {
     add(violation("core/type-required", "concept must have a non-empty type", levels))
   } else if (!profile.types.includes(frontmatter.type)) {
@@ -115,12 +135,7 @@ export function validateDocument(document, options = {}) {
     )
   }
   if (basename === directory && directory) {
-    const aliases = Array.isArray(frontmatter.aliases)
-      ? frontmatter.aliases.map(String)
-      : frontmatter.aliases
-        ? [String(frontmatter.aliases)]
-        : []
-    if (!aliases.includes(basename)) {
+    if (!aliasesOf(frontmatter).includes(basename)) {
       add(
         violation(
           "profile/folder-note-alias",
@@ -166,14 +181,15 @@ export function validateDocument(document, options = {}) {
   return { ...document, reserved, edges, violations }
 }
 
-export function validateDocuments(documents, options = {}) {
+function levelOf(rule: string, levels: Levels): RuleLevel {
+  return levels[rule] ?? DEFAULT_RULE_LEVELS[rule] ?? "off"
+}
+
+export function validateDocuments(documents: Document[], options: ValidateOptions = {}): ValidatedDocument[] {
   const profile = options.profile ?? PROFILE
-  const levels = { ...profile.ruleLevels, ...(options.ruleLevels ?? {}) }
+  const levels: Levels = { ...profile.ruleLevels, ...(options.ruleLevels ?? {}) }
   const validated = documents.map((document) => validateDocument(document, options))
-  const unresolvedLevel =
-    levels["hygiene/unresolved-edge"] ??
-    DEFAULT_RULE_LEVELS["hygiene/unresolved-edge"] ??
-    "off"
+  const unresolvedLevel = levelOf("hygiene/unresolved-edge", levels)
   if (unresolvedLevel !== "off") {
     const resolve = buildResolver(validated)
     for (const document of validated) {
@@ -189,13 +205,10 @@ export function validateDocuments(documents, options = {}) {
       }
     }
   }
-  const knowledgeLevel =
-    levels["hygiene/knowledge-edges-recommended"] ??
-    DEFAULT_RULE_LEVELS["hygiene/knowledge-edges-recommended"] ??
-    "off"
+  const knowledgeLevel = levelOf("hygiene/knowledge-edges-recommended", levels)
   if (knowledgeLevel !== "off") {
     const resolve = buildResolver(validated)
-    const linked = new Set()
+    const linked = new Set<string>()
     for (const document of validated) {
       for (const edge of document.edges ?? []) {
         const target = resolve(edge.target)
@@ -221,14 +234,11 @@ export function validateDocuments(documents, options = {}) {
       }
     }
   }
-  const redundantLevel =
-    levels["hygiene/redundant-inverse"] ??
-    DEFAULT_RULE_LEVELS["hygiene/redundant-inverse"] ??
-    "off"
+  const redundantLevel = levelOf("hygiene/redundant-inverse", levels)
   const inverseLabels = profile.inverseLabels ?? {}
   if (redundantLevel !== "off" && Object.keys(inverseLabels).length > 0) {
     const resolve = buildResolver(validated)
-    const declared = new Set()
+    const declared = new Set<string>()
     for (const document of validated) {
       for (const edge of document.edges ?? []) {
         const target = resolve(edge.target)

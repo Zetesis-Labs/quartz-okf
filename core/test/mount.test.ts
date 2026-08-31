@@ -10,7 +10,7 @@ import {
   mountSubgraphs,
   mountedNote,
   rewriteBundleLinks,
-} from "../lib/mount.js"
+} from "../lib/mount.ts"
 
 const ID = "it-governance"
 

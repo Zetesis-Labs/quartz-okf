@@ -1,10 +1,12 @@
+import type { TopologyEdge } from "./types.ts"
+
 export const WIKILINK_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g
 
 // Lines inside fenced code are documentation examples, not structure: a
 // fenced `# Topology` must neither open a section nor contribute edges.
-function fencedLineMask(lines) {
-  const mask = new Array(lines.length).fill(false)
-  let fence = null
+function fencedLineMask(lines: string[]): boolean[] {
+  const mask: boolean[] = new Array(lines.length).fill(false)
+  let fence: string | null = null
   for (let index = 0; index < lines.length; index += 1) {
     const marker = lines[index].match(/^\s{0,3}(`{3,}|~{3,})/)
     if (fence) {
@@ -18,7 +20,7 @@ function fencedLineMask(lines) {
   return mask
 }
 
-export function extractSection(source, heading, stopAtAnyHeading = false) {
+export function extractSection(source: string, heading: string, stopAtAnyHeading = false): string[] {
   const lines = source.replaceAll("\r\n", "\n").split("\n")
   const fenced = fencedLineMask(lines)
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -35,7 +37,7 @@ export function extractSection(source, heading, stopAtAnyHeading = false) {
     }
   }
   if (start < 0) return []
-  const section = []
+  const section: string[] = []
   for (let index = start; index < lines.length; index += 1) {
     if (fenced[index]) continue
     const nextHeading = lines[index].match(/^(#{1,6})\s+/)
@@ -54,14 +56,14 @@ export function extractSection(source, heading, stopAtAnyHeading = false) {
 // wikilinks; parsing both keeps topology hygiene meaningful on the bundle.
 const MARKDOWN_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)\)/g
 
-function markdownLinkTarget(url) {
+function markdownLinkTarget(url: string): string | undefined {
   if (!url.startsWith("/") || url.startsWith("//")) return undefined
   const target = url.slice(1).split("#")[0].replace(/\.md$/i, "")
   return target || undefined
 }
 
-export function parseTopologyEdges(source, heading = "Topology") {
-  const edges = []
+export function parseTopologyEdges(source: string, heading = "Topology"): TopologyEdge[] {
+  const edges: TopologyEdge[] = []
   for (const line of extractSection(source, heading, true)) {
     if (!/^\s*[*-]\s+/.test(line)) continue
     const matches = [...line.matchAll(/\*\*([^*]+?)\*\*\s*:/g)]
@@ -89,17 +91,26 @@ export function parseTopologyEdges(source, heading = "Topology") {
   return edges
 }
 
-export function convertWikilinks(source, resolve) {
+export interface WikilinkConversion {
+  content: string
+  converted: number
+  unresolved: number
+}
+
+export function convertWikilinks(
+  source: string,
+  resolve: (target: string) => string | null | undefined,
+): WikilinkConversion {
   let converted = 0
   let unresolved = 0
   // Mask fenced and inline code so wikilink examples inside code (e.g. the
   // `[[slug]]` syntax shown in documentation) are never rewritten into links.
-  const codeSpans = []
+  const codeSpans: string[] = []
   const masked = source.replace(/(```[\s\S]*?```|`[^`\n]*`)/g, (span) => {
     codeSpans.push(span)
-    return `${codeSpans.length - 1}`
+    return `${codeSpans.length - 1}`
   })
-  const replaced = masked.replace(WIKILINK_RE, (_all, targetValue, aliasValue) => {
+  const replaced = masked.replace(WIKILINK_RE, (_all, targetValue: string, aliasValue?: string) => {
     const target = targetValue.trim()
     const text = (aliasValue ?? targetValue).trim()
     const resolved = resolve(target)
@@ -110,6 +121,6 @@ export function convertWikilinks(source, resolve) {
     converted += 1
     return `[${text}](/${resolved})`
   })
-  const content = replaced.replace(/(\d+)/g, (_m, index) => codeSpans[Number(index)])
+  const content = replaced.replace(/(\d+)/g, (_m, index: string) => codeSpans[Number(index)])
   return { content, converted, unresolved }
 }

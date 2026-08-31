@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { finalizeSite } from "../finalize-site.js"
+import { finalizeSite } from "../finalize-site.ts"
 
 test("injects a markdown alternate link when a raw counterpart exists", async () => {
   const publicDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "okf-site-test-"))

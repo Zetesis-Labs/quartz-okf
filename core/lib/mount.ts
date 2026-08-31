@@ -2,41 +2,41 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
-import { pathToFileURL } from "node:url"
-import { loadConsumerConfig } from "./consumer-config.js"
-import { exportBundle } from "./exporter.js"
-import { isRemoteRepo, subgraphId, validateFederationConfig } from "./federation.js"
-import { walk } from "./files.js"
-import { gitHead } from "./git.js"
+import { loadConsumerConfig, readModuleConfig } from "./consumer-config.ts"
+import { exportBundle } from "./exporter.ts"
+import { isRemoteRepo, subgraphId, validateFederationConfig } from "./federation.ts"
+import { walk } from "./files.ts"
+import { gitHead } from "./git.ts"
+import type { Branding, Display, ExplorerOptions, Federation, GraphStats, MountRecord, Problem, SubgraphEntry } from "./types.ts"
 
 const ASSET_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"])
 // The part of a child's explorer configuration that travels with its graph: what the
 // nodes look like and which questions the child asks of itself. Layout stays with the
 // site that draws it.
-const DISPLAY_KEYS = ["typeColors", "typeLabels", "edgeColors", "typeOrder", "knowledgeTypes", "radius", "tooltip", "modes"]
+const DISPLAY_KEYS = ["typeColors", "typeLabels", "edgeColors", "typeOrder", "knowledgeTypes", "radius", "tooltip", "modes"] as const
 
-function compact(object) {
-  return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined))
+function compact<T extends object>(object: T): T {
+  return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined)) as T
 }
 
 // Bundle links are absolute from the bundle root and spelled as files
 // (`/identity/gms.md`); mounted under an id they become site URLs inside the mount.
 // Site assets and protocol-relative URLs are not bundle links.
-export function rewriteBundleLinks(source, id) {
-  return source.replace(/\]\(\/(?!\/|static\/)([^)\s]*)\)/g, (match, target) => {
+export function rewriteBundleLinks(source: string, id: string): string {
+  return source.replace(/\]\(\/(?!\/|static\/)([^)\s]*)\)/g, (match, target: string) => {
     if (target === id || target.startsWith(`${id}/`)) return match
     return `](/${id}/${target.replace(/\.md$/i, "")})`
   })
 }
 
-export function mountedNote(source, id) {
+export function mountedNote(source: string, id: string): string {
   const rewritten = rewriteBundleLinks(source, id)
   const marker = `okf_federated: ${id}\n`
   if (/^---\r?\n/.test(rewritten)) return rewritten.replace(/^---\r?\n/, `---\n${marker}`)
   return `---\n${marker}---\n\n${rewritten}`
 }
 
-export function mountIndex(id, branding = {}, stats = {}) {
+export function mountIndex(id: string, branding: Branding = {}, stats: Partial<GraphStats> = {}): string {
   const title = branding.indexTitle ?? branding.bundleTitle ?? id
   const name = branding.bundleTitle ?? title
   const notes = stats.notes ?? 0
@@ -53,11 +53,11 @@ export function mountIndex(id, branding = {}, stats = {}) {
   ].join("\n")
 }
 
-export function childCacheDir(cacheRoot, id, ref) {
+export function childCacheDir(cacheRoot: string, id: string, ref: string): string {
   return path.join(cacheRoot, `${id}-${ref}`)
 }
 
-function git(cwd, args) {
+function git(cwd: string, args: string[]): string {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" })
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || "").trim() || `git ${args.join(" ")} failed`)
@@ -65,11 +65,11 @@ function git(cwd, args) {
   return result.stdout.trim()
 }
 
-function remoteHeadOf(repo) {
+function remoteHeadOf(repo: string): string | undefined {
   return git(process.cwd(), ["ls-remote", repo, "HEAD"]).split(/\s+/)[0] || undefined
 }
 
-async function exists(target) {
+async function exists(target: string): Promise<boolean> {
   try {
     await fs.access(target)
     return true
@@ -78,43 +78,46 @@ async function exists(target) {
   }
 }
 
-async function obtainChild(entry, { parentRoot, cacheRoot }) {
-  if (!isRemoteRepo(entry.repo)) {
-    const root = path.resolve(parentRoot, entry.repo)
+interface ObtainedChild {
+  root: string
+  head: string
+  remoteHead: string | undefined
+}
+
+async function obtainChild(entry: SubgraphEntry, { parentRoot, cacheRoot }: { parentRoot: string; cacheRoot: string }): Promise<ObtainedChild> {
+  const repo = entry.repo ?? ""
+  if (!isRemoteRepo(repo)) {
+    const root = path.resolve(parentRoot, repo)
     if (!(await exists(root))) throw new Error(`repository path does not exist: ${root}`)
     return { root, head: gitHead(root), remoteHead: undefined }
   }
-  const root = childCacheDir(cacheRoot, subgraphId(entry), entry.ref)
+  const ref = entry.ref ?? ""
+  const root = childCacheDir(cacheRoot, subgraphId(entry), ref)
   if (!(await exists(path.join(root, ".git")))) {
     await fs.rm(root, { recursive: true, force: true })
     await fs.mkdir(path.dirname(root), { recursive: true })
-    git(process.cwd(), ["clone", "--quiet", "--no-checkout", entry.repo, root])
-    git(root, ["checkout", "--quiet", entry.ref])
+    git(process.cwd(), ["clone", "--quiet", "--no-checkout", repo, root])
+    git(root, ["checkout", "--quiet", ref])
   }
-  return { root, head: gitHead(root), remoteHead: remoteHeadOf(entry.repo) }
+  return { root, head: gitHead(root), remoteHead: remoteHeadOf(repo) }
 }
 
-async function consumerModule(root) {
-  for (const name of ["okf.config.mjs", "okf.config.js"]) {
-    const configPath = path.join(root, name)
-    if (await exists(configPath)) return import(pathToFileURL(configPath).href)
-  }
-  return null
-}
-
-async function displayOf(root) {
-  const module = await consumerModule(root)
-  const explorer = module?.explorer ?? module?.default?.explorer
+async function displayOf(root: string): Promise<Display | undefined> {
+  const explorer: ExplorerOptions | undefined = (await readModuleConfig(root))?.explorer
   if (!explorer) return undefined
-  return compact(Object.fromEntries(DISPLAY_KEYS.map((key) => [key, explorer[key]])))
+  const display: Display = {}
+  for (const key of DISPLAY_KEYS) {
+    const value = explorer[key]
+    if (value !== undefined) Object.assign(display, { [key]: value })
+  }
+  return display
 }
 
-async function federationOf(root) {
-  const module = await consumerModule(root)
-  return module?.federation ?? module?.default?.federation
+async function federationOf(root: string): Promise<Federation | undefined> {
+  return (await readModuleConfig(root))?.federation
 }
 
-async function localSlugsOf(contentRoot) {
+async function localSlugsOf(contentRoot: string): Promise<string[]> {
   if (!(await exists(contentRoot))) return []
   const files = await walk(contentRoot, { extensions: new Set([".md"]) })
   return files.map((file) =>
@@ -122,11 +125,19 @@ async function localSlugsOf(contentRoot) {
   )
 }
 
-function failure(items) {
+function failure(items: Problem[]): Error {
   return new Error(`[okf] federation: ${items.map((item) => `[${item.code}] ${item.message}`).join("; ")}`)
 }
 
-async function mountOne(entry, { parentRoot, cacheRoot, contentOut, artifactsOut, log }) {
+interface MountContext {
+  parentRoot: string
+  cacheRoot: string
+  contentOut: string
+  artifactsOut: string
+  log: (line: string) => void
+}
+
+async function mountOne(entry: SubgraphEntry, { parentRoot, cacheRoot, contentOut, artifactsOut, log }: MountContext): Promise<MountRecord> {
   const id = subgraphId(entry)
   const { root, head, remoteHead } = await obtainChild(entry, { parentRoot, cacheRoot })
   const consumer = await loadConsumerConfig(root)
@@ -185,7 +196,19 @@ async function mountOne(entry, { parentRoot, cacheRoot, contentOut, artifactsOut
   }
 }
 
-export async function mountSubgraphs(parentRoot, contentOut, artifactsOut, options = {}) {
+export interface MountOptions {
+  log?: (line: string) => void
+  cacheRoot?: string
+  federation?: Federation
+  content?: string
+}
+
+export async function mountSubgraphs(
+  parentRoot: string,
+  contentOut: string,
+  artifactsOut: string,
+  options: MountOptions = {},
+): Promise<{ mounted: MountRecord[] }> {
   const log = options.log ?? console.log
   const root = path.resolve(parentRoot)
   const cacheRoot = path.resolve(options.cacheRoot ?? path.join(root, ".okf-federation-cache"))
@@ -203,7 +226,7 @@ export async function mountSubgraphs(parentRoot, contentOut, artifactsOut, optio
   if (problems.length) throw failure(problems)
   await fs.rm(artifactsOut, { recursive: true, force: true })
   await fs.mkdir(artifactsOut, { recursive: true })
-  const mounted = []
+  const mounted: MountRecord[] = []
   for (const entry of entries) {
     mounted.push(await mountOne(entry, { parentRoot: root, cacheRoot, contentOut, artifactsOut, log }))
   }

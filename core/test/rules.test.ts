@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { validateDocument, validateDocuments } from "../lib/rules.js"
-import { PROFILE } from "../profile.js"
+import { validateDocument, validateDocuments } from "../lib/rules.ts"
+import { PROFILE } from "../lib/reference-profile.ts"
 
 test("separates core, profile, and hygiene violations", () => {
   const result = validateDocument({

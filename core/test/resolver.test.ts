@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { buildResolver } from "../lib/resolver.js"
+import { buildResolver } from "../lib/resolver.ts"
 
 function note(id, aliases = []) {
   return {

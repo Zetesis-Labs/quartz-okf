@@ -1,6 +1,16 @@
 import path from "node:path"
+import type { Frontmatter } from "./types.ts"
 
-function normalize(value) {
+export interface ResolvableDocument {
+  id?: string
+  path: string
+  reserved?: boolean
+  frontmatter?: Frontmatter | null
+}
+
+export type Resolver = (target: string) => string | null
+
+function normalize(value: string): string {
   return String(value)
     .replaceAll("\\", "/")
     .replace(/^\.?\//, "")
@@ -9,21 +19,27 @@ function normalize(value) {
     .toLowerCase()
 }
 
-function register(map, key, target) {
+function register(map: Map<string, string | null>, key: string, target: string): void {
   const normalized = normalize(key)
   if (!normalized || normalized === "index") return
   if (map.has(normalized) && map.get(normalized) !== target) map.set(normalized, null)
   else if (!map.has(normalized)) map.set(normalized, target)
 }
 
-export function conceptId(filePath) {
+export function conceptId(filePath: string): string {
   return String(filePath).replaceAll("\\", "/").replace(/\.md$/i, "")
 }
 
-export function buildResolver(documents) {
-  const exact = new Map()
-  const aliases = new Map()
-  const short = new Map()
+function aliasesOf(document: ResolvableDocument): string[] {
+  const aliases = document.frontmatter?.aliases
+  if (Array.isArray(aliases)) return aliases.map(String)
+  return aliases ? [String(aliases)] : []
+}
+
+export function buildResolver(documents: ResolvableDocument[]): Resolver {
+  const exact = new Map<string, string | null>()
+  const aliases = new Map<string, string | null>()
+  const short = new Map<string, string | null>()
   for (const document of documents) {
     if (document.reserved) continue
     const id = document.id ?? conceptId(document.path)
@@ -39,13 +55,7 @@ export function buildResolver(documents) {
       register(exact, parent, id)
     }
     register(exact, `${id}/${base}`, id)
-    for (const alias of Array.isArray(document.frontmatter?.aliases)
-      ? document.frontmatter.aliases
-      : document.frontmatter?.aliases
-        ? [document.frontmatter.aliases]
-        : []) {
-      register(aliases, alias, id)
-    }
+    for (const alias of aliasesOf(document)) register(aliases, alias, id)
   }
   return (target) => {
     const normalized = normalize(target)

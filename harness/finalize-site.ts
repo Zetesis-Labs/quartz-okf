@@ -4,8 +4,8 @@ import path from "node:path"
 import process from "node:process"
 import { pathToFileURL } from "node:url"
 
-async function walk(directory) {
-  const results = []
+async function walk(directory: string): Promise<string[]> {
+  const results: string[] = []
   for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
     const absolute = path.join(directory, entry.name)
     if (entry.isDirectory()) results.push(...(await walk(absolute)))
@@ -14,7 +14,7 @@ async function walk(directory) {
   return results
 }
 
-export async function finalizeSite(directory) {
+export async function finalizeSite(directory: string): Promise<number> {
   const publicDirectory = path.resolve(directory)
   const rawDirectory = path.join(publicDirectory, "raw")
   let updated = 0

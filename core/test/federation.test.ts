@@ -6,9 +6,9 @@ import {
   isRemoteRepo,
   subgraphId,
   validateFederationConfig,
-} from "../lib/federation.js"
-import { mergeProfile } from "../lib/profile.js"
-import { PROFILE } from "../profile.js"
+} from "../lib/federation.ts"
+import { mergeProfile } from "../lib/profile.ts"
+import { PROFILE } from "../lib/reference-profile.ts"
 
 const profile = mergeProfile(PROFILE, {
   types: [...PROFILE.types, "unit", "graph", "policy", "source"],

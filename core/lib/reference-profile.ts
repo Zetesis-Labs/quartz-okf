@@ -1,8 +1,10 @@
+import type { Branding, Profile, PropertyGroup, RuleLevel } from "./types.ts"
+
 export const OKF_VERSION = "0.1"
 export const GRAPH_SCHEMA = "okf-graph/v1"
 export const PROFILE_ID = "https://zetesis-labs.github.io/okf/profiles/typed-topology/v1"
 
-export const TYPES = Object.freeze([
+export const TYPES: readonly string[] = Object.freeze([
   "application",
   "service",
   "component",
@@ -19,7 +21,7 @@ export const TYPES = Object.freeze([
   "report",
 ])
 
-export const STRUCTURAL_TYPES = Object.freeze([
+export const STRUCTURAL_TYPES: readonly string[] = Object.freeze([
   "application",
   "service",
   "component",
@@ -33,9 +35,9 @@ export const STRUCTURAL_TYPES = Object.freeze([
 
 // Consumer profiles may replace this with declarative frontmatter constraints
 // and graph projections. The reference profile deliberately remains neutral.
-export const PROPERTY_GROUPS = Object.freeze([])
+export const PROPERTY_GROUPS: readonly PropertyGroup[] = Object.freeze([])
 
-export const EDGE_LABELS = Object.freeze([
+export const EDGE_LABELS: readonly string[] = Object.freeze([
   "Part of",
   "Contains",
   "Runs on",
@@ -56,7 +58,7 @@ export const EDGE_LABELS = Object.freeze([
 // Relations are declared once; the mirrored direction is derived by tooling.
 // Labels absent here (Member of, Depends on, About, ...) have no mirror and
 // surface on the target through inbound-edge views instead.
-export const INVERSE_LABELS = Object.freeze({
+export const INVERSE_LABELS: Readonly<Record<string, string>> = Object.freeze({
   "Part of": "Contains",
   Contains: "Part of",
   "Runs on": "Hosts",
@@ -66,9 +68,9 @@ export const INVERSE_LABELS = Object.freeze({
   "Peers with": "Peers with",
 })
 
-export const KNOWLEDGE_LABELS = Object.freeze(["About", "Affects"])
+export const KNOWLEDGE_LABELS: readonly string[] = Object.freeze(["About", "Affects"])
 
-export const EDGE_IRIS = Object.freeze(
+export const EDGE_IRIS: Readonly<Record<string, string>> = Object.freeze(
   Object.fromEntries(
     EDGE_LABELS.map((label) => [
       label,
@@ -77,7 +79,7 @@ export const EDGE_IRIS = Object.freeze(
   ),
 )
 
-export const DEFAULT_RULE_LEVELS = Object.freeze({
+export const DEFAULT_RULE_LEVELS: Readonly<Record<string, RuleLevel>> = Object.freeze({
   "core/frontmatter-parse": "error",
   "core/type-required": "error",
   "core/index-frontmatter": "error",
@@ -94,7 +96,7 @@ export const DEFAULT_RULE_LEVELS = Object.freeze({
   "hygiene/knowledge-edges-recommended": "warn",
 })
 
-export const PROFILE = Object.freeze({
+export const PROFILE: Profile = Object.freeze({
   id: PROFILE_ID,
   okfVersion: OKF_VERSION,
   graphSchema: GRAPH_SCHEMA,
@@ -109,9 +111,9 @@ export const PROFILE = Object.freeze({
   ruleLevels: DEFAULT_RULE_LEVELS,
 })
 
-// Reference branding. A consumer overrides this through its own okf.config.js;
-// the toolkit itself must not name any specific consumer.
-export const BRANDING = Object.freeze({
+// Reference branding. A consumer overrides this through its own okf.config; the toolkit
+// itself must not name any specific consumer.
+export const BRANDING: Branding = Object.freeze({
   site: undefined,
   bundleTitle: "Knowledge bundle",
   indexTitle: "Knowledge bundle",

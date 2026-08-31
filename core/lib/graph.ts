@@ -1,14 +1,24 @@
-import { PROFILE } from "../profile.js"
-import { buildResolver } from "./resolver.js"
+import { PROFILE } from "./reference-profile.ts"
+import { buildResolver } from "./resolver.ts"
+import type {
+  Frontmatter,
+  GraphEdge,
+  GraphNode,
+  GraphPropertyGroup,
+  OkfGraph,
+  Profile,
+  UnresolvedEdge,
+  ValidatedDocument,
+} from "./types.ts"
 
-function asArray(value) {
+function asArray(value: unknown): unknown[] {
   if (value === undefined || value === null) return []
   return Array.isArray(value) ? value : [value]
 }
 
 const FORBIDDEN_PATH_SEGMENTS = new Set(["__proto__", "prototype", "constructor"])
 
-function setPath(target, path, value) {
+function setPath(target: Record<string, unknown>, path: string[], value: unknown): void {
   if (!Array.isArray(path) || path.length === 0) {
     throw new Error("profile graphPath must be a non-empty array")
   }
@@ -22,22 +32,19 @@ function setPath(target, path, value) {
       current[segment] = value
     } else {
       if (current[segment] === undefined) current[segment] = {}
-      if (
-        current[segment] === null ||
-        typeof current[segment] !== "object" ||
-        Array.isArray(current[segment])
-      ) {
+      const next = current[segment]
+      if (next === null || typeof next !== "object" || Array.isArray(next)) {
         throw new Error(`conflicting profile graphPath at "${path.slice(0, index + 1).join(".")}"`)
       }
-      current = current[segment]
+      current = next as Record<string, unknown>
     }
   }
 }
 
-function projectProperties(frontmatter, profile) {
-  const properties = {}
+function projectProperties(frontmatter: Frontmatter, profile: Profile): Record<string, unknown> | undefined {
+  const properties: Record<string, unknown> = {}
   for (const group of profile.propertyGroups ?? []) {
-    if (!(group.appliesTo ?? []).includes(frontmatter.type)) continue
+    if (!(group.appliesTo ?? []).includes(frontmatter.type ?? "")) continue
     for (const field of group.fields ?? []) {
       const value = frontmatter[field.source]
       if (value === undefined || value === null || value === "") continue
@@ -47,7 +54,7 @@ function projectProperties(frontmatter, profile) {
   return Object.keys(properties).length > 0 ? properties : undefined
 }
 
-function graphPropertyGroups(profile) {
+function graphPropertyGroups(profile: Profile): GraphPropertyGroup[] {
   return (profile.propertyGroups ?? []).map((group) => ({
     id: group.id,
     label: group.label ?? group.id,
@@ -59,13 +66,13 @@ function graphPropertyGroups(profile) {
   }))
 }
 
-export function deriveInverseEdges(edges, profile = PROFILE) {
+export function deriveInverseEdges(edges: GraphEdge[], profile: Profile = PROFILE): GraphEdge[] {
   const inverseLabels = profile.inverseLabels ?? {}
   const edgeIris = profile.edgeIris ?? {}
   const declared = new Set(
     edges.filter((edge) => edge.target).map((edge) => `${edge.source}\n${edge.label}\n${edge.target}`),
   )
-  const derived = []
+  const derived: GraphEdge[] = []
   for (const edge of edges) {
     const inverse = inverseLabels[edge.label]
     if (!inverse || !edge.target) continue
@@ -83,19 +90,29 @@ export function deriveInverseEdges(edges, profile = PROFILE) {
   return derived
 }
 
-export function buildGraph(documents, options = {}) {
+export interface BuildGraphOptions {
+  profile?: Profile
+  sourceHead?: string
+  lastMaintainedHead?: string | null
+  stale?: boolean
+  site?: string
+  baseUrl?: string
+}
+
+export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOptions = {}): OkfGraph {
   const profile = options.profile ?? PROFILE
   const resolve = buildResolver(documents)
-  const nodes = []
-  const edges = []
-  const unresolved = []
+  const nodes: GraphNode[] = []
+  const edges: GraphEdge[] = []
+  const unresolved: UnresolvedEdge[] = []
   for (const document of documents) {
-    if (document.reserved || !document.frontmatter?.type) continue
-    const frontmatter = document.frontmatter
-    const node = {
+    const type = document.frontmatter?.type
+    if (document.reserved || !type) continue
+    const frontmatter = document.frontmatter ?? {}
+    const node: GraphNode = {
       slug: document.id,
-      title: frontmatter.title ?? document.id.split("/").at(-1),
-      type: frontmatter.type,
+      title: frontmatter.title ?? document.id.split("/").at(-1) ?? document.id,
+      type,
       tags: asArray(frontmatter.tags).map(String),
       description: frontmatter.description,
       path: document.path,
@@ -107,7 +124,7 @@ export function buildGraph(documents, options = {}) {
     nodes.push(node)
     for (const edge of document.edges ?? []) {
       const target = resolve(edge.target)
-      const graphEdge = {
+      const graphEdge: GraphEdge = {
         source: document.id,
         target,
         label: edge.label,

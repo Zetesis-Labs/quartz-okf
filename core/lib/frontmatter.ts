@@ -1,9 +1,11 @@
+import type { Frontmatter } from "./types.ts"
+
 const FRONTMATTER_RE = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/
 
-function splitInline(value) {
-  const values = []
+function splitInline(value: string): string[] {
+  const values: string[] = []
   let current = ""
-  let quote = null
+  let quote: string | null = null
   let escaped = false
   for (const char of value) {
     if (escaped) {
@@ -29,7 +31,7 @@ function splitInline(value) {
   return values
 }
 
-function parseScalar(raw) {
+function parseScalar(raw: string): unknown {
   const value = raw.trim()
   if (value === "") return ""
   if (value === "null" || value === "~") return null
@@ -41,7 +43,7 @@ function parseScalar(raw) {
     return inner ? splitInline(inner).map(parseScalar) : []
   }
   if (value.startsWith("{") && value.endsWith("}")) {
-    const result = {}
+    const result: Record<string, unknown> = {}
     const inner = value.slice(1, -1).trim()
     for (const item of inner ? splitInline(inner) : []) {
       const separator = item.indexOf(":")
@@ -60,16 +62,16 @@ function parseScalar(raw) {
   return value
 }
 
-export function parseYamlSubset(source) {
-  const result = {}
+export function parseYamlSubset(source: string): Frontmatter {
+  const result: Record<string, unknown> = {}
   const lines = source.replaceAll("\r\n", "\n").split("\n")
-  let activeSequence = null
+  let activeSequence: string | null = null
   for (let index = 0; index < lines.length; index += 1) {
     const raw = lines[index]
     if (!raw.trim() || raw.trimStart().startsWith("#")) continue
     const sequence = raw.match(/^\s+-\s+(.+)$/)
     if (sequence && activeSequence) {
-      result[activeSequence].push(parseScalar(sequence[1]))
+      ;(result[activeSequence] as unknown[]).push(parseScalar(sequence[1]))
       continue
     }
     if (/^\s/.test(raw)) {
@@ -93,10 +95,17 @@ export function parseYamlSubset(source) {
       activeSequence = null
     }
   }
-  return result
+  return result as Frontmatter
 }
 
-export function parseFrontmatter(source) {
+export interface ParsedFrontmatter {
+  data: Frontmatter | null
+  body: string
+  raw: string | null
+  error: Error | null
+}
+
+export function parseFrontmatter(source: string): ParsedFrontmatter {
   const match = source.match(FRONTMATTER_RE)
   if (!match) {
     return { data: null, body: source, raw: null, error: new Error("missing frontmatter") }
@@ -114,12 +123,12 @@ export function parseFrontmatter(source) {
       data: null,
       body: source.slice(match[0].length).replace(/^\r?\n/, ""),
       raw: match[1],
-      error,
+      error: error instanceof Error ? error : new Error(String(error)),
     }
   }
 }
 
-function quote(value) {
+function quote(value: unknown): string {
   if (typeof value === "string") {
     if (
       value !== "" &&
@@ -142,14 +151,18 @@ function quote(value) {
   return JSON.stringify(String(value))
 }
 
-export function stringifyFrontmatter(data) {
+export function stringifyFrontmatter(data: Record<string, unknown>): string {
   return Object.entries(data)
     .filter(([, value]) => value !== undefined)
     .map(([key, value]) => `${key}: ${quote(value)}`)
     .join("\n")
 }
 
-export function withFrontmatter(source, additions, fallback = {}) {
+export function withFrontmatter(
+  source: string,
+  additions: Record<string, unknown>,
+  fallback: Record<string, unknown> = {},
+): string {
   const parsed = parseFrontmatter(source)
   const data = parsed.data ? { ...parsed.data, ...additions } : { ...fallback, ...additions }
   const body = parsed.data ? parsed.body : source

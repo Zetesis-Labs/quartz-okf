@@ -4,11 +4,11 @@ import os from "node:os"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import test from "node:test"
-import { loadConsumerConfig } from "../lib/consumer-config.js"
-import { exportBundle } from "../lib/exporter.js"
-import { loadDocuments } from "../lib/files.js"
-import { mergeProfile } from "../lib/profile.js"
-import { PROFILE } from "../profile.js"
+import { loadConsumerConfig } from "../lib/consumer-config.ts"
+import { exportBundle } from "../lib/exporter.ts"
+import { loadDocuments } from "../lib/files.ts"
+import { mergeProfile } from "../lib/profile.ts"
+import { PROFILE } from "../lib/reference-profile.ts"
 
 test("creates a deterministic conformant bundle and all machine exports", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "okf-export-test-"))

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { parseFrontmatter, stringifyFrontmatter, withFrontmatter } from "../lib/frontmatter.js"
+import { parseFrontmatter, stringifyFrontmatter, withFrontmatter } from "../lib/frontmatter.ts"
 
 test("parses OKF frontmatter shapes", () => {
   const parsed = parseFrontmatter(`---

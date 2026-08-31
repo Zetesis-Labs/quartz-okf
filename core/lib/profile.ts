@@ -1,6 +1,7 @@
-import { PROFILE } from "../profile.js"
+import { PROFILE } from "./reference-profile.ts"
+import type { Profile, ProfileOverlay } from "./types.ts"
 
-export function mergeProfile(base = PROFILE, overlay = {}) {
+export function mergeProfile(base: Profile = PROFILE, overlay: ProfileOverlay | null = {}): Profile {
   return {
     ...base,
     ...(overlay ?? {}),

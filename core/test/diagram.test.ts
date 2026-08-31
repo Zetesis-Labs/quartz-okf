@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { buildScopeDiagram, weaveDiagram } from "../lib/diagram.js"
+import { buildScopeDiagram, weaveDiagram } from "../lib/diagram.ts"
 
 const graph = {
   nodes: [
@@ -46,7 +46,7 @@ test("weaves idempotently and replaces an existing block in place", () => {
 })
 
 test("network, backup-flow, fleet-map and exposure recipes render their edge selections", async () => {
-  const { RECIPES } = await import("../lib/diagram.js")
+  const { RECIPES } = await import("../lib/diagram.ts")
   const estate = {
     nodes: [
       { slug: "lan", title: "LAN", type: "network" },
