@@ -82,6 +82,15 @@ the existing suite, which stays green after every task.
       (`core/test/config-types.test.ts` spawns `tsc --noEmit` on two fixtures: one clean,
       one with `profile.types: [1]`).
 
+## Phase 6b: The explorer HUD (002) on the same footing
+
+- [X] T028 [US1] Rebase 003 onto `002-explorer-hud`: the HUD is the base. Its pure
+      modules (`plugins/quartz-okf-explorer/lib/*.js`, 13) and their 14 test files move to
+      `.ts`, typed on the contract (`lib/types.ts` of the plugin declares the HUD model:
+      `HudNode`, `HudModel`, `View`, `Registry`, `ExplorerEmitConfig`…); `lib/emit-config.d.ts`
+      goes away; the plugin's `typecheck` covers `lib`. The browser shell
+      (`src/hud/main.js`) keeps JavaScript: 004 replaces it with the Preact component.
+
 ## Phase 7: Docs and the consumer walk
 
 - [X] T025 README.md, CLAUDE.md (floor, "TypeScript runs directly", the symlink, no

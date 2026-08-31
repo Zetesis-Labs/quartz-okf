@@ -119,6 +119,11 @@ directory is `core/lib/cli/`; the only structural novelty is the `plugins/lib` s
 - **`quartz-okf` bundles the contract into its `dist`** instead of leaving `../../lib`
   external: Quartz's loader imports the plugin's entry with a plain `import()`, and a
   bundled `dist` never depends on how that loader treats `.ts` specifiers.
+- **003 stacks on 002 (the HUD), not on `main`.** The HUD is the approved base; the
+  refactor sits on it and 004 turns its shell into the Preact component. The HUD's pure
+  modules and tests are TypeScript here; its browser shell (`src/hud/main.js`, ~1100
+  lines of DOM + d3) stays JavaScript until 004 rewrites it — typing a shell about to be
+  replaced would be work thrown away.
 - **The head of a path source** is the head of whatever repository the directory sits
   in (the parent's, or its own when the path is a checkout — 001's local-repository
   case keeps its behaviour); outside any repository there is no head.

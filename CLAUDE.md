@@ -44,6 +44,10 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   `../../lib` igual que la caché), el shim `core/profile.js` y los shims
   `core/bin/*.js` (comprueban el suelo de Node y luego importan `core/lib/cli/*.ts`).
   No renombrar ni mover ninguno de esos tres.
+- `plugins/quartz-okf-explorer/src/hud/main.js` (el shell del HUD en el navegador) es el
+  único módulo JS que queda en el explorer: 004 lo sustituye por el componente Preact.
+  Los módulos puros del HUD (`plugins/quartz-okf-explorer/lib/*.ts`) y sus tests sí son
+  TS y entran en el `typecheck` del plugin.
 - `quartz-okf-panels` y `quartz-graph-okf` dependen de los tipos de Quartz
   (`@quartz-community/*`) que solo existen en el consumidor: su `tsc` no forma parte del
   gate del repo; los verifica el build del consumidor.
