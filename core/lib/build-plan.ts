@@ -8,6 +8,8 @@ export type BuildAction =
   | { kind: "copy"; from: string; to: string }
   | { kind: "run"; command: string; args: string[]; cwd: string }
   | { kind: "hook"; seam: Seam; command: string; cwd: string }
+  /** Give every assembled note the date of its last commit; see `corpus-dates.ts`. */
+  | { kind: "stamp"; content: string }
 
 export interface BuildStep {
   label: string
@@ -190,6 +192,7 @@ export function buildPlan(layout: BuildLayout): BuildPlan {
       corpusStep(layout),
       ...seamStep("content", config, root),
       ...(layout.federation ? [federationStep(layout)] : []),
+      { label: "dates", actions: [{ kind: "stamp", content: join(cache, "content") }] },
       installStep(layout),
       ...seamStep("install", config, cache),
       buildStep(layout),

@@ -5,10 +5,12 @@ import path from "node:path"
 import process from "node:process"
 import { spawnSync } from "node:child_process"
 import { buildPlan } from "../build-plan.ts"
+import { parseGitDates, sourcePathsFor } from "../corpus-dates.ts"
 import { CONFIG_FILE_NAMES, readModuleConfig } from "../consumer-config.ts"
 import { walk } from "../files.ts"
 import { gitHead } from "../git.ts"
 import type { BuildAction, BuildLayout } from "../build-plan.ts"
+import type { MountSource, SourceLookup } from "../corpus-dates.ts"
 
 function usage(): never {
   console.error("usage: okf-build <repo> [--cache <dir>] [--serve] [--no-verify]")
@@ -110,9 +112,70 @@ async function copy(from: string, to: string, label: string): Promise<void> {
   }
 }
 
+const git = (cwd: string, args: string[]): string | null => {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+  return result.status === 0 ? result.stdout : null
+}
+
+/** Which repository a source file belongs to; several corpora may come from several. */
+const toplevels = new Map<string, string | null>()
+function toplevelOf(directory: string): string | null {
+  const known = toplevels.get(directory)
+  if (known !== undefined) return known
+  const top = git(directory, ["rev-parse", "--show-toplevel"])?.trim() ?? null
+  toplevels.set(directory, top)
+  return top
+}
+
+async function mountedCorpora(): Promise<MountSource[]> {
+  try {
+    const manifest = JSON.parse(await fs.readFile(path.join(cache, "okf-federation/manifest.json"), "utf8")) as {
+      subgraphs?: { id: string; source?: { kind: string; path?: string } }[]
+    }
+    return (manifest.subgraphs ?? [])
+      .filter((entry) => entry.source?.kind === "path" && entry.source.path)
+      .map((entry) => ({ id: entry.id, path: entry.source?.path as string }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * The corpus is built outside its repository, so the site's date plugin finds no git there
+ * and falls back to a modification time the copy had just set to now — every note dated the
+ * minute of the build. Each assembled file takes the date of the commit that last wrote it.
+ */
+async function stamp(content: string): Promise<void> {
+  const lookup: SourceLookup = { root, contentDir: layout.inputs.content, mounts: await mountedCorpora() }
+  const files = await walk(content, { extensions: null })
+  const dated = new Map<string, number>()
+  const byToplevel = new Map<string, Map<string, number>>()
+  let missing = 0
+  for (const file of files) {
+    const sources = sourcePathsFor(file.relative, lookup)
+    let stampedAt: number | undefined
+    for (const source of sources) {
+      const top = toplevelOf(path.dirname(source))
+      if (!top) continue
+      let dates = byToplevel.get(top)
+      if (!dates) {
+        dates = parseGitDates(git(top, ["log", "--format=%at", "--name-status", "-M", "--no-merges"]) ?? "")
+        byToplevel.set(top, dates)
+      }
+      stampedAt = dates.get(path.relative(top, source).replaceAll(path.sep, "/"))
+      if (stampedAt !== undefined) break
+    }
+    if (stampedAt === undefined) missing += 1
+    else dated.set(file.absolute, stampedAt)
+  }
+  await Promise.all([...dated].map(([file, seconds]) => fs.utimes(file, seconds, seconds)))
+  console.log(`[okf] dates: ${dated.size} notes dated from their last commit${missing ? `, ${missing} left as copied (untracked?)` : ""}`)
+}
+
 async function execute(action: BuildAction, label: string): Promise<void> {
   if (action.kind === "remove") return void (await fs.rm(action.path, { recursive: true, force: true }))
   if (action.kind === "copy") return copy(action.from, action.to, label)
+  if (action.kind === "stamp") return stamp(action.content)
   if (action.kind === "run") return run(action.command, action.args, action.cwd, label)
   console.log(`[okf] ${action.seam}: ${action.command}`)
   return run(action.command, [], action.cwd, `${action.seam} hook`, true)

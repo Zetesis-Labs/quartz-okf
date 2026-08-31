@@ -129,8 +129,12 @@ táctiles, que un toque abra la nota y que se pueda volver) y a 1440×900 con te
 anillo de foco visible, `/`, flechas, `⏎`, `Esc`). Sale 1 con la lista de hallazgos.
 
 La puerta de un cambio en la receta es comparar el árbol `public/` construido con el de
-la receta anterior. Ojo al ruido: dos builds cualesquiera ya difieren en las páginas de
-índice, porque la copia del corpus reinicia la fecha de modificación con la que se ordenan.
+la receta anterior. **El build es reproducible**: dos seguidos solo difieren en `index.xml`
+y `sitemap.xml`, que llevan la hora del build por definición. Cualquier otra diferencia es
+real. (Lo era hasta 005: el corpus se ensambla fuera de su repositorio, el plugin de fechas
+no encontraba git y caía a una mtime que la copia acababa de poner a ahora; el paso `dates`
+sella cada nota con la fecha de su último commit, tratando un movimiento puro como lo que
+es —no un cambio—, así que mover un corpus no re-fecha todas sus notas.)
 
 `PAFE-Portal/wiki` se construye dentro de su devcontainer; nunca desde el host.
 

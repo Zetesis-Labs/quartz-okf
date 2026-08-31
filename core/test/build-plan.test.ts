@@ -33,10 +33,21 @@ test("the standard recipe assembles, builds and publishes, in that order", () =>
     "config",
     "toolkit",
     "corpus",
+    "dates",
     "plugin install",
     "build",
     "publish",
   ])
+})
+
+// The corpus is assembled outside its repository, so the site's date plugin finds no git
+// and falls back to a modification time the copy had just reset to now.
+test("the assembled corpus is dated from its own history, after everything is in place", () => {
+  const { steps } = buildPlan(layout({ federation: true }))
+  const dates = steps[at(steps, "dates")]
+  assert.deepEqual(dates.actions, [{ kind: "stamp", content: "/cache/quartz-def/content" }])
+  assert.ok(at(steps, "dates") > at(steps, "federation"), "the mounted notes are dated too")
+  assert.ok(at(steps, "dates") < at(steps, "build"))
 })
 
 test("the toolkit's own plugins are the toolkit's business, not a list the consumer keeps", () => {
@@ -160,6 +171,7 @@ test("each seam runs the consumer's commands where the pipeline actually opens",
     "assemble",
     "corpus",
     "content",
+    "dates",
     "plugin install",
     "install",
     "build",
