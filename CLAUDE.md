@@ -67,6 +67,12 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
 - El campo `site` de `okf-graph.json` es un **título**, no una URL (el emitter usa
   `pageTitle`, el exporter `branding.site`).
 - `package-lock.json` está ignorado: CI y local usan `npm install`, no `npm ci`.
+- `note-properties` es quien lee el YAML de una nota a `file.data.frontmatter`. Sin ese
+  plugin ninguna nota tiene tipo y el grafo cae en silencio a nodos genéricos: el Quartz
+  más pequeño que aún construye un sitio OKF lo lleva (ver `harness/fixture`).
+- El corpus de `harness/fixture` se construye entero en CI (job `smoke build`) y su grafo
+  se compara con `expected-graph.json`: un cambio en la salida del motor se ve aquí, no en
+  el deploy de un consumidor.
 - `okf-graph/v1` solo crece de forma aditiva; documentar cada campo nuevo en
   `plugins/quartz-okf/README.md` § Graph shape.
 - Un subgrafo declara su **fuente**: `path` (un corpus del mismo código) o `repo` +
@@ -74,13 +80,34 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   (`ref-drift`/`ref-behind`) solo existe para git. `okf.config.ts` se lee antes que
   `.mjs`.
 
+## El build de los consumidores es del toolkit
+
+Desde 005 la receta vive aquí: `okf build <repo>` ensambla el Quartz fijado, el toolkit y
+el corpus, construye y publica; `okf verify <repo>` dice por qué un sitio construido no
+debería publicarse. El `okf/build-site.sh` del consumidor son 25 líneas de arranque
+(piso de Node, tarball del ref, `exec okf-build`) y su workflow ya no lleva comprobación.
+
+- Las decisiones son puras: `core/lib/build-plan.ts` (`buildPlan(layout) → Step[]`) y
+  `core/lib/verify.ts` (`verifySite(facts, floors) → Problem[]`). Los CLIs hacen la E/S.
+- El consumidor declara lo suyo en `build` de `okf.config.*`: de dónde sale el corpus
+  (`content.dir` o `content.collect`), sus comandos en cinco seams (`prepare`, `content`,
+  `assemble`, `install`, `postBuild`) y sus suelos (`verify`). Cada comando recibe
+  `OKF_ROOT`, `OKF_CACHE`, `OKF_CONTENT`, `OKF_PUBLIC`, `OKF_TOOLKIT` y `OKF_SOURCE_HEAD`.
+- Añadir un plugin al toolkit, una purga o una variable de entorno **no** toca a los
+  consumidores: entra en `build-plan.ts` y viaja con el SHA.
+
 ## Validar un cambio en un consumidor
 
 ```bash
 # en el consumidor, con okf/quartz-okf.ref apuntando al SHA candidato
 ./okf/build-site.sh
 # leer: [okf] knowledge graph: N typed notes, M edges (K unresolved)
+#       [okf] verified <sitio>: N nodes, M edges
 ```
+
+La puerta de un cambio en la receta es comparar el árbol `public/` construido con el de
+la receta anterior. Ojo al ruido: dos builds cualesquiera ya difieren en las páginas de
+índice, porque la copia del corpus reinicia la fecha de modificación con la que se ordenan.
 
 `PAFE-Portal/wiki` se construye dentro de su devcontainer; nunca desde el host.
 
