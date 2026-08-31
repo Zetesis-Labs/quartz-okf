@@ -3,9 +3,7 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
-import { assemblePlugin } from "./assemble.js"
-
-const { OkfEmitter } = await assemblePlugin()
+import { OkfEmitter } from "../src/index.ts"
 
 function note(slug, frontmatter = {}, body = "") {
   return {
