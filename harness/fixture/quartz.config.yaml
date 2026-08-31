@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=./quartz/plugins/quartz-plugins.schema.json
+#
+# The smallest Quartz that still renders a real site: only the community plugins the
+# pipeline needs to turn markdown into pages, plus the four this toolkit ships. Every
+# plugin listed here is cloned in CI, so the list stays short on purpose.
+configuration:
+  pageTitle: OKF fixture
+  pageTitleSuffix: ""
+  enableSPA: true
+  enablePopovers: true
+  analytics: null
+  locale: en-US
+  baseUrl: fixture.invalid
+  ignorePatterns:
+    - private
+    - templates
+  theme:
+    fontOrigin: local
+    cdnCaching: false
+    typography:
+      header: Schibsted Grotesk
+      body: Source Sans Pro
+      code: IBM Plex Mono
+    colors:
+      lightMode:
+        light: "#faf8f8"
+        lightgray: "#e5e5e5"
+        gray: "#b8b8b8"
+        darkgray: "#4e4e4e"
+        dark: "#2b2b2b"
+        secondary: "#284b63"
+        tertiary: "#84a59d"
+        highlight: rgba(143, 159, 169, 0.15)
+        textHighlight: "#fff23688"
+      darkMode:
+        light: "#161618"
+        lightgray: "#393639"
+        gray: "#646464"
+        darkgray: "#d4d4d4"
+        dark: "#ebebec"
+        secondary: "#7b97aa"
+        tertiary: "#84a59d"
+        highlight: rgba(143, 159, 169, 0.15)
+        textHighlight: "#b3aa0288"
+plugins:
+  # Reads the notes' YAML into `file.data.frontmatter`; without it every note is
+  # untyped and the graph falls back to generic nodes.
+  - source: "github:quartz-community/note-properties"
+    enabled: true
+    order: 5
+  - source: "github:quartz-community/created-modified-date"
+    enabled: true
+    order: 10
+  - source: "github:quartz-community/obsidian-flavored-markdown"
+    enabled: true
+    options:
+      enableInHtmlEmbed: false
+      enableCheckbox: true
+    order: 30
+  - source: "github:quartz-community/github-flavored-markdown"
+    enabled: true
+    order: 40
+  - source: "github:quartz-community/crawl-links"
+    enabled: true
+    options:
+      markdownLinkResolution: shortest
+    order: 60
+  - source: "github:quartz-community/description"
+    enabled: true
+    order: 70
+  - source: "github:quartz-community/alias-redirects"
+    enabled: true
+  # Quartz's own <head> imports this plugin's emitter name: it is not optional.
+  - source: "github:quartz-community/og-image"
+    enabled: true
+  - source: "github:quartz-community/content-page"
+    enabled: true
+  - source: "github:quartz-community/folder-page"
+    enabled: true
+  - source: "github:quartz-community/tag-page"
+    enabled: true
+  - source: "./quartz-okf"
+    enabled: true
+  - source: "./quartz-okf-explorer"
+    enabled: true
+    layout:
+      position: right
+      priority: 15
+  - source: ./quartz-okf-panels
+    enabled: true
+    layout:
+      position: right
+      priority: 60
+      condition: not-index
+  - source: "github:quartz-community/article-title"
+    enabled: true
+    layout:
+      position: beforeBody
+      priority: 10
+  - source: "github:quartz-community/page-title"
+    enabled: true
+    layout:
+      position: left
+      priority: 10
+layout:
+  byPageType:
+    "404":
+      positions:
+        beforeBody: []
+        left: []
+        right: []
+    content: {}
+    folder: {}
+    tag: {}

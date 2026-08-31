@@ -4,3 +4,6 @@ package-lock.json
 
 # Build output of the plugins: every one compiles with tsup at install time.
 plugins/*/dist/
+
+# The site the smoke build writes: rebuilt from the fixture on every run.
+harness/fixture/public/

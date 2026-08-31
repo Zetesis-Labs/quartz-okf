@@ -1,0 +1,91 @@
+{
+  "nodes": [
+    {
+      "slug": "concepts/format",
+      "type": "concept",
+      "title": "Open Knowledge Format"
+    },
+    {
+      "slug": "concepts/graph",
+      "type": "concept",
+      "title": "Knowledge graph"
+    },
+    {
+      "slug": "sources/spec",
+      "type": "source",
+      "title": "The okf-graph/v1 document"
+    },
+    {
+      "slug": "tools/okf",
+      "type": "tool",
+      "title": "quartz-okf"
+    },
+    {
+      "slug": "tools/quartz",
+      "type": "tool",
+      "title": "Quartz"
+    }
+  ],
+  "edges": [
+    [
+      "concepts/format",
+      "Cites",
+      "sources/spec"
+    ],
+    [
+      "concepts/format",
+      "Contains",
+      "concepts/graph"
+    ],
+    [
+      "concepts/graph",
+      "About",
+      "tools/okf"
+    ],
+    [
+      "concepts/graph",
+      "Cites",
+      "sources/spec"
+    ],
+    [
+      "concepts/graph",
+      "Part of",
+      "concepts/format"
+    ],
+    [
+      "tools/okf",
+      "About",
+      "concepts/format"
+    ],
+    [
+      "tools/okf",
+      "Uses",
+      "tools/quartz"
+    ],
+    [
+      "tools/quartz",
+      "Used by",
+      "tools/okf"
+    ]
+  ],
+  "stats": {
+    "notes": 5,
+    "edges": 8,
+    "declaredEdges": 6,
+    "derivedEdges": 2,
+    "unresolvedEdges": 0
+  },
+  "types": [
+    "concept",
+    "tool",
+    "source"
+  ],
+  "edgeLabels": [
+    "Part of",
+    "Contains",
+    "Uses",
+    "Used by",
+    "About",
+    "Cites"
+  ]
+}
