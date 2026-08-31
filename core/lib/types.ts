@@ -282,8 +282,10 @@ export interface ExplorerOptions {
 export interface ExplorerHud {
   /** `flat` (default) or `glass` — blurred surfaces, always flat under `prefers-reduced-transparency`. */
   surfaces?: "flat" | "glass"
-  /** CSS custom properties applied on `:root` (`--accent`, `--hud-bg`, `--hud-radius`, …). */
+  /** CSS custom properties applied on the explorer's stage (`--accent`, `--hud-bg`, `--hud-radius`, …). */
   tokens?: Record<string, string>
+  /** `flat` (default) or `dots` — a dot grid with half-speed parallax and a soft vignette under the graph. */
+  ground?: "flat" | "dots"
 }
 
 // ---- federation: a site composes corpora -------------------------------------------------------
