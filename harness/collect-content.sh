@@ -19,7 +19,7 @@ rm -rf "${OUT:?}"/*
 cd "$REPO"
 
 find . \
-  \( -name .git -o -name .claude -o -name .codex -o -name .agents -o -name .devcontainer -o -name node_modules -o -path "./okf/content" -o -path "./okf/skills" \) -prune -o \
+  \( -name .git -o -name .claude -o -name .codex -o -name .agents -o -name .devcontainer -o -name node_modules -o -path "./public" -o -path "./okf/content" -o -path "./okf/skills" \) -prune -o \
   -type f ! -name 'CLAUDE.md' \( -name '*.md' -o -name '*.base' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.svg' -o -name '*.gif' -o -name '*.webp' \) -print |
 while IFS= read -r f; do
   rel="${f#./}"
