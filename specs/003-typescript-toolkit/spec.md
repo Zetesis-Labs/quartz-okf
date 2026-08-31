@@ -187,9 +187,11 @@ plugins import their types from `core/` and declare none of their own for the bu
   MUST run through Node's native type stripping — no transpile, no bundle, no
   `tsx`-style loader — using erasable syntax only.
 - **FR-002**: The toolkit MUST declare `engines.node >= 22.18` and an `.nvmrc`; CI MUST
-  run the suite on Node 22 and 24. Each `core/bin` CLI and the harness MUST check the
-  running Node before importing any `.ts` module and exit with a message naming the
-  floor when it is older.
+  run the suite on Node 22 and 24. Each `core/bin` CLI MUST check the running Node
+  before importing any `.ts` module and exit with a message naming the floor when it
+  is older. The `core/bin/*.js` shims and `core/profile.js` (the file consumers copy)
+  are the only JavaScript that remains, and stay where the consumers' scripts call
+  them.
 - **FR-003**: The quality gate MUST include `tsc --noEmit` with `strict`, erasable-only
   syntax enforcement and explicit `.ts` import extensions, run in CI next to `npm test`.
 - **FR-004**: The migration MUST be behaviour-preserving: every test of the current
@@ -205,8 +207,10 @@ plugins import their types from `core/` and declare none of their own for the bu
 - **FR-006**: A local path given in `repo` (001 spelling) MUST keep working and be
   treated as a `path` source; no second concept, no warning.
 - **FR-007**: Drift warnings (`ref-drift`, `ref-behind`) MUST apply to git sources only.
-  A path source MUST record, in the mount manifest and the emitted graph, the parent's
-  own head as the child's head when the path is inside the parent repository.
+  A path source MUST record, in the mount manifest and the emitted graph, the head of
+  the repository the directory belongs to (the parent's own head when the path is
+  inside the parent repository; a local checkout's head when the path is a repository
+  of its own) and no head at all outside any repository.
 - **FR-008**: The mount manifest MUST record, per subgraph, `source: { kind: "path",
   path } | { kind: "git", repo, ref }` in addition to what 001 records. Additive.
 - **FR-009**: A corpus configuration MAY be `okf.config.ts`, resolved before
@@ -248,10 +252,12 @@ plugins import their types from `core/` and declare none of their own for the bu
 ### Measurable Outcomes
 
 - **SC-001**: `git ls-files 'core/**/*.js' 'core/**/*.mjs' 'harness/**/*.js'
-  'plugins/*/src/**/*.js' 'plugins/*/lib/**/*.js' 'plugins/*/test/**/*.js'` lists nothing;
-  `git ls-files 'plugins/*/dist/**'` lists nothing.
-- **SC-002**: `npm test` and `tsc --noEmit` are green on Node 22 and 24 in CI, with no
-  build step before the tests; the suite still needs no network.
+  'plugins/*/src/**/*.js' 'plugins/*/lib/**/*.js' 'plugins/*/test/**/*.js'` lists only the
+  floor shims (`core/bin/*.js`) and `core/profile.js`; `git ls-files 'plugins/*/dist/**'`
+  lists nothing.
+- **SC-002**: `npm test` and `npm run typecheck` (`tsc --noEmit` over the source
+  modules; the tests are checked by the runtime that runs them) are green on Node 22
+  and 24 in CI, with no build step before the tests; the suite still needs no network.
 - **SC-003**: `cern-it-governance-graph` (as the single-repository layout) and
   `PAFE-Portal/wiki` build from the branch tarball and emit the same nodes and edges as
   with their previous pin.

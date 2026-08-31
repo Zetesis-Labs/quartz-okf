@@ -9,13 +9,20 @@ The reference profile (**Typed Topology**) targets infrastructure, but the machi
 ## Layout
 
 ```
-core/                 @zetesis/okf-core — the renderer-independent contract
-├── lib/              validation, resolver, topology parser, graph builder, export
-├── bin/              okf-check · okf-export · okf-impact
-├── profile.js        the Typed Topology reference profile (types, edge labels, IRIs)
+core/                 @zetesis/okf-core — the renderer-independent contract (TypeScript,
+│                     run directly by Node ≥ 22.18: no build step)
+├── lib/              validation, resolver, topology parser, graph builder, export,
+│   │                 federation and mount; types.ts declares the contract once
+│   ├── cli/          the CLI bodies
+│   └── reference-profile.ts  the Typed Topology reference profile
+├── bin/              okf-check · okf-export · okf-impact · okf-diagram · okf-federate —
+│                     JavaScript shims that name the Node floor, then import lib/cli
+├── profile.js        one-line shim kept for consumers that copy it next to lib/
 └── test/             unit + characterization tests
 
 plugins/              Quartz v5 plugins
+├── lib -> ../core/lib  the consumers' layout, mirrored: plugins reach the contract as
+│                     ../../lib in the tree exactly as in a site's cache
 ├── quartz-okf/       contract adapter: build-time validation, type index tags,
 │                     typed graph + raw markdown export
 ├── quartz-graph-okf/ graph view: nodes colored by type, edges by relation family,
@@ -30,10 +37,12 @@ harness/              site build support: content collection, Quartz pin, finali
 
 ## The contract (renderer-independent)
 
-Node ≥ 20, zero runtime dependencies.
+Node ≥ 22.18 (TypeScript through Node's native type stripping), zero runtime
+dependencies.
 
 ```bash
-npm test                                    # unit + characterization tests
+npm test                                    # node --test on the .ts sources, no build
+npm run typecheck                           # tsc --noEmit: core, harness, quartz-okf, explorer
 node core/bin/okf-export.js <repo> <out>    # conformant bundle + okf-graph.json + llms.txt
 node core/bin/okf-check.js <out>            # core/profile/hygiene validation, exit 1 on error
 node core/bin/okf-impact.js <repo>          # documentation impact plan since last maintained head
@@ -81,9 +90,12 @@ the consumer profile overlay. Exported bundles carry `okf-profile.json`, so
 ## Consuming from a repository
 
 A consumer keeps only its **corpus** (colocated `.md` notes), an optional
-`okf.config.mjs` (branding and profile overlay), and references this toolkit —
+`okf.config.ts` (or `.mjs`: branding, profile overlay, explorer, federation — typed
+with `satisfies OkfConfig` from `core/lib/types.ts`), and references this toolkit —
 the plugins as Quartz `github:` sources, the contract via the build harness. See
-`harness/` and each plugin's README.
+`harness/` and each plugin's README. A corpus can mount other corpora as subgraphs,
+from a directory in the same repository or from a git repository at a commit
+(`plugins/quartz-okf/README.md` § Federation).
 
 ## Working on this repository
 

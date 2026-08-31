@@ -41,9 +41,12 @@ reference for depth and tone.
 ## Tests first, vertical
 
 Every behavior starts as a failing test under `core/test/` or the plugin's `test/`,
-run with `npm test` (`node --test`, no network, no build step). Refactors of existing
-behavior start with a characterization test that pins the current output. CI runs the
-same command on every push and pull request.
+run with `npm test` (`node --test` on the TypeScript sources, no network, no build
+step: Node ≥ 22.18 strips the types natively, so only erasable syntax is allowed).
+Refactors of existing behavior start with a characterization test that pins the
+current output. `npm run typecheck` (`tsc --noEmit`, strict) is the second gate over
+the source modules; the tests themselves are checked by the runtime that runs them. CI
+runs both on Node 22 and 24 on every push and pull request.
 
 ## Functional core, effectful shell
 

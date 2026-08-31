@@ -12,12 +12,19 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   feature vive en `specs/NNN-nombre/` y sigue `/speckit-specify` → `/speckit-plan` →
   `/speckit-tasks` → `/speckit-implement`. Referencia de profundidad:
   `specs/001-subgraph-federation/`.
-- **Tests primero, verticales**: `npm test` (`node --test`, sin red, sin build). Cada
-  comportamiento nuevo nace como test que falla; cada refactor empieza con un test de
-  caracterización.
+- **Tests primero, verticales**: `npm test` (`node --test` sobre los `.ts`, sin red, sin
+  build) y `npm run typecheck` (`tsc --noEmit`, estricto, sobre los módulos fuente).
+  Cada comportamiento nuevo nace como test que falla; cada refactor empieza con un
+  test de caracterización.
+- **TypeScript sin build**: Node ≥ 22.18 quita los tipos de forma nativa (`.nvmrc`
+  = 22; en local `nvm use`). Solo sintaxis borrable — nada de `enum`, `namespace` ni
+  propiedades de parámetro — y los imports relativos llevan la extensión `.ts`.
 - **Functional core / effectful shell**: decisiones puras en `core/lib/`; fs, git,
-  red y contexto de Quartz en `core/bin/`, `core/lib/exporter.js` y los emitters de los
-  plugins, inyectados como funciones cuando el core los necesita.
+  red y contexto de Quartz en `core/lib/cli/`, `core/lib/exporter.ts`, `core/lib/mount.ts`
+  y los emitters de los plugins, inyectados como funciones cuando el core los necesita.
+- **Los tipos se declaran una vez**: `core/lib/types.ts` (bundle `okf-graph/v1`,
+  documentos, perfil, opciones del explorer, federación, `OkfConfig`). Los plugins los
+  importan de `../../lib/types.ts`; ningún plugin redeclara el contrato.
 - **El motor no lleva vocabulario**: nada de nombres de consumidores, dominios, tipos o
   etiquetas en el código del motor. Se singulariza un nodo por una propiedad que
   declara el consumidor o por un marcador que deriva el motor.
@@ -28,16 +35,27 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
 
 ## Trampas del repo
 
-- `plugins/quartz-okf/dist/index.js` **es la fuente** (JS plano, commiteado). Los
-  `dist/` de los plugins con tsup (`quartz-okf-explorer`, `quartz-okf-panels`,
-  `quartz-graph-okf`) están en `.gitignore`: los compila cada consumidor en su build
-  (`quartz plugin install` ejecuta `prepare`). Un error de TypeScript en
-  `plugins/quartz-okf-explorer/src/index.ts` rompe el build de todos los consumidores.
+- Ningún `dist/` se commitea: los cuatro plugins se compilan con tsup en cada consumidor
+  (`quartz plugin install` ejecuta `prepare`). `quartz-okf` empaqueta el contrato
+  (`../../lib`) dentro de su `dist`, así que Quartz solo carga JavaScript.
+- **El layout de los consumidores es un contrato**: cada `build-site.sh` copia
+  `core/lib` → `$CACHE/lib`, `core/profile.js` → `$CACHE/profile.js` y cada plugin al
+  lado. Por eso existen el symlink `plugins/lib -> ../core/lib` (el árbol resuelve
+  `../../lib` igual que la caché), el shim `core/profile.js` y los shims
+  `core/bin/*.js` (comprueban el suelo de Node y luego importan `core/lib/cli/*.ts`).
+  No renombrar ni mover ninguno de esos tres.
+- `quartz-okf-panels` y `quartz-graph-okf` dependen de los tipos de Quartz
+  (`@quartz-community/*`) que solo existen en el consumidor: su `tsc` no forma parte del
+  gate del repo; los verifica el build del consumidor.
 - El campo `site` de `okf-graph.json` es un **título**, no una URL (el emitter usa
   `pageTitle`, el exporter `branding.site`).
 - `package-lock.json` está ignorado: CI y local usan `npm install`, no `npm ci`.
 - `okf-graph/v1` solo crece de forma aditiva; documentar cada campo nuevo en
   `plugins/quartz-okf/README.md` § Graph shape.
+- Un subgrafo declara su **fuente**: `path` (un corpus del mismo código) o `repo` +
+  `ref` (git a un commit). Un path local en `repo` sigue valiendo. La deriva
+  (`ref-drift`/`ref-behind`) solo existe para git. `okf.config.ts` se lee antes que
+  `.mjs`.
 
 ## Validar un cambio en un consumidor
 

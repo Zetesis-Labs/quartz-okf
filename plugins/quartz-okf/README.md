@@ -86,29 +86,43 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
 # Federation
 
 A site may declare that one of its notes stands for another corpus and **mount** that
-corpus — its notes and its graph — inside itself at build time. The child is taken from
-its repository at a pinned commit, exported with the toolkit and placed under
-`content/<id>/`; its *open* notes are previewed around the portal, and the explorer
-enters the whole child graph in place. Nothing at runtime depends on the child's own
-site. Bundles produced by `okf-export` stay per-corpus; federation is a property of the
-rendered site.
+corpus — its notes and its graph — inside itself at build time. Composition is a
+code-level matter: a corpus is a directory with an `okf.config.*` and a `content/`
+tree, and where it comes from is a detail of its **source** — a `path` in the same
+code, or a git `repo` at a pinned `ref`. The child is exported with the toolkit and
+placed under `content/<id>/`; its *open* notes are previewed around the portal, and the
+explorer enters the whole child graph in place. Nothing at runtime depends on the
+child's own site. Bundles produced by `okf-export` stay per-corpus; federation is a
+property of the rendered site.
 
-```js
-// okf.config.mjs
+```ts
+// okf.config.ts (or .mjs)
+import type { OkfConfig } from "<toolkit>/core/lib/types.ts"
+
 export const federation = {
   subgraphs: [
     {
-      node: "topics/it-governance",                                     // portal note of THIS corpus
-      repo: "https://github.com/Zetesis-Labs/cern-it-governance-graph", // or a local path
-      ref: "011e3ead8614a541d45bea96664c47cfee5fd060",                  // commit to mount (remote repos)
-      preview: { property: "visibility", equals: "open" },             // which child notes to preview
+      node: "topics/it-governance",                          // portal note of THIS corpus
+      path: "subgraphs/it-governance",                       // a corpus in this repository…
+      preview: { property: "visibility", equals: "open" },  // which child notes to preview
       // id: "it-governance",   defaults to the last segment of `node`; the mount is /<id>/
       // content: "content",    the child's corpus directory
       // edge: "Contains",      must be one of this corpus' edgeLabels
     },
+    {
+      node: "topics/accelerators",
+      repo: "https://github.com/example/accelerators-graph", // …or a git repository
+      ref: "011e3ead8614a541d45bea96664c47cfee5fd060",       // at a commit (required with repo)
+      preview: { property: "visibility", equals: "open" },
+    },
   ],
 }
+export default { federation } satisfies OkfConfig
 ```
+
+Exactly one of `path` / `repo` per entry. A local path written in `repo` (the earlier
+spelling) still works and means `path`. Only git sources have drift: `ref-drift` and
+`ref-behind` never apply to a path.
 
 ```ts
 // okf/quartz.ts
@@ -118,16 +132,19 @@ componentRegistry.setOptionOverrides("quartz-okf", { profile, federation })
 Two steps, both run by the site's `build-site.sh`:
 
 1. **`okf-federate <repo> <content-dir> <artifacts-dir> [--cache <dir>]`** (core CLI),
-   before Quartz: clones each remote child at `ref` into the cache (a local path is
-   used as is), runs `okf-export` on its corpus with the child's own profile, fails if
-   the child does not pass its own validation, writes the notes under
-   `<content-dir>/<id>/` (bundle links rewritten inside the mount, frontmatter marked
-   `okf_federated: <id>`, an index page generated) and the child graph plus a
-   `manifest.json` under `<artifacts-dir>/` — with the child's head, the remote head and
-   the display part of its explorer configuration.
+   before Quartz: takes each child from its source — a `path` as is, a git `repo`
+   cloned at `ref` into the cache — runs `okf-export` on its corpus with the child's
+   own profile, fails if the child does not pass its own validation, writes the notes
+   under `<content-dir>/<id>/` (bundle links rewritten inside the mount, frontmatter
+   marked `okf_federated: <id>`, an index page generated) and the child graph plus a
+   `manifest.json` under `<artifacts-dir>/` — with the `source` (`{ kind: "path", path }`
+   resolved, or `{ kind: "git", repo, ref }`), the child's head (for a path, the head
+   of the repository the directory belongs to; none outside any repository), the
+   remote head (git only) and the display part of its explorer configuration.
 2. **The emitter**, during the build: validates the declaration
-   (`federation/node-unknown`, `repo-required`, `ref-required`, `edge-unknown`,
-   `preview-required`, `id-duplicate`, `mount-collision` — all fatal in strict mode),
+   (`federation/node-unknown`, `source-required`, `source-ambiguous`, `ref-required`,
+   `edge-unknown`, `preview-required`, `id-duplicate`, `mount-collision` — all fatal in
+   strict mode),
    skips mounted notes for its own validation and graph, reads the artifacts, marks the
    portal (`subgraph{ id, title, site, mount, graph, source_head, notes, previewed }`),
    adds the open notes as `<id>/<slug>` with `url: /<id>/<slug>`, declares
