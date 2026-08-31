@@ -571,7 +571,18 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
     ro.observe(el)
     disposers.push(() => window.removeEventListener("resize", onResize), () => ro.disconnect())
 
-    const onMove = (e: MouseEvent) => {
+    // The hover card belongs to a pointer that can rest on a node. A tap emits one synthetic
+    // mousemove and never a mouseleave, so on a phone the card stayed on screen for good.
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") {
+        if (hover) {
+          hover = null
+          el.classList.remove("on-node")
+          requestDraw()
+          events?.onHover(null, 0, 0)
+        }
+        return
+      }
       if (dragging) {
         requestDraw()
         return
@@ -607,15 +618,15 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
     // d3 prevents the wheel it consumes, but at the zoom limit it does not consume it and the
     // event escapes: the page behind the explorer would scroll.
     const onWheel = (e: WheelEvent) => e.preventDefault()
-    el.addEventListener("mousemove", onMove)
-    el.addEventListener("mouseleave", onLeave)
+    el.addEventListener("pointermove", onMove)
+    el.addEventListener("pointerleave", onLeave)
     el.addEventListener("click", onClick)
     el.addEventListener("dblclick", onDbl)
     el.addEventListener("contextmenu", onContext)
     el.addEventListener("wheel", onWheel, { passive: false })
     disposers.push(() => {
-      el.removeEventListener("mousemove", onMove)
-      el.removeEventListener("mouseleave", onLeave)
+      el.removeEventListener("pointermove", onMove)
+      el.removeEventListener("pointerleave", onLeave)
       el.removeEventListener("click", onClick)
       el.removeEventListener("dblclick", onDbl)
       el.removeEventListener("contextmenu", onContext)

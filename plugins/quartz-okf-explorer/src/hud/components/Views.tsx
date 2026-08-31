@@ -13,14 +13,14 @@ export function Views() {
   const hasDesc = v.chips.some((c) => c.desc)
   const about = state.aboutOpen.value
   return (
-    <section id="views" class="okf-island tw:flex tw:max-h-[40vh] tw:flex-col tw:gap-1.5 tw:overflow-y-auto tw:overscroll-contain tw:px-2 tw:py-2">
+    <section id="views" class="okf-island tw:flex tw:max-h-[40vh] tw:flex-col tw:gap-1.5 tw:overflow-y-auto tw:overscroll-contain tw:px-2 tw:py-2 tw:max-[900px]:max-h-none">
       {v.portals.length > 0 && (
-        <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
+        <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:max-[900px]:flex-nowrap tw:max-[900px]:overflow-x-auto tw:max-[900px]:overscroll-x-contain">
           {v.portals.map((p) => (
             <button
               key={p.id}
               type="button"
-              class="okf-chip door"
+              class="okf-chip door tw:max-[900px]:shrink-0"
               title={p.title}
               onClick={() => {
                 const n = state.view.value?.idx.get(p.id) ?? state.data.value.nodes.get(p.id)
@@ -32,14 +32,14 @@ export function Views() {
           ))}
         </div>
       )}
-      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:max-[900px]:flex-nowrap tw:max-[900px]:overflow-x-auto tw:max-[900px]:overscroll-x-contain">
         {v.back && (
           <button type="button" class="okf-chip" onClick={() => void ctl.backTo(v.back?.level ?? 0)}>
             <span class="tw:overflow-hidden tw:text-ellipsis tw:whitespace-nowrap">{v.back.text}</span>
           </button>
         )}
         {v.chips.map((c) => (
-          <button key={c.id} type="button" class="okf-chip" aria-pressed={c.active} onClick={() => void ctl.changeMode(c.id)}>
+          <button key={c.id} type="button" class="okf-chip tw:max-[900px]:shrink-0" aria-pressed={c.active} onClick={() => void ctl.changeMode(c.id)}>
             <span class="tw:overflow-hidden tw:text-ellipsis tw:whitespace-nowrap">{c.text}</span>
           </button>
         ))}

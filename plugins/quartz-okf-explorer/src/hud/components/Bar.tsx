@@ -11,7 +11,7 @@ export function TrailBar() {
   const shown = state.dock.value.active
   return (
     <div id="bar" class="okf-island tw:flex tw:w-full tw:items-center tw:gap-2.5 tw:py-1.5 tw:pr-2 tw:pl-3 tw:max-[900px]:flex-wrap">
-      <nav id="trail" class="tw:flex tw:shrink-0 tw:items-center tw:gap-0.5 tw:whitespace-nowrap tw:text-[0.86rem] tw:max-[900px]:min-w-0 tw:max-[900px]:shrink">
+      <nav id="trail" class="tw:flex tw:shrink-0 tw:items-center tw:gap-0.5 tw:whitespace-nowrap tw:text-[0.86rem] tw:max-[900px]:min-w-0 tw:max-[900px]:flex-1">
         {v.levels.map((l, i) =>
           l.current ? (
             <b key={l.index} class="tw:min-w-16 tw:shrink tw:overflow-hidden tw:text-ellipsis tw:rounded-md tw:px-1.5 tw:py-0.5 tw:font-semibold tw:text-(--hud-fg)" title={l.text}>

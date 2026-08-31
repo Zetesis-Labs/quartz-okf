@@ -19,7 +19,7 @@ export function SideMenu() {
   const apply = (set: Set<string> | null) => ctl.applyFilter(menu, set)
 
   return (
-    <div id="side" class="okf-island tw:absolute tw:bottom-3 tw:left-[calc(18rem+1.4rem)] tw:z-30 tw:flex tw:w-64 tw:max-h-[min(60vh,calc(100%-1.6rem))] tw:flex-col tw:max-[900px]:top-[6.5rem] tw:max-[900px]:right-3 tw:max-[900px]:bottom-auto tw:max-[900px]:left-3 tw:max-[900px]:w-auto tw:max-[900px]:max-h-[50vh]">
+    <div id="side" class="okf-island tw:absolute tw:bottom-3 tw:left-[calc(18rem+1.4rem)] tw:z-30 tw:flex tw:w-64 tw:max-h-[min(60vh,calc(100%-1.6rem))] tw:flex-col tw:max-[900px]:top-[calc(var(--bar-h)+var(--omni-h)+1.6rem)] tw:max-[900px]:right-3 tw:max-[900px]:bottom-auto tw:max-[900px]:left-3 tw:max-[900px]:w-auto tw:max-[900px]:max-h-[50vh]">
       <div class="tw:flex tw:items-center tw:gap-1.5 tw:border-b tw:border-(--hud-border) tw:py-1.5 tw:pr-2 tw:pl-3 tw:text-[0.8rem] tw:font-semibold">
         <span>{t(types ? "filters.types" : "filters.edges")}</span>
         <span class="tw:flex-1" />

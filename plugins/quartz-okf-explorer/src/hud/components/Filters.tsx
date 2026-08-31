@@ -24,7 +24,7 @@ export function Filters() {
     state.sideMenu.value = menu === which ? null : which
   }
   const chip = (which: "types" | "edges", c: { text: string; sub: string; warn: boolean }) => (
-    <button type="button" class={`okf-chip ${c.warn ? "warn" : ""}`} aria-pressed={menu === which} onClick={() => toggle(which)}>
+    <button type="button" class={`okf-chip tw:max-[900px]:shrink-0 ${c.warn ? "warn" : ""}`} aria-pressed={menu === which} onClick={() => toggle(which)}>
       <span class="tw:overflow-hidden tw:text-ellipsis tw:whitespace-nowrap">{c.text}</span>
       <span class="okf-sub">{c.sub}</span>
       <span class="tw:text-(--hud-fg-3)">›</span>
@@ -32,7 +32,7 @@ export function Filters() {
   )
   return (
     <section id="filters" class="okf-island tw:flex tw:flex-col tw:gap-1.5 tw:px-2 tw:py-2">
-      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1">
+      <div class="tw:flex tw:flex-wrap tw:items-center tw:gap-1 tw:max-[900px]:flex-nowrap tw:max-[900px]:overflow-x-auto tw:max-[900px]:overscroll-x-contain">
         {chip("types", v.types)}
         {!v.edges.hidden && chip("edges", v.edges)}
       </div>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { nearestInDirection, nextSequential } from "../lib/spatial-nav.ts"
+import { nearestInDirection } from "../lib/spatial-nav.ts"
 
 const nodes = [
   { id: "c", x: 0, y: 0 },
@@ -20,11 +20,3 @@ test("nearestInDirection prefers the closest node along the axis, penalising lat
   assert.equal(nearestInDirection({ id: "x" }, nodes, "right"), null)
 })
 
-test("nextSequential walks the list in order and wraps, from nothing it starts at either end", () => {
-  assert.equal(nextSequential(null, nodes)?.id, "c")
-  assert.equal(nextSequential(null, nodes, true)?.id, "nowhere")
-  assert.equal(nextSequential(nodes[1], nodes)?.id, "far-right")
-  assert.equal(nextSequential(nodes[0], nodes, true)?.id, "nowhere")
-  assert.equal(nextSequential({ id: "ghost" }, nodes)?.id, "c")
-  assert.equal(nextSequential(null, []), null)
-})

@@ -89,8 +89,15 @@ export function Hud({ initial }: HudProps) {
 
   return (
     <div class="tw:relative tw:h-full tw:w-full" style={{ "--bar-h": "3rem", "--omni-h": "2.2rem" }}>
-      <canvas ref={canvas} class="okf-canvas tw:absolute tw:inset-0 tw:block tw:h-full tw:w-full" />
-      <div class="okf-layer tw:absolute tw:inset-0">
+      <canvas
+        ref={canvas}
+        // The graph is a control, not decoration: it takes the focus, so the walk with the
+        // arrows can be reached and returned to with the keyboard alone.
+        tabIndex={0}
+        aria-label={t("access.title")}
+        class="okf-canvas tw:absolute tw:inset-0 tw:block tw:h-full tw:w-full"
+      />
+      <div class="okf-layer okf-frame tw:absolute tw:inset-0">
         <Portals />
         <div ref={north} class="okf-layer tw:absolute tw:top-2.5 tw:right-3 tw:left-3 tw:z-30 tw:flex tw:flex-col tw:items-center tw:gap-2 tw:max-[900px]:right-2 tw:max-[900px]:left-2">
           <TrailBar />
@@ -102,7 +109,7 @@ export function Hud({ initial }: HudProps) {
             </div>
           </div>
         </div>
-        <aside ref={stack} class="okf-layer tw:absolute tw:bottom-3 tw:left-3 tw:z-20 tw:flex tw:max-h-[calc(100%-1.6rem)] tw:w-72 tw:flex-col tw:justify-end tw:gap-2 tw:max-[900px]:w-[calc(100%-1.6rem)]">
+        <aside ref={stack} class="okf-layer tw:absolute tw:bottom-3 tw:left-3 tw:z-20 tw:flex tw:max-h-[calc(100%-1.6rem)] tw:w-72 tw:flex-col tw:justify-end tw:gap-2 tw:max-[900px]:max-h-[45vh] tw:max-[900px]:w-[calc(100%-1.6rem)] tw:max-[900px]:overflow-y-auto tw:max-[900px]:overscroll-contain">
           <Selection />
           <Views />
           <Filters />

@@ -2,7 +2,7 @@ import { backgroundMenuItems, commandList, matchCommands, nodeMenuItems, type Co
 import { dockOpen } from "../../lib/dock.ts"
 import { dismissOrder } from "../../lib/hud.ts"
 import { currentKey } from "../../lib/navigation.ts"
-import { nearestInDirection, nextSequential, type Direction } from "../../lib/spatial-nav.ts"
+import { nearestInDirection, type Direction } from "../../lib/spatial-nav.ts"
 import type { ExplorerEmitConfig, Translator, ViewNode } from "../../lib/types.ts"
 import { searchWithState } from "../../lib/url-state.ts"
 import type { Engine } from "./canvas/engine.ts"
@@ -45,7 +45,36 @@ const typing = (el: Element | null): boolean =>
   Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable))
 
 const DIRECTIONS: Record<string, Direction> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" }
-const WALK_KEYS = new Set(["Tab", "Enter", " ", ...Object.keys(DIRECTIONS)])
+// Tab is not here on purpose: it moves between the HUD's controls, like anywhere else on the
+// web. The graph is walked with the arrows, which read the layout instead of a list order.
+const WALK_KEYS = new Set(["Enter", " ", ...Object.keys(DIRECTIONS)])
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
+
+const stageOf = (): HTMLElement | null => document.querySelector<HTMLElement>(".okf-explorer-stage")
+
+function focusables(stage: HTMLElement): HTMLElement[] {
+  return [...stage.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+    (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el === document.activeElement,
+  )
+}
+
+/**
+ * The explorer covers the page, so the focus must not walk behind it: Tab cycles inside the
+ * stage. Without this the next Tab lands on a control nobody can see.
+ */
+function trapTab(ev: KeyboardEvent, active: Element | null): void {
+  const stage = stageOf()
+  if (!stage) return
+  const list = focusables(stage)
+  if (list.length === 0) return
+  const inside = active instanceof HTMLElement && stage.contains(active)
+  const index = inside ? list.indexOf(active) : -1
+  const next = ev.shiftKey ? index - 1 : index + 1
+  if (inside && next >= 0 && next < list.length) return
+  ev.preventDefault()
+  ;(ev.shiftKey ? list[list.length - 1] : list[0]).focus()
+}
 
 export function createActions({ t, state, ctl, engine, close, navigate, omnibar, canvasRect }: ActionsOptions): Actions {
   function commandContext(): CommandContext {
@@ -138,31 +167,36 @@ export function createActions({ t, state, ctl, engine, close, navigate, omnibar,
   }
 
   function keydown(ev: KeyboardEvent): void {
+    // A handler on the element ran first and already answered (the omnibar's own Tab, say).
+    if (ev.defaultPrevented) return
     const active = document.activeElement
     if (ev.key === "Escape") {
       if (active === omnibar()) return
       escape()
       return
     }
-    if (typing(active)) return
-    if (ev.metaKey || ev.ctrlKey || ev.altKey) return
-    // Reading in the dock keeps its own keyboard: Space scrolls the article, Tab and Enter
-    // walk its links; the canvas's walk only answers when nothing on the HUD has the focus.
-    if (active?.closest("#dock")) return
-    if (ev.key === "/") {
+    if (ev.key === "Tab") {
+      trapTab(ev, active)
+      return
+    }
+    if (ev.key === "/" && !typing(active)) {
       ev.preventDefault()
       focusOmnibar()
       return
     }
+    if (typing(active)) return
+    if (ev.metaKey || ev.ctrlKey || ev.altKey) return
+    // Reading in the dock keeps its own keyboard: Space scrolls the article and Enter follows
+    // its links; the canvas's walk only answers when nothing on the HUD has the focus.
+    if (active?.closest("#dock")) return
     const onCanvas = !active || active === document.body || active.tagName === "CANVAS"
-    if (!onCanvas && WALK_KEYS.has(ev.key)) return
+    if (!onCanvas) {
+      if (WALK_KEYS.has(ev.key)) return
+      // A letter typed on a control belongs to that control, not to the search box.
+      if (active.tagName === "BUTTON" || active.tagName === "A" || active.tagName === "LABEL") return
+    }
     const nodes = state.view.value?.nodes.filter((n) => n.x !== undefined) ?? []
     const focused = state.keyboardFocus.value
-    if (ev.key === "Tab" && nodes.length) {
-      ev.preventDefault()
-      walk(nextSequential(focused, nodes, ev.shiftKey))
-      return
-    }
     if (ev.key in DIRECTIONS && nodes.length) {
       ev.preventDefault()
       walk(nearestInDirection(focused ?? nodes[0], nodes, DIRECTIONS[ev.key]))

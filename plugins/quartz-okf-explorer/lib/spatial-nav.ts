@@ -61,11 +61,3 @@ export function nearestInDirection<T extends NavNode>(current: T, candidates: T[
   }
   return best
 }
-
-export function nextSequential<T extends NavNode>(current: T | null, candidates: T[], reverse = false): T | null {
-  if (!candidates.length) return null
-  if (!current) return reverse ? candidates[candidates.length - 1] : candidates[0]
-  const idx = candidates.findIndex((c) => c.id === current.id)
-  if (idx < 0) return candidates[0]
-  return candidates[(idx + (reverse ? -1 : 1) + candidates.length) % candidates.length]
-}

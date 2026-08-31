@@ -162,10 +162,14 @@ island reserves layout space. An island with nothing to say is not rendered.
 | `↑` `↓` | search box | move the highlighted result or command |
 | `⏎` | search box | activates it; with no list, frames the matches |
 | `Esc` | search box | clears the search and restores the camera saved when it began, unless the reader moved it |
-| `⇥` / `⇧⇥` | canvas | walk the nodes in order (a dashed ring marks the focused one) |
-| `←` `→` `↑` `↓` | canvas | move the focus to the nearest node in that direction |
+| `←` `→` `↑` `↓` | canvas | move the focus to the nearest node in that direction (a dashed ring marks it) |
 | `⏎` / `Space` | focused node | open its note / open its menu |
+| `⇥` / `⇧⇥` | anywhere | move between the explorer's controls; the focus never leaves the explorer while it is open |
 | `Esc` | anywhere else | closes, in order: the context menu, the side menu, the results, the selection, the keyboard focus, the dock — and then the explorer |
+
+The explorer takes the focus when it opens (the canvas, so the arrows answer at once) and
+gives it back to the control the reader came from when it closes. The canvas is focusable,
+so `⇥` reaches the HUD and comes back to the graph without a pointer.
 
 ## Options
 

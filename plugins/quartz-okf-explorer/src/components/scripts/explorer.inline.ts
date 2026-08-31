@@ -18,7 +18,7 @@ import { createState } from "../../hud/state.ts"
  */
 const STAGE_ID = "okf-explorer-stage"
 
-let mounted: { stage: HTMLElement; cleanup(): void } | null = null
+let mounted: { stage: HTMLElement; cleanup(): void; returnTo: HTMLElement | null } | null = null
 
 // How many entries the explorer pushed since it opened travels in the history state itself,
 // so a back or forward keeps it right without any counter of ours.
@@ -57,11 +57,14 @@ function writeUrl(graph: string | null, focus: string | null, mode: "push" | "re
 
 function unmount(): void {
   if (!mounted) return
+  const { returnTo } = mounted
   render(null, mounted.stage)
   mounted.cleanup()
   mounted.stage.remove()
   mounted = null
   document.documentElement.classList.remove("okf-explorer-open")
+  // The reader came from a control on the page: the keyboard goes back to it, not to the top.
+  if (returnTo?.isConnected) returnTo.focus()
 }
 
 // Closing walks back over the entries the explorer pushed, so the page's history is what it
@@ -89,11 +92,12 @@ async function open(cfg: ExplorerEmitConfig, initial: { graph: string | null; fo
   stage.setAttribute("role", "dialog")
   stage.setAttribute("aria-modal", "true")
   stage.setAttribute("aria-label", cfg.title || t("title.default"))
+  const returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null
   document.body.appendChild(stage)
   document.documentElement.classList.add("okf-explorer-open")
   // Claimed before the first await: a second click while the graph loads must not mount a
   // second explorer on top of this one.
-  mounted = { stage, cleanup: () => {} }
+  mounted = { stage, cleanup: () => {}, returnTo }
 
   let raw: RawGraph
   try {
@@ -156,8 +160,11 @@ async function open(cfg: ExplorerEmitConfig, initial: { graph: string | null; fo
     void ctl.popstate(stateFromSearch(location.search))
   }
   window.addEventListener("popstate", onPop, true)
-  mounted = { stage, cleanup: () => window.removeEventListener("popstate", onPop, true) }
+  mounted = { stage, cleanup: () => window.removeEventListener("popstate", onPop, true), returnTo }
   render(h(HudContext.Provider, { value: api }, h(Hud, { initial })), stage)
+  // The focus follows the explorer in: otherwise it stays on a button of the page behind and
+  // the keyboard walks a document nobody can see.
+  stage.querySelector<HTMLCanvasElement>("canvas.okf-canvas")?.focus()
 }
 
 function wireWidget(cfg: ExplorerEmitConfig): void {

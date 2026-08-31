@@ -9,7 +9,7 @@ export function Selection() {
   if (!v || !view) return null
   const selected = state.selected.value
   return (
-    <div id="sel" class="okf-island tw:max-h-[32vh] tw:overflow-y-auto tw:overscroll-contain tw:px-2.5 tw:py-2 tw:text-[0.78rem] tw:leading-relaxed">
+    <div id="sel" class="okf-island tw:max-h-[32vh] tw:max-[900px]:max-h-[20vh] tw:overflow-y-auto tw:overscroll-contain tw:px-2.5 tw:py-2 tw:text-[0.78rem] tw:leading-relaxed">
       <div class="tw:flex tw:items-center tw:gap-2">
         <span class="okf-dot" style={{ background: state.display.value.colors[v.type] || "#888" }} />
         <span class="tw:min-w-0 tw:flex-1 tw:font-bold" title={v.title}>
