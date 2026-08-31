@@ -341,10 +341,53 @@ export interface MountRecord {
   notes: number
 }
 
+/** The seams of `okf build` where a consumer may run commands of its own. */
+export type Seam = "prepare" | "content" | "assemble" | "install" | "postBuild"
+
+export interface PageFloor {
+  glob: string
+  min: number
+}
+
+export interface VerifyFloors {
+  minNodes?: number
+  minEdges?: number
+  pages?: PageFloor[]
+  /** Off only for a site that deliberately publishes no explorer widget. */
+  component?: boolean
+}
+
+/** What `okf verify` reads off a built site before deciding anything. */
+export interface SiteFacts {
+  index: boolean
+  /** null when the graph document is missing or does not parse. */
+  graph: { nodes: number; edges: number } | null
+  /** null when the explorer's page was not emitted. */
+  explorer: { present: boolean; assets: { name: string; present: boolean }[] } | null
+  /** The page sampled for the explorer component; null when no page could be read. */
+  page: { path: string; widget: boolean; config: boolean } | null
+  counts: { glob: string; count: number }[]
+}
+
+/** How this corpus is gathered into the site. */
+export interface ContentConfig {
+  dir?: string
+  /** Sweep the whole repository (the harness's collector) instead of one directory. */
+  collect?: boolean
+}
+
+/** The consumer's half of the build recipe: where its corpus is and what else it runs. */
+export interface BuildConfig {
+  content?: ContentConfig
+  hooks?: Partial<Record<Seam, string[]>>
+  verify?: VerifyFloors
+}
+
 /** The whole `okf.config.*` of a corpus. */
 export interface OkfConfig {
   branding?: Branding
   profile?: ProfileOverlay
   explorer?: ExplorerOptions
   federation?: Federation
+  build?: BuildConfig
 }
