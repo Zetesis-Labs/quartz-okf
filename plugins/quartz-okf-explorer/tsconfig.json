@@ -1,24 +1,25 @@
 {
-  "extends": "../../tsconfig.base.json",
+  // Self-contained on purpose: consumers copy this directory alone into their cache, so
+  // there is no ../../tsconfig.base.json there. Keep these options in step with it.
   "compilerOptions": {
+    "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": [
-      "ES2022",
-      "DOM"
-    ],
+    "lib": ["ES2022", "DOM"],
+    "allowImportingTsExtensions": true,
     "noEmit": true,
-    "types": [
-      "node"
-    ],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
     "esModuleInterop": true,
-    "allowImportingTsExtensions": true
+    "types": ["node"]
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "include": ["src"],
+  "exclude": ["dist", "node_modules"]
 }
