@@ -2,8 +2,5 @@ node_modules/
 package-lock.json
 *.log
 
-# Build output of the plugins that compile with tsup. quartz-okf is authored as
-# plain JS in its dist/ (no build step), so that one is NOT ignored.
-plugins/quartz-graph-okf/dist/
-plugins/quartz-okf-panels/dist/
-plugins/quartz-okf-explorer/dist/
+# Build output of the plugins: every one compiles with tsup at install time.
+plugins/*/dist/

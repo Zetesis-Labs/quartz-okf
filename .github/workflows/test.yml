@@ -8,11 +8,17 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    name: node ${{ matrix.node }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
       # package-lock.json is gitignored on purpose (consumers pin by SHA, not by lock).
+      # `npm install` also runs every plugin's `prepare`, so a tsup failure fails here.
       - run: npm install
+      - run: npm run typecheck
       - run: npm test

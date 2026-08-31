@@ -27,7 +27,8 @@
   ],
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
-    "prepare": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup"
+    "prepare": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@quartz-community/types": "github:quartz-community/types"

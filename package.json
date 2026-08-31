@@ -15,7 +15,12 @@
     "plugins/*"
   ],
   "scripts": {
-    "test": "node --test core/test/*.test.js harness/test/*.test.js plugins/quartz-okf/test/*.test.js plugins/quartz-okf-explorer/test/*.test.js"
+    "test": "node --test \"core/test/*.test.ts\" \"harness/test/*.test.ts\" \"plugins/quartz-okf/test/*.test.ts\" \"plugins/quartz-okf-explorer/test/*.test.js\"",
+    "typecheck": "tsc -p tsconfig.json && npm run typecheck -w @zetesis/quartz-okf -w @zetesis/quartz-okf-explorer"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.3"
   },
   "keywords": [
     "quartz",
@@ -24,6 +29,6 @@
     "knowledge-graph"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   }
 }
