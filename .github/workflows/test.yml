@@ -22,3 +22,25 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm test
+
+  # A change in the engine that only shows when a site is built — the 003 wikilink mask
+  # is the precedent — must fail here, not in a consumer's deploy.
+  smoke:
+    runs-on: ubuntu-latest
+    name: smoke build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The pinned Quartz and the community plugins are downloaded once per pin.
+      - name: Cache the pinned engine
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/okf-fixture
+          key: okf-fixture-${{ hashFiles('harness/quartz.ref', 'harness/quartz.lock.json') }}
+          restore-keys: okf-fixture-
+      - name: Build and verify the fixture
+        run: node core/bin/okf-build.js harness/fixture --cache ~/.cache/okf-fixture
+      - name: The fixture's graph is exactly as expected
+        run: node harness/assert-fixture-graph.ts
