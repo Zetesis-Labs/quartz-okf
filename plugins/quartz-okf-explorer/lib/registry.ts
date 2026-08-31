@@ -1,8 +1,16 @@
-import { indexGraph } from "./model.js"
+import { indexGraph } from "./model.ts"
+import type { HudModel, RawGraph, Registry, RegistryEntry } from "./types.ts"
 
-const entry = (key, title, url, path, model) => ({ key, title, url, path, model, error: null })
+const entry = (key: string, title: string, url: string, path: string[], model: HudModel | null): RegistryEntry => ({
+  key,
+  title,
+  url,
+  path,
+  model,
+  error: null,
+})
 
-function addPortals(registry, model, path) {
+function addPortals(registry: Registry, model: HudModel, path: string[]): void {
   for (const n of model.nodes.values()) {
     if (!n.subgraph || registry.has(n.subgraph.id)) continue
     const s = n.subgraph
@@ -11,14 +19,14 @@ function addPortals(registry, model, path) {
 }
 
 /** Every graph the site publishes, as far as the loaded graphs reveal it: the root and each portal. */
-export function registryFrom(model, { title, url }) {
-  const registry = new Map()
+export function registryFrom(model: HudModel, { title, url }: { title: string; url: string }): Registry {
+  const registry: Registry = new Map()
   registry.set("", entry("", title, url, [], model))
   addPortals(registry, model, [])
   return registry
 }
 
-export function expandRegistry(registry, key, model) {
+export function expandRegistry(registry: Registry, key: string, model: HudModel): void {
   const e = registry.get(key)
   if (!e) throw new Error(`quartz-okf-explorer: graph "${key}" is not in the registry`)
   e.model = model
@@ -27,7 +35,7 @@ export function expandRegistry(registry, key, model) {
 }
 
 /** Loads the graphs still missing. A failure is recorded on its entry, named after the graph. */
-export async function loadGraphs(registry, keys, fetchGraph) {
+export async function loadGraphs(registry: Registry, keys: string[], fetchGraph: (url: string) => Promise<RawGraph>): Promise<Registry> {
   await Promise.all(
     keys.map(async (key) => {
       const e = registry.get(key)
@@ -35,7 +43,7 @@ export async function loadGraphs(registry, keys, fetchGraph) {
       try {
         expandRegistry(registry, key, indexGraph(await fetchGraph(e.url)))
       } catch (err) {
-        e.error = `${e.title}: ${err.message}`
+        e.error = `${e.title}: ${err instanceof Error ? err.message : String(err)}`
       }
     }),
   )

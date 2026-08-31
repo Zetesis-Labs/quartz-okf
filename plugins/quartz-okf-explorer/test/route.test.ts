@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { routeTo } from "../lib/route.js"
+import { routeTo } from "../lib/route.ts"
 
 test("routeTo returns nothing when already there", () => {
   assert.deepEqual(routeTo([], []), [])

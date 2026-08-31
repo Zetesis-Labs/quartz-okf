@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { indexGraph } from "../lib/model.js"
-import { matchNode, nextScope, rankResults, scopesFor, searchAcross } from "../lib/search.js"
-import { RAW_CHILD, RAW_ROOT, stubT } from "./fixtures.js"
+import { indexGraph } from "../lib/model.ts"
+import { matchNode, nextScope, rankResults, scopesFor, searchAcross } from "../lib/search.ts"
+import { RAW_CHILD, RAW_ROOT, stubT } from "./fixtures.ts"
 
 const root = indexGraph(RAW_ROOT)
 const child = indexGraph(RAW_CHILD)

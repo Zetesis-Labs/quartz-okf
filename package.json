@@ -15,7 +15,7 @@
     "plugins/*"
   ],
   "scripts": {
-    "test": "node --test \"core/test/*.test.ts\" \"harness/test/*.test.ts\" \"plugins/quartz-okf/test/*.test.ts\" \"plugins/quartz-okf-explorer/test/*.test.js\"",
+    "test": "node --test \"core/test/*.test.ts\" \"harness/test/*.test.ts\" \"plugins/quartz-okf/test/*.test.ts\" \"plugins/quartz-okf-explorer/test/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json && npm run typecheck -w @zetesis/quartz-okf -w @zetesis/quartz-okf-explorer"
   },
   "devDependencies": {

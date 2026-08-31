@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { explorerConfig } from "../lib/emit-config.js"
+import { explorerConfig } from "../lib/emit-config.ts"
 
 const opts = { graphInput: "static/okf-graph.json", modes: [{ id: "full", label: "Full", edges: "*" }] }
 

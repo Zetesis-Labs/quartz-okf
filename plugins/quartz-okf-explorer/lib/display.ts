@@ -1,3 +1,5 @@
+import type { ExplorerMode, ExplorerOptions, HudDisplay, HudModel, Translator } from "./types.ts"
+
 export const PALETTE = [
   "#4c7ecf", "#4caf7c", "#e08a3c", "#c2544d", "#9a6fbf",
   "#3fa3a3", "#b58b6a", "#8a8a8a", "#7f93ad", "#c9b04a",
@@ -5,12 +7,17 @@ export const PALETTE = [
 
 export const FULL_MODE_ID = "__full__"
 
-export function fullMode(t) {
+export function fullMode(t: Translator): ExplorerMode {
   return { id: FULL_MODE_ID, label: t("mode.full"), edges: "*", desc: t("mode.full.desc") }
 }
 
-/** The vocabulary the consumer declared in `okf.config.mjs`. */
-export function baseDisplay(cfg, t) {
+/** The vocabulary the consumer declared in `okf.config.*` — the options, or the config the emitter inlined. */
+export type DisplaySource = Pick<ExplorerOptions, "typeColors" | "typeLabels" | "edgeColors" | "modes" | "typeOrder" | "knowledgeTypes" | "tooltip"> & {
+  typeOrder?: string[] | null
+  tooltip?: Record<string, string> | null
+}
+
+export function baseDisplay(cfg: DisplaySource, t: Translator): HudDisplay {
   return {
     colors: { ...(cfg.typeColors || {}) },
     labels: { ...(cfg.typeLabels || {}) },
@@ -29,7 +36,7 @@ export function baseDisplay(cfg, t) {
  * unnamed takes a palette colour by its position in the graph's type and label lists, so
  * the assignment is stable across loads.
  */
-export function displayFor(base, model, { inSubgraph, t }) {
+export function displayFor(base: HudDisplay, model: HudModel, { inSubgraph, t }: { inSubgraph: boolean; t: Translator }): HudDisplay {
   const d = model.display || {}
   const colors = inSubgraph ? { ...base.colors, ...(d.typeColors || {}) } : { ...(d.typeColors || {}), ...base.colors }
   const labels = inSubgraph ? { ...base.labels, ...(d.typeLabels || {}) } : { ...(d.typeLabels || {}), ...base.labels }
@@ -55,7 +62,7 @@ export function displayFor(base, model, { inSubgraph, t }) {
   }
 }
 
-export function modeById(display, id) {
+export function modeById(display: HudDisplay, id: string): ExplorerMode {
   return display.modes.find((m) => m.id === id) || display.modes[0]
 }
 
@@ -63,7 +70,7 @@ export function modeById(display, id) {
  * The document a mode draws. A mode may name its own; otherwise it asks about the graph
  * on screen — inside a subgraph, the child's, never the root's.
  */
-export function modeGraphUrl(mode, currentUrl) {
+export function modeGraphUrl(mode: ExplorerMode | undefined, currentUrl: string): string {
   if (!mode || !mode.graph) return currentUrl
   return mode.graph[0] === "/" ? mode.graph : "/" + mode.graph
 }

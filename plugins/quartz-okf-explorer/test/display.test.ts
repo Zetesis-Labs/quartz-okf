@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { FULL_MODE_ID, PALETTE, baseDisplay, displayFor, modeById, modeGraphUrl } from "../lib/display.js"
-import { indexGraph } from "../lib/model.js"
-import { RAW_CHILD, RAW_ROOT, stubT } from "./fixtures.js"
+import { FULL_MODE_ID, PALETTE, baseDisplay, displayFor, modeById, modeGraphUrl } from "../lib/display.ts"
+import { indexGraph } from "../lib/model.ts"
+import { RAW_CHILD, RAW_ROOT, stubT } from "./fixtures.ts"
 
 const root = indexGraph(RAW_ROOT)
 const child = indexGraph(RAW_CHILD)

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { dismissOrder, filterRows, filtersIsland, selectionView, statsText, trailView, viewsIsland } from "../lib/hud.js"
-import { stubT } from "./fixtures.js"
+import { dismissOrder, filterRows, filtersIsland, selectionView, statsText, trailView, viewsIsland } from "../lib/hud.ts"
+import { stubT } from "./fixtures.ts"
 
 const t = stubT
 

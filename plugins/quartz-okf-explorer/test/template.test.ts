@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { fill, readPath } from "../lib/template.js"
+import { fill, readPath } from "../lib/template.ts"
 
 const node = { indeg: 1, counts: { Cites: 3 }, subgraph: { notes: 12, previewed: 0 }, properties: { level: "high" } }
 

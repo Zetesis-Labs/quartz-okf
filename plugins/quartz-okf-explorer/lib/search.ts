@@ -1,13 +1,15 @@
-export function matchNode(node, query) {
+import type { HudNode, Scope, SearchGraph, SearchRow, Translator } from "./types.ts"
+
+export function matchNode(node: HudNode, query: string): boolean {
   const q = query.toLowerCase()
   return node.title.toLowerCase().includes(q) || node.label.toLowerCase().includes(q) || node.id.toLowerCase().includes(q)
 }
 
 /** Declared kinds first, in the corpus' order; undeclared kinds after; then by title. */
-export function rankResults(nodes, query, { kindOrder = [], limit = 20 } = {}) {
+export function rankResults(nodes: HudNode[], query: string, { kindOrder = [], limit = 20 }: { kindOrder?: readonly string[]; limit?: number } = {}): HudNode[] {
   const q = query.trim().toLowerCase()
   if (!q) return []
-  const rank = (type) => {
+  const rank = (type: string): number => {
     const i = kindOrder.indexOf(type)
     return i < 0 ? kindOrder.length : i
   }
@@ -17,7 +19,7 @@ export function rankResults(nodes, query, { kindOrder = [], limit = 20 } = {}) {
     .slice(0, limit)
 }
 
-export function scopesFor(graphCount, t) {
+export function scopesFor(graphCount: number, t: Translator): Scope[] {
   if (graphCount <= 1) return []
   return [
     { id: "graph", label: t("scope.this") },
@@ -25,10 +27,15 @@ export function scopesFor(graphCount, t) {
   ]
 }
 
-export function nextScope(current, scopes) {
+export function nextScope(current: string, scopes: Scope[]): string {
   if (!scopes.length) return current
   const i = scopes.findIndex((s) => s.id === current)
   return scopes[(i + 1) % scopes.length].id
+}
+
+export interface SearchResults {
+  rows: SearchRow[]
+  unavailable: string[]
 }
 
 /**
@@ -36,9 +43,9 @@ export function nextScope(current, scopes) {
  * registry order, each ranked by its own kind order; rows from another graph carry its
  * title as a badge. A graph that could not be loaded is reported, never skipped in silence.
  */
-export function searchAcross(graphs, query, { limit = 20 } = {}) {
-  const rows = []
-  const unavailable = []
+export function searchAcross(graphs: SearchGraph[], query: string, { limit = 20 }: { limit?: number } = {}): SearchResults {
+  const rows: SearchRow[] = []
+  const unavailable: string[] = []
   const ordered = [...graphs.filter((g) => g.current), ...graphs.filter((g) => !g.current)]
   for (const g of ordered) {
     if (!g.model) {

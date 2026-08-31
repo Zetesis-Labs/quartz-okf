@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { indexGraph } from "../lib/model.js"
-import { buildView } from "../lib/view.js"
-import { RAW_ROOT } from "./fixtures.js"
+import { indexGraph } from "../lib/model.ts"
+import { buildView } from "../lib/view.ts"
+import { RAW_ROOT } from "./fixtures.ts"
 
 const model = indexGraph(RAW_ROOT)
 const display = {

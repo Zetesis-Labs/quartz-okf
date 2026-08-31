@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { CATALOGUES, makeT, resolveLocale, translator } from "../lib/i18n.js"
+import { CATALOGUES, makeT, resolveLocale, translator } from "../lib/i18n.ts"
 
 test("both catalogues answer to the same keys", () => {
   assert.deepEqual(Object.keys(CATALOGUES.es).sort(), Object.keys(CATALOGUES.en).sort())

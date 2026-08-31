@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { indexGraph } from "../lib/model.js"
-import { RAW_ROOT } from "./fixtures.js"
+import { indexGraph } from "../lib/model.ts"
+import { RAW_ROOT } from "./fixtures.ts"
 
 // Characterization of `indexar` in the previous explorer.html: same node fields, same
 // counts and in-degree, same edge list, same drops.

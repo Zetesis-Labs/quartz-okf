@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { frameFor, visibleRect, wheelStep } from "../lib/viewport.js"
+import { frameFor, visibleRect, wheelStep } from "../lib/viewport.ts"
 
 test("wheelStep treats a line-mode wheel (Firefox) as one notch, sign only", () => {
   assert.equal(wheelStep({ deltaMode: 1, deltaY: 3, ctrlKey: false }), -0.2)

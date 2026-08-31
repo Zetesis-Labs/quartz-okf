@@ -1,6 +1,7 @@
-import { fill } from "./template.js"
+import { fill } from "./template.ts"
+import type { Translator } from "./types.ts"
 
-const en = {
+const en: Record<string, string> = {
   "access.title": "Knowledge graph",
   "access.open": "Open the graph",
   "access.expand": "Expand",
@@ -63,7 +64,7 @@ const en = {
   "route.missing": "no portal to \"{graph}\" in this graph",
 }
 
-const es = {
+const es: Record<string, string> = {
   "access.title": "Grafo de conocimiento",
   "access.open": "Abrir el grafo",
   "access.expand": "Ampliar",
@@ -126,9 +127,14 @@ const es = {
   "route.missing": "no hay portal a \"{graph}\" en este grafo",
 }
 
-export const CATALOGUES = { en, es }
+export const CATALOGUES: Record<string, Record<string, string>> = { en, es }
 
-export function resolveLocale(requested, available = Object.keys(CATALOGUES)) {
+export interface ResolvedLocale {
+  locale: string
+  problem: string | null
+}
+
+export function resolveLocale(requested: string | undefined, available: string[] = Object.keys(CATALOGUES)): ResolvedLocale {
   const language = String(requested || "")
     .toLowerCase()
     .split(/[-_]/)[0]
@@ -139,17 +145,23 @@ export function resolveLocale(requested, available = Object.keys(CATALOGUES)) {
   }
 }
 
-export function translator(catalogue) {
+export function translator(catalogue: Record<string, string>): Translator {
   return (key, vars) => {
     if (!(key in catalogue)) throw new Error(`quartz-okf-explorer: unknown wording key "${key}"`)
     return vars ? fill(catalogue[key], vars) : catalogue[key]
   }
 }
 
-export function makeT(locale, overrides = {}) {
+export interface Wording {
+  t: Translator
+  catalogue: Record<string, string>
+  problems: string[]
+}
+
+export function makeT(locale: string, overrides: Record<string, string> = {}): Wording {
   const base = CATALOGUES[locale]
   if (!base) throw new Error(`quartz-okf-explorer: no wording catalogue for locale "${locale}"`)
-  const problems = []
+  const problems: string[] = []
   const catalogue = { ...base }
   for (const [key, text] of Object.entries(overrides)) {
     if (key in base) catalogue[key] = text

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { indexGraph } from "../lib/model.js"
-import { expandRegistry, loadGraphs, registryFrom } from "../lib/registry.js"
-import { RAW_CHILD, RAW_ROOT } from "./fixtures.js"
+import { indexGraph } from "../lib/model.ts"
+import { expandRegistry, loadGraphs, registryFrom } from "../lib/registry.ts"
+import { RAW_CHILD, RAW_ROOT } from "./fixtures.ts"
 
 const root = indexGraph(RAW_ROOT)
 const child = indexGraph(RAW_CHILD)

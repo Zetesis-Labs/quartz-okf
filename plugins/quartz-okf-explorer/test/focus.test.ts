@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { findNode, focusKeys, resolveFocus } from "../lib/focus.js"
-import { indexGraph } from "../lib/model.js"
-import { RAW_CHILD, RAW_ROOT } from "./fixtures.js"
+import { findNode, focusKeys, resolveFocus } from "../lib/focus.ts"
+import { indexGraph } from "../lib/model.ts"
+import { RAW_CHILD, RAW_ROOT } from "./fixtures.ts"
 
 const root = indexGraph(RAW_ROOT)
 const child = indexGraph(RAW_CHILD)

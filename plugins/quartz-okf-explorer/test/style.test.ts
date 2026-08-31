@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { fillOf, scaleOf, sizeOf } from "../lib/style.js"
+import { fillOf, scaleOf, sizeOf } from "../lib/style.ts"
 
 const node = (over = {}) => ({ type: "service", indeg: 10, counts: { Cites: 5 }, properties: {}, ...over })
 
