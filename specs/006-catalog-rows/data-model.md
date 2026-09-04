@@ -86,6 +86,7 @@ interface CatalogRow {
   properties?: Record<string, unknown>
   edges: TopologyEdge[]               // containment, clauses, column edges
   table: number                       // 1-based position among the note's tables
+  identifier?: { column: number; text: string } // source cell used by the renderer
 }
 
 interface CatalogAnnotation {
@@ -93,6 +94,7 @@ interface CatalogAnnotation {
   edge: string
   properties: Record<string, unknown>
   table: number
+  row?: number                        // 1-based source row for diagnostics
 }
 ```
 
@@ -134,6 +136,7 @@ Row node in `okf-graph/v1`:
   "type": "component",
   "description": "Attracting and engaging prospective students.",
   "path": "standards/arm.md",
+  "tags": ["standard"],
   "aliases": ["AC001"],
   "properties": { "gloss": "…", "state": "core" },
   "url": "/standards/arm#ac001",
@@ -146,9 +149,13 @@ Row node in `okf-graph/v1`:
 - `stats.rows` (new): how many nodes are rows. `stats.notes` keeps its meaning (the node
   count) as federation already left it.
 
-Edges are ordinary edges: `standards/arm#ac001 → Part of → standards/arm` with the
+`identifier` is internal extraction metadata and is not published in the graph; row
+nodes inherit the containing note's tags. Edges are ordinary edges:
+`standards/arm#ac001 → Part of → standards/arm` with the
 derived `Contains`, plus whatever the clauses and columns declare. Annotations add
 `analysis/gap → About → standards/arm#ac001` and merge properties into the target node.
+That explicit annotation suppresses an inferred `bodyLinks` edge for the same
+source-target pair.
 
 ## 5. Resolution
 

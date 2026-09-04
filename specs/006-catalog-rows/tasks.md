@@ -44,13 +44,15 @@ phase opens with tests written and observed failing.
       fixture: ids and `data-okf-node` written, table marked, header mismatch warns and
       writes nothing.
 - [X] T016 `plugins/quartz-okf/src/index.ts` — `htmlPlugins()` and the `:target` style.
-- [X] T017 [P] `plugins/quartz-okf-explorer/test/note-cut.test.ts` — cut to a row
-      (`<thead>` + `<tr>`), to a heading section, and the unmatched fallback.
-- [X] T018 `plugins/quartz-okf-explorer/lib/note-cut.ts` — implement `cutFragment`.
+- [X] T017 [P] `plugins/quartz-okf-explorer/test/note-focus.test.ts` — focus a row or a
+      heading in the complete article, and leave an unmatched fragment unfocused.
+- [X] T018 `plugins/quartz-okf-explorer/lib/note-focus.ts` — implement `focusTarget` and
+      temporary focus marking.
 - [X] T019 `plugins/quartz-okf-explorer/src/hud/controller.ts` — fetch and cache by path;
-      cut by fragment; warn on fallback.
+      focus the fragment; warn on an unfocused fallback.
 
-**Checkpoint**: a row node opens as its row, and its URL lands on it.
+**Checkpoint**: a row node opens its complete note focused on that row, and its URL lands
+on it.
 
 ## Phase 4: US3 — relations from tables (P2)
 
@@ -71,8 +73,8 @@ phase opens with tests written and observed failing.
 - [X] T024 [P] `plugins/quartz-okf-explorer/test/{model,focus,search}.test.ts` — aliases
       and `row` reach the HUD model and match in focus and search.
 - [X] T025 `plugins/quartz-okf-explorer/lib/{types,model,focus,search}.ts` — implement.
-- [X] T026 `plugins/quartz-okf-panels/src/components/scripts/blast-radius.inline.ts` —
-      fold groups over eight.
+- [X] T026 `plugins/quartz-okf-panels/{src/components/scripts/blast-radius.inline.ts,test/blast-radius.test.ts}` —
+      fold groups over eight and execute the actual browser script in regression tests.
 
 ## Phase 7: Regression net and contract
 
@@ -86,7 +88,20 @@ phase opens with tests written and observed failing.
 
 ## Phase 8: Consumer validation (Development Workflow)
 
-- [X] T031 Built `singular-solving-propuesta` (a copy, with markers on its 26 HERM tables
-      and its linker off) against this working tree: `[okf] knowledge graph: 206 typed
-      notes, 511 edges (0 unresolved)` — 65 notes + 141 rows, 141 anchors written, no
-      warning. Its real adoption (markers, deleted scripts) is its own change.
+- [X] T031 Built the adopted `singular-solving-propuesta` in a copy against this working
+      tree: `[okf] knowledge graph: 485 typed notes, 1225 edges (0 unresolved)` — 420 row
+      nodes, with its graph invariant checker green. The consumer's changes remain its own
+      delivery.
+
+## Phase 9: Post-implementation regression review
+
+- [X] T032 `core/test/{catalog,graph,resolver,rules}.test.ts` — pin strict marker parsing,
+      inherited row tags, explicit-over-inferred relations, alias/short-name ambiguity,
+      duplicate-heading anchors and row-aware annotation diagnostics.
+- [X] T033 `plugins/quartz-okf/test/anchors.test.ts` — identify a rendered row by its
+      declared source cell and column, never by an id mentioned elsewhere in the row.
+- [X] T034 `plugins/quartz-okf-panels/test/blast-radius.test.ts` — execute the actual
+      browser script and pin the fold boundary at more than eight visible neighbours.
+- [X] T035 `core/test/build-plan.test.ts` — fail the toolkit build when Quartz reports a
+      failed plugin despite exiting zero; the Singular Solving build proves all four
+      plugins compile and the corrected graph has 420 rows and no unresolved relation.

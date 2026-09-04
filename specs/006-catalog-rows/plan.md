@@ -7,11 +7,11 @@
 
 A note may declare that one of its tables is a catalog: each row becomes a node of the
 graph, anchored inside the page, addressable as `<note>#<anchor>`, linkable with
-`[[note#ID]]`, readable on its own in the explorer's dock, and annotatable from tables in
+`[[note#ID]]`, focused within its complete note in the explorer's dock, and annotatable from tables in
 other notes. The engine gains two pure modules in `core/lib` (`anchor`, `catalog`) wired
 into the existing validate → build pipeline, so the exporter and the Quartz emitter
 publish the same row nodes; the `quartz-okf` transformer gains an html phase that writes
-the row anchors; the explorer learns to cut a page to a fragment and to match aliases;
+the row anchors; the explorer learns to focus a page fragment and to match aliases;
 the panels fold long neighbour lists. `okf-graph/v1` grows three additive fields.
 
 ## Technical Context
@@ -40,10 +40,10 @@ consumer has 420 in three notes)
 | Principle | How this plan complies |
 |---|---|
 | I. Git is truth; bundles are the contract | Rows are derived from the notes' own tables at a given `source_head`; nothing is authored outside git and no second writer appears. The exporter and the emitter call the same pure extraction, so bundle and site agree (FR-009). |
-| II. Functional core, effectful shell | `core/lib/anchor.ts` and `core/lib/catalog.ts` are pure (string → values, no fs, no DOM); the shells are the transformer's html phase (hast) and the explorer's fetch. The dock's cut is a pure function over a minimal document interface, tested with a stub. |
+| II. Functional core, effectful shell | `core/lib/anchor.ts` and `core/lib/catalog.ts` are pure (string → values, no fs, no DOM); the shells are the transformer's html phase (hast) and the explorer's fetch. The dock's focus helpers are pure functions over minimal document interfaces, tested with a stub. |
 | III. Tests first, vertical | Each phase below opens with failing tests: characterization of `anchorSlug` against the verified `github-slugger` outputs, of `WIKILINK_RE` before it gains the fragment group, and of `buildGraph`'s current output before rows enter it. |
 | IV. Engine ships no vocabulary | No type, label or consumer name in engine code. The single literal is the containment default `Part of`, taken from the reference profile the consumer already inherits and validated against its own `edgeLabels` — the precedent 001 set with `Contains`. Row types come from the marker and are checked against `profile.types`. |
-| V. No silent failures | Eleven `catalog/*` rules, `error` by default; in non-strict mode each is a named warning and the offending table contributes nothing, with a summary line saying how many tables were skipped. The dock's fallback to the whole article logs a warning naming the URL. |
+| V. No silent failures | Eleven `catalog/*` rules, `error` by default; in non-strict mode each is a named warning and invalid declarations or rows are omitted at their corresponding scope. The dock's unfocused fallback logs a warning naming the URL. |
 | VI. Comments only for a non-obvious why | New core code carries no narrative comments; the constraints that deserve one (the slug must match `github-slugger`; the html phase must not depend on plugin order) get one line each, in the language of the file. |
 | VII. Additive schema, pinning | New node fields `label` and `row`, new `stats.rows`; documented in `plugins/quartz-okf/README.md` under "Graph shape". No existing field changes meaning. Consumers adopt by ref bump plus markers in their notes. |
 
@@ -91,13 +91,13 @@ plugins/quartz-okf/
 └── README.md                    # Graph shape: the additive fields
 
 plugins/quartz-okf-explorer/
-├── lib/note-cut.ts              # NEW pure: cut an article to a fragment
+├── lib/note-focus.ts            # NEW pure: mark a fragment in the complete article
 ├── lib/focus.ts                 # aliases as a focus key
 ├── lib/search.ts                # aliases in matchNode
 ├── lib/model.ts                 # aliases and row through to the HUD model
 ├── lib/types.ts                 # HudNode.aliases, HudNode.row
-├── src/hud/controller.ts        # fetch + cache by path; cut by fragment
-└── test/{note-cut,focus,search,model}.test.ts
+├── src/hud/controller.ts        # fetch + cache by path; focus the fragment
+└── test/{note-focus,focus,search,model}.test.ts
 
 plugins/quartz-okf-panels/
 └── src/components/scripts/blast-radius.inline.ts   # fold groups over eight
@@ -123,8 +123,8 @@ Complete; see [research.md](research.md). Eleven decisions; the three that shape
 - **D6** edges come from three declarations (containment by default, table-wide clauses in
   the Topology grammar, columns named after edge labels), all through the existing
   resolver;
-- **D8** the dock cuts by fragment from knowledge (a row is `<thead>` + its `<tr>`), which
-  is only possible once the toolkit knows a node can be part of a page.
+- **D8** the dock focuses a fragment from knowledge (the row containing its anchor, or
+  the heading itself) while retaining the complete note as reading context.
 
 ## Phase 1 — Design
 
@@ -141,7 +141,7 @@ Complete; see [data-model.md](data-model.md). Surface summary:
   edges and derived inverses; annotations merged into the target nodes; `stats.rows`.
 - **Rendering**: `<tr id="<anchor>" data-okf-node="<slug>">` inside a
   `data-okf-catalog` table, matched by table position and verified by header.
-- **Explorer**: `cutFragment(document, fragment)` and a page cache keyed by path;
+- **Explorer**: `focusTarget(document, fragment)` and a page cache keyed by path;
   aliases in focus and search.
 
 ### Implementation order (why)
@@ -169,7 +169,7 @@ Complete; see [data-model.md](data-model.md). Surface summary:
 | A raw HTML table shifts the table positions in the hast | The html phase verifies the header cells before writing and, on mismatch, warns naming the note and writes nothing |
 | `WIKILINK_RE` is exported and used elsewhere | It is re-exported from `core/lib/index.ts`; the change adds a capture group, so every call site is updated in the same commit and characterization tests pin both spellings |
 | A consumer's short ids collide with note names | The resolver's existing collision rule applies unchanged: the short form goes unresolved and every candidate is named |
-| The dock's cut needs a DOM in tests | The cut is a pure function over a minimal document interface that the real `Document` satisfies structurally; the test supplies a stub |
+| The dock's focus needs a DOM in tests | Target selection and temporary marking are pure functions over minimal document interfaces that the real `Document` satisfies structurally; the test supplies a stub |
 
 ## Complexity Tracking
 
