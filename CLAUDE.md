@@ -90,6 +90,12 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   el deploy de un consumidor.
 - `okf-graph/v1` solo crece de forma aditiva; documentar cada campo nuevo en
   `plugins/quartz-okf/README.md` § Graph shape.
+- Un nodo puede ser una **fila de una tabla**, no solo una nota (006): la marca
+  `<!-- okf:rows … -->` sobre una tabla convierte cada fila en un nodo `<nota>#<ancla>`.
+  El ancla la calcula `core/lib/anchor.ts` replicando `github-slugger`, porque es la que
+  Quartz deriva para `[[nota#ID]]`: si una se mueve, el enlace deja de aterrizar y lo
+  detecta el smoke build (`analysis/gap.html` del fixture). El id crudo queda como alias,
+  así que colisiona igual que un nombre corto de nota.
 - Un subgrafo declara su **fuente**: `path` (un corpus del mismo código) o `repo` +
   `ref` (git a un commit). Un path local en `repo` sigue valiendo. La deriva
   (`ref-drift`/`ref-behind`) solo existe para git. `okf.config.ts` se lee antes que
