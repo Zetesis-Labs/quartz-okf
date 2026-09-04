@@ -1,10 +1,18 @@
+import { anchorSlug } from "./anchor.ts"
 import type { TopologyEdge } from "./types.ts"
 
-export const WIKILINK_RE = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g
+export const WIKILINK_RE = /\[\[([^\]|#]+)(?:#([^\]|]*))?(?:\|([^\]]+))?\]\]/g
+
+/** A target and the fragment it carries, as written: `note#ID` addresses a row of `note`. */
+function withFragment(target: string, fragment: string | undefined): string {
+  const value = target.trim()
+  const anchor = fragment?.trim()
+  return anchor ? `${value}#${anchor}` : value
+}
 
 // Lines inside fenced code are documentation examples, not structure: a
 // fenced `# Topology` must neither open a section nor contribute edges.
-function fencedLineMask(lines: string[]): boolean[] {
+export function fencedLineMask(lines: string[]): boolean[] {
   const mask: boolean[] = new Array(lines.length).fill(false)
   let fence: string | null = null
   for (let index = 0; index < lines.length; index += 1) {
@@ -56,10 +64,24 @@ export function extractSection(source: string, heading: string, stopAtAnyHeading
 // wikilinks; parsing both keeps topology hygiene meaningful on the bundle.
 const MARKDOWN_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)\)/g
 
-function markdownLinkTarget(url: string): string | undefined {
+export function markdownLinkTarget(url: string): string | undefined {
   if (!url.startsWith("/") || url.startsWith("//")) return undefined
-  const target = url.slice(1).split("#")[0].replace(/\.md$/i, "")
-  return target || undefined
+  const [path, fragment] = url.slice(1).split("#")
+  const target = path.replace(/\.md$/i, "")
+  return target ? withFragment(target, fragment) : undefined
+}
+
+export interface WikilinkRef {
+  target: string
+  alias?: string
+}
+
+/** Every wikilink of a fragment of prose, with the fragment kept in the target. */
+export function wikilinkRefs(value: string): WikilinkRef[] {
+  return [...value.matchAll(WIKILINK_RE)].map((match) => ({
+    target: withFragment(match[1], match[2]),
+    alias: match[3]?.trim(),
+  }))
 }
 
 export function parseTopologyEdges(source: string, heading = "Topology"): TopologyEdge[] {
@@ -72,12 +94,8 @@ export function parseTopologyEdges(source: string, heading = "Topology"): Topolo
       const start = match.index + match[0].length
       const end = matches[index + 1]?.index ?? line.length
       const value = line.slice(start, end).replace(/`[^`\n]*`/g, "")
-      for (const wikilink of value.matchAll(WIKILINK_RE)) {
-        edges.push({
-          label: match[1].trim(),
-          target: wikilink[1].trim(),
-          alias: wikilink[2]?.trim(),
-        })
+      for (const wikilink of wikilinkRefs(value)) {
+        edges.push({ label: match[1].trim(), target: wikilink.target, alias: wikilink.alias })
       }
       for (const link of value.matchAll(MARKDOWN_LINK_RE)) {
         if (link.index > 0 && value[link.index - 1] === "!") continue
@@ -112,17 +130,21 @@ export function convertWikilinks(
     codeSpans.push(span)
     return `\uE000${codeSpans.length - 1}\uE000`
   })
-  const replaced = masked.replace(WIKILINK_RE, (_all, targetValue: string, aliasValue?: string) => {
-    const target = targetValue.trim()
-    const text = (aliasValue ?? targetValue).trim()
-    const resolved = resolve(target)
-    if (!resolved) {
-      unresolved += 1
-      return `[${text}](/${target.replace(/\.md$/i, "")}.md)`
-    }
-    converted += 1
-    return `[${text}](/${resolved})`
-  })
+  const replaced = masked.replace(
+    WIKILINK_RE,
+    (_all, targetValue: string, fragmentValue: string | undefined, aliasValue?: string) => {
+      const target = targetValue.trim()
+      const text = (aliasValue ?? targetValue).trim()
+      const anchor = fragmentValue?.trim() ? `#${anchorSlug(fragmentValue)}` : ""
+      const resolved = resolve(target)
+      if (!resolved) {
+        unresolved += 1
+        return `[${text}](/${target.replace(/\.md$/i, "")}.md${anchor})`
+      }
+      converted += 1
+      return `[${text}](/${resolved}${anchor})`
+    },
+  )
   const content = replaced.replace(/\uE000(\d+)\uE000/g, (_m, index: string) => codeSpans[Number(index)])
   return { content, converted, unresolved }
 }

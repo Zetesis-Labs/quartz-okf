@@ -44,3 +44,46 @@ test("does not guess when short names or aliases are ambiguous", () => {
   assert.equal(resolve("start"), null)
   assert.equal(resolve("one/FIRST_STEPS"), "one/FIRST_STEPS")
 })
+
+const CATALOG_DOCS = [
+  {
+    id: "standards/arm",
+    path: "standards/arm.md",
+    frontmatter: { type: "report" },
+    rows: [
+      { id: "AC001", anchor: "ac001", slug: "standards/arm#ac001" },
+      { id: "BC002 Curriculum Planning", anchor: "bc002-curriculum-planning", slug: "standards/arm#bc002-curriculum-planning" },
+    ],
+  },
+  { id: "tools/okf", path: "tools/okf.md", frontmatter: { type: "tool" } },
+]
+
+test("resolves a row by its qualified slug, by note#ID and by its bare id", () => {
+  const resolve = buildResolver(CATALOG_DOCS)
+  assert.equal(resolve("standards/arm#ac001"), "standards/arm#ac001")
+  assert.equal(resolve("standards/arm#AC001"), "standards/arm#ac001")
+  assert.equal(resolve("arm#AC001"), "standards/arm#ac001")
+  assert.equal(resolve("AC001"), "standards/arm#ac001")
+  assert.equal(resolve("standards/arm#BC002 Curriculum Planning"), "standards/arm#bc002-curriculum-planning")
+})
+
+test("a fragment that no row answers to falls back to the note", () => {
+  const resolve = buildResolver(CATALOG_DOCS)
+  assert.equal(resolve("standards/arm#some-heading"), "standards/arm")
+  assert.equal(resolve("missing#AC001"), null)
+})
+
+test("a bare id claimed by two catalogs is ambiguous, and the qualified forms still resolve", () => {
+  const resolve = buildResolver([
+    ...CATALOG_DOCS,
+    {
+      id: "standards/other",
+      path: "standards/other.md",
+      frontmatter: { type: "report" },
+      rows: [{ id: "AC001", anchor: "ac001", slug: "standards/other#ac001" }],
+    },
+  ])
+  assert.equal(resolve("AC001"), null)
+  assert.equal(resolve("standards/arm#AC001"), "standards/arm#ac001")
+  assert.equal(resolve("standards/other#AC001"), "standards/other#ac001")
+})

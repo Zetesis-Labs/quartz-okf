@@ -251,3 +251,98 @@ test("records the site's canonical origin when given, and nothing otherwise", ()
   assert.equal(buildGraph(documents, { baseUrl: "https://example.org" }).baseUrl, "https://example.org")
   assert.equal("baseUrl" in buildGraph(documents), false)
 })
+
+const CATALOG = [
+  {
+    id: "standards/arm",
+    path: "standards/arm.md",
+    reserved: false,
+    frontmatter: { type: "report", title: "Catalogue", tags: ["standards"] },
+    edges: [],
+    rows: [
+      {
+        id: "AP001",
+        anchor: "ap001",
+        slug: "standards/arm#ap001",
+        type: "concept",
+        title: "AP001 — Student Attraction",
+        label: "AP001",
+        edges: [{ label: "Part of", target: "standards/arm" }],
+        table: 1,
+      },
+      {
+        id: "AC001",
+        anchor: "ac001",
+        slug: "standards/arm#ac001",
+        type: "technology",
+        title: "AC001 — Student Recruitment",
+        label: "AC001",
+        description: "Attracting students.",
+        properties: { gloss: "Leads to enrolment." },
+        edges: [{ label: "Part of", target: "AP001" }],
+        table: 2,
+      },
+    ],
+  },
+  {
+    id: "analysis/gap",
+    path: "analysis/gap.md",
+    reserved: false,
+    frontmatter: { type: "report", title: "Gap" },
+    edges: [],
+    annotations: [
+      { ref: "AC001", edge: "About", properties: { state: "core" }, table: 1 },
+      { ref: "AC404", edge: "About", properties: { state: "core" }, table: 1 },
+    ],
+  },
+]
+
+test("emits one node per catalog row, addressed inside its note's page", () => {
+  const graph = buildGraph(CATALOG)
+  const row = graph.nodes.find((node) => node.slug === "standards/arm#ac001")
+  assert.deepEqual(row, {
+    slug: "standards/arm#ac001",
+    title: "AC001 — Student Recruitment",
+    label: "AC001",
+    type: "technology",
+    description: "Attracting students.",
+    path: "standards/arm.md",
+    aliases: ["AC001"],
+    properties: { gloss: "Leads to enrolment.", state: "core" },
+    url: "/standards/arm#ac001",
+    row: { note: "standards/arm", anchor: "ac001" },
+  })
+  assert.equal(graph.stats.rows, 2)
+  assert.equal(graph.stats.notes, graph.nodes.length)
+})
+
+test("row edges resolve like any other edge and derive their inverse", () => {
+  const graph = buildGraph(CATALOG)
+  const declared = graph.edges.filter((edge) => edge.source === "standards/arm#ac001")
+  assert.deepEqual(
+    declared.map((edge) => [edge.label, edge.target]),
+    [["Part of", "standards/arm#ap001"]],
+  )
+  assert.ok(
+    graph.edges.some(
+      (edge) =>
+        edge.source === "standards/arm#ap001" &&
+        edge.target === "standards/arm#ac001" &&
+        edge.label === "Contains" &&
+        edge.derived,
+    ),
+  )
+})
+
+test("an annotation merges its properties into the row and connects the annotating note", () => {
+  const graph = buildGraph(CATALOG)
+  assert.ok(
+    graph.edges.some(
+      (edge) => edge.source === "analysis/gap" && edge.target === "standards/arm#ac001" && edge.label === "About",
+    ),
+  )
+  assert.deepEqual(
+    graph.unresolved.filter((edge) => edge.target === "AC404"),
+    [{ source: "analysis/gap", target: "AC404", label: "About" }],
+  )
+})

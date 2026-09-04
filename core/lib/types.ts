@@ -60,6 +60,8 @@ export interface Frontmatter {
   aliases?: unknown
   diagram?: string
   timestamp?: unknown
+  /** Note-level defaults for its catalog tables (`okf:rows` keys). */
+  okf_rows?: unknown
   okf_generated_frontmatter?: boolean
 }
 
@@ -76,6 +78,35 @@ export interface Violation {
   edge?: TopologyEdge
 }
 
+/** One row of a catalog table: an entity that lives inside a note's page. */
+export interface CatalogRow {
+  id: string
+  anchor: string
+  slug: string
+  type: string
+  title: string
+  label: string
+  description?: string
+  properties?: Record<string, unknown>
+  edges: TopologyEdge[]
+  /** 1-based position of its table among the note's tables. */
+  table: number
+}
+
+/** A row of a `ref` table: it enriches a node declared elsewhere. */
+export interface CatalogAnnotation {
+  ref: string
+  edge: string
+  properties: Record<string, unknown>
+  table: number
+}
+
+/** What a catalog could not do; `rules.ts` gives it a level and a file. */
+export interface CatalogProblem {
+  code: string
+  message: string
+}
+
 export interface Document {
   id: string
   path: string
@@ -89,14 +120,24 @@ export interface Document {
 export interface ValidatedDocument extends Document {
   edges: TopologyEdge[]
   violations: Violation[]
+  rows?: CatalogRow[]
+  annotations?: CatalogAnnotation[]
 }
 
 // ---- the emitted graph: okf-graph/v1 ----------------------------------------------------------
+
+/** Where a row node lives: the note that holds its table, and its anchor in that page. */
+export interface RowMarker {
+  note: string
+  anchor: string
+}
 
 export interface GraphNode {
   slug: string
   title: string
   type: string
+  /** Short text the canvas draws; absent when it would repeat the title. */
+  label?: string
   tags?: string[]
   description?: string
   path?: string
@@ -107,6 +148,8 @@ export interface GraphNode {
   subgraph?: SubgraphMarker
   /** A preview of a child's note, mounted from the subgraph with this id. */
   federated?: string
+  /** A row of a catalog table: this node is part of a page, not a page. */
+  row?: RowMarker
 }
 
 export interface GraphEdge {
@@ -128,6 +171,8 @@ export interface UnresolvedEdge {
 export interface GraphStats {
   notes: number
   edges: number
+  /** How many of the nodes are catalog rows. */
+  rows?: number
   declaredEdges: number
   derivedEdges: number
   unresolvedEdges: number

@@ -1,11 +1,13 @@
 import path from "node:path"
-import type { Frontmatter } from "./types.ts"
+import { anchorSlug } from "./anchor.ts"
+import type { CatalogRow, Frontmatter } from "./types.ts"
 
 export interface ResolvableDocument {
   id?: string
   path: string
   reserved?: boolean
   frontmatter?: Frontmatter | null
+  rows?: Pick<CatalogRow, "id" | "anchor" | "slug">[]
 }
 
 export type Resolver = (target: string) => string | null
@@ -40,9 +42,14 @@ export function buildResolver(documents: ResolvableDocument[]): Resolver {
   const exact = new Map<string, string | null>()
   const aliases = new Map<string, string | null>()
   const short = new Map<string, string | null>()
+  const rows = new Set<string>()
   for (const document of documents) {
     if (document.reserved) continue
     const id = document.id ?? conceptId(document.path)
+    for (const row of document.rows ?? []) {
+      rows.add(row.slug.toLowerCase())
+      register(aliases, row.id, row.slug)
+    }
     register(exact, id, id)
     const base = path.posix.basename(id)
     register(short, base, id)
@@ -57,8 +64,8 @@ export function buildResolver(documents: ResolvableDocument[]): Resolver {
     register(exact, `${id}/${base}`, id)
     for (const alias of aliasesOf(document)) register(aliases, alias, id)
   }
-  return (target) => {
-    const normalized = normalize(target)
+  const resolveNote = (value: string): string | null => {
+    const normalized = normalize(value)
     const exactMatch = exact.get(normalized)
     if (exactMatch) return exactMatch
     const indexMatch = exact.get(`${normalized}/index`)
@@ -67,5 +74,17 @@ export function buildResolver(documents: ResolvableDocument[]): Resolver {
     if (aliasMatch) return aliasMatch
     if (!normalized.includes("/")) return short.get(normalized) ?? null
     return null
+  }
+  return (target) => {
+    const separator = String(target).indexOf("#")
+    // A fragment addresses a row of that note; when no row answers to it — a heading, a
+    // block reference — the target is the note itself, as it was before rows existed.
+    if (separator >= 0) {
+      const note = resolveNote(String(target).slice(0, separator))
+      if (!note) return null
+      const slug = `${note}#${anchorSlug(String(target).slice(separator + 1))}`
+      return rows.has(slug.toLowerCase()) ? slug : note
+    }
+    return resolveNote(String(target))
   }
 }
