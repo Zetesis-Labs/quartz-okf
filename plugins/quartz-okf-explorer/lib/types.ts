@@ -9,10 +9,11 @@ import type {
   FederatedFrom,
   GraphNode,
   RadiusOptions,
+  RowMarker,
   SubgraphMarker,
 } from "../../lib/types.ts"
 
-export type { Display, ExplorerMode, ExplorerOptions, RadiusOptions, SubgraphMarker }
+export type { Display, ExplorerMode, ExplorerOptions, RadiusOptions, RowMarker, SubgraphMarker }
 
 /** `vars` is anything `fill()` can read a path from: a flat bag or a node. */
 export type Translator = (key: string, vars?: unknown) => string
@@ -45,9 +46,13 @@ export interface HudNode {
   label: string
   desc: string
   url: string
+  /** Other names this node answers to: a row is reached by its bare id. */
+  aliases: string[]
   properties: Record<string, unknown>
   subgraph: SubgraphMarker | null
   federated: string | null
+  /** The page this node is part of, when it is a catalog row. */
+  row: RowMarker | null
   counts: Record<string, number>
   indeg: number
 }

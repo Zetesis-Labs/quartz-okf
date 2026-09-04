@@ -28,6 +28,10 @@ export function findNode<N extends HudNode>(nodes: Iterable<N>, keys: string[], 
     const byUrl = list.find((n) => normalise(n.url) === key)
     if (byUrl) return byUrl
   }
+  for (const key of keys) {
+    const byAlias = list.find((n) => (n.aliases ?? []).some((alias) => alias.toLowerCase() === key))
+    if (byAlias) return byAlias
+  }
   if (!leaf) return null
   for (const key of keys) {
     const tail = key.split("/").pop()

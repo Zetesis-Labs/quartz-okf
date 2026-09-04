@@ -2,6 +2,7 @@ import { displayFor, modeById, modeGraphUrl } from "../../lib/display.ts"
 import { activateTab, closeTab, dockOpen, hideDock, openTab, pinTab } from "../../lib/dock.ts"
 import { carriedFocus, findNode, focusKeys, resolveFocus } from "../../lib/focus.ts"
 import { indexGraph } from "../../lib/model.ts"
+import { cutFragment } from "../../lib/note-cut.ts"
 import {
   backTo as backToLevel,
   currentKey,
@@ -486,12 +487,36 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
     }
   }
 
+  // A page is fetched once however many of its rows are read: a catalog note answers for
+  // hundreds of nodes, and each one used to re-download it.
+  const pages = new Map<string, Promise<Document>>()
+  function pageOf(path: string): Promise<Document> {
+    const known = pages.get(path)
+    if (known) return known
+    const pending = fetch(path).then(async (r) => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return new DOMParser().parseFromString(await r.text(), "text/html")
+    })
+    pending.catch(() => pages.delete(path))
+    pages.set(path, pending)
+    return pending
+  }
+
   async function fetchNote(url: string): Promise<string> {
-    const r = await fetch(url)
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    const doc = new DOMParser().parseFromString(await r.text(), "text/html")
+    const [path, fragment] = url.split("#")
+    const doc = await pageOf(path)
     const article = doc.querySelector("article") ?? doc.querySelector(".center")
     if (!article) throw new Error(t("dock.missing"))
+    if (fragment) {
+      const cut = cutFragment(doc, decodeURIComponent(fragment))
+      if (cut) {
+        const holder = doc.createElement("div")
+        holder.innerHTML = cut
+        disarm(holder)
+        return holder.innerHTML
+      }
+      console.warn(`[quartz-okf-explorer] nothing in ${path} answers to #${fragment}: showing the whole note`)
+    }
     disarm(article)
     return article.innerHTML
   }

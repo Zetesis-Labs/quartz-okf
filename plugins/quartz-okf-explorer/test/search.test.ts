@@ -60,3 +60,15 @@ test("searchAcross ranks each graph by its own kind order and caps the total", (
   assert.deepEqual(foreign, ["compute/batch", "roles/cio"])
   assert.ok(all.findIndex((r) => r.key === "") < all.findIndex((r) => r.key === "it"))
 })
+
+test("a query matches a node by its alias, not only by id, title or label", () => {
+  const row = {
+    id: "standards/arm#curriculum-planning",
+    title: "Curriculum Planning",
+    label: "Curriculum Planning",
+    aliases: ["BC002"],
+    type: "component",
+  }
+  assert.equal(matchNode(row, "bc002"), true)
+  assert.equal(matchNode({ ...row, aliases: [] }, "bc002"), false)
+})
