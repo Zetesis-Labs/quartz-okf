@@ -1,15 +1,23 @@
+import { useEffect, useRef } from "preact/hooks"
 import { dockOpen } from "../../../lib/dock.ts"
+import { FOCUS_ATTRIBUTE } from "../../../lib/note-cut.ts"
 import { useHud } from "../context.ts"
 
 /** The reading dock: one note over the canvas — the site's own article, fetched — with pin, open and close. */
 export function Dock() {
   const { state, ctl, actions, t } = useHud()
+  const body = useRef<HTMLDivElement>(null)
   const dock = state.dock.value
-  if (!dockOpen(dock)) return null
   const tab = dock.tabs.find((x) => x.id === dock.active)
-  if (!tab) return null
+  const content = tab ? state.dockContent.value.get(tab.id) : undefined
+  // The note arrives whole and the entry the reader asked for is marked inside it: without
+  // this the dock opens a catalogue at its first row and the reader scrolls looking.
+  useEffect(() => {
+    if (content?.kind !== "html") return
+    body.current?.querySelector(`[${FOCUS_ATTRIBUTE}]`)?.scrollIntoView({ block: "center" })
+  }, [tab?.id, content])
+  if (!dockOpen(dock) || !tab) return null
   const node = state.view.value?.idx.get(tab.id)
-  const content = state.dockContent.value.get(tab.id)
   return (
     <aside
       id="dock"
@@ -51,7 +59,7 @@ export function Dock() {
           »
         </button>
       </header>
-      <div class="okf-note tw:min-h-0 tw:flex-1 tw:overflow-y-auto tw:overscroll-contain tw:px-6 tw:pt-4 tw:pb-12">
+      <div ref={body} class="okf-note tw:min-h-0 tw:flex-1 tw:overflow-auto tw:overscroll-contain tw:px-6 tw:pt-4 tw:pb-12">
         {!content || content.kind === "loading" ? (
           <p class="tw:py-4 tw:text-[0.85rem] tw:text-(--hud-fg-2)">{t("stats.loading")}</p>
         ) : content.kind === "error" ? (

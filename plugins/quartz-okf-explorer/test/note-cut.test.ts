@@ -8,11 +8,21 @@ function el(tagName, { id = null, text = "", children = [] } = {}) {
     tagName,
     id,
     children,
+    attributes: {},
     parentElement: null,
+    setAttribute(name, value) {
+      node.attributes[name] = value
+    },
+    removeAttribute(name) {
+      delete node.attributes[name]
+    },
     get outerHTML() {
       const attribute = node.id ? ` id="${node.id}"` : ""
+      const extra = Object.entries(node.attributes)
+        .map(([name, value]) => ` ${name}="${value}"`)
+        .join("")
       const inner = node.children.length ? node.children.map((child) => child.outerHTML).join("") : text
-      return `<${tagName.toLowerCase()}${attribute}>${inner}</${tagName.toLowerCase()}>`
+      return `<${tagName.toLowerCase()}${attribute}${extra}>${inner}</${tagName.toLowerCase()}>`
     },
     closest(selector) {
       let current = node
@@ -69,12 +79,24 @@ const catalogue = () =>
     ],
   })
 
-test("a row is cut to its table's header and that row alone", () => {
+test("a row is cut to its whole table, with that row focused", () => {
   const html = cutFragment(documentOf(catalogue()), "ac002")
   assert.equal(
     html,
-    '<table><thead><tr>Code Name</tr></thead><tbody><tr id="ac002">AC002 Agent Management</tr></tbody></table>',
+    '<table><thead><tr>Code Name</tr></thead><tbody>' +
+      '<tr id="ac001">AC001 Student Recruitment</tr>' +
+      '<tr id="ac002" data-okf-focus="">AC002 Agent Management</tr>' +
+      "</tbody></table>",
+    "the reader needs the row in its table, not on its own",
   )
+})
+
+test("the focus mark does not stay on the cached page", () => {
+  const document = documentOf(catalogue())
+  cutFragment(document, "ac002")
+  const second = cutFragment(document, "ac001")
+  assert.equal(second.includes('id="ac001" data-okf-focus=""'), true)
+  assert.equal(second.includes('id="ac002" data-okf-focus=""'), false, "the previous focus was left behind")
 })
 
 test("a heading is cut to its section, down to the next heading of its level or above", () => {
@@ -91,6 +113,6 @@ test("any other anchored element is cut to itself, and an unknown fragment cuts 
   const table = el("TABLE", { children: [el("TBODY", { children: [el("TR", { id: "row", text: "x" })] })] })
   assert.equal(
     cutFragment(documentOf(el("ARTICLE", { children: [table] })), "row"),
-    "<table><tbody><tr id=\"row\">x</tr></tbody></table>",
+    '<table><tbody><tr id="row" data-okf-focus="">x</tr></tbody></table>',
   )
 })
