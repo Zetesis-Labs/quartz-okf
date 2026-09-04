@@ -44,3 +44,13 @@ test("carriedFocus keeps the selection when it is a note on loan from the subgra
   assert.equal(carriedFocus({ id: "org", url: "/org", federated: null }, "it"), null)
   assert.equal(carriedFocus(null, "it"), null)
 })
+
+test("a focus value matches a node by its alias when id and url do not answer", () => {
+  const nodes = [
+    { id: "standards/arm", url: "/standards/arm", aliases: [] },
+    { id: "standards/arm#ac001", url: "/standards/arm#ac001", aliases: ["AC001"] },
+  ]
+  assert.equal(findNode(nodes, focusKeys("AC001")).id, "standards/arm#ac001")
+  assert.equal(findNode(nodes, focusKeys("/standards/arm#ac001")).id, "standards/arm#ac001")
+  assert.equal(findNode(nodes, focusKeys("standards/arm")).id, "standards/arm")
+})

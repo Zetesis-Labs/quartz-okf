@@ -13,7 +13,7 @@ test("indexGraph keys nodes by slug and carries the fields the canvas reads", ()
     { ...org, counts: org.counts },
     {
       id: "org", type: "organisation", title: "The organisation", label: "The organisation", desc: "Root.",
-      url: "/org", properties: {}, subgraph: null, federated: null,
+      url: "/org", aliases: [], properties: {}, subgraph: null, federated: null, row: null,
       counts: { "Supervised by": 1, Cites: 1 }, indeg: 1,
     },
   )
@@ -61,4 +61,28 @@ test("indexGraph accepts `id` as the node key and `desc` as the description", ()
   assert.equal(model.nodes.get("a").desc, "A.")
   assert.equal(model.nodes.get("a").type, "unknown")
   assert.equal(model.nodes.get("a").title, "a")
+})
+
+test("indexGraph carries a row's aliases and its page marker", () => {
+  const model = indexGraph({
+    nodes: [
+      {
+        slug: "standards/arm#ac001",
+        title: "AC001 — Student Recruitment",
+        label: "AC001",
+        type: "component",
+        aliases: ["AC001"],
+        url: "/standards/arm#ac001",
+        row: { note: "standards/arm", anchor: "ac001" },
+      },
+      { slug: "standards/arm", title: "Catalogue", type: "report" },
+    ],
+    edges: [],
+  })
+  const row = model.nodes.get("standards/arm#ac001")
+  assert.deepEqual(row.aliases, ["AC001"])
+  assert.deepEqual(row.row, { note: "standards/arm", anchor: "ac001" })
+  assert.equal(row.url, "/standards/arm#ac001")
+  assert.deepEqual(model.nodes.get("standards/arm").aliases, [])
+  assert.equal(model.nodes.get("standards/arm").row, null)
 })

@@ -16,9 +16,11 @@ export function indexGraph(raw: RawGraph): HudModel {
       label: n.label || n.title || id,
       desc: n.description || n.desc || "",
       url: n.url || "/" + id,
+      aliases: n.aliases || [],
       properties: n.properties || {},
       subgraph: n.subgraph || null,
       federated: n.federated || null,
+      row: n.row || null,
       counts: {},
       indeg: 0,
     })

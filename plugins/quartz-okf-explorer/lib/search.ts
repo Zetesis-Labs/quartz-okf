@@ -2,7 +2,12 @@ import type { HudNode, Scope, SearchGraph, SearchRow, Translator } from "./types
 
 export function matchNode(node: HudNode, query: string): boolean {
   const q = query.toLowerCase()
-  return node.title.toLowerCase().includes(q) || node.label.toLowerCase().includes(q) || node.id.toLowerCase().includes(q)
+  return (
+    node.title.toLowerCase().includes(q) ||
+    node.label.toLowerCase().includes(q) ||
+    node.id.toLowerCase().includes(q) ||
+    (node.aliases ?? []).some((alias) => alias.toLowerCase().includes(q))
+  )
 }
 
 /** Declared kinds first, in the corpus' order; undeclared kinds after; then by title. */
