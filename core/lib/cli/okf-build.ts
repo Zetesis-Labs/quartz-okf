@@ -68,10 +68,31 @@ const environment = {
   OKF_SOURCE_HEAD: sourceHead,
 }
 
-function run(command: string, commandArgs: string[], cwd: string, label: string, shell = false): void {
-  const result = spawnSync(command, commandArgs, { cwd, env: environment, stdio: "inherit", shell })
+function run(
+  command: string,
+  commandArgs: string[],
+  cwd: string,
+  label: string,
+  shell = false,
+  failOnOutput?: string,
+): void {
+  const result = spawnSync(command, commandArgs, {
+    cwd,
+    env: environment,
+    stdio: failOnOutput ? "pipe" : "inherit",
+    encoding: "utf8",
+    shell,
+  })
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`
+  if (failOnOutput) {
+    if (result.stdout) process.stdout.write(result.stdout)
+    if (result.stderr) process.stderr.write(result.stderr)
+  }
   if (result.error) fail(`${label}: ${command} could not be started (${result.error.message})`)
   if (result.status !== 0) fail(`${label}: \`${shell ? command : [command, ...commandArgs].join(" ")}\` exited with ${result.status}`)
+  if (failOnOutput && new RegExp(failOnOutput).test(output)) {
+    fail(`${label}: command reported a failed plugin build despite exiting successfully`)
+  }
 }
 
 /** The pinned engine, downloaded once per SHA and installed once per download. */
@@ -176,7 +197,7 @@ async function execute(action: BuildAction, label: string): Promise<void> {
   if (action.kind === "remove") return void (await fs.rm(action.path, { recursive: true, force: true }))
   if (action.kind === "copy") return copy(action.from, action.to, label)
   if (action.kind === "stamp") return stamp(action.content)
-  if (action.kind === "run") return run(action.command, action.args, action.cwd, label)
+  if (action.kind === "run") return run(action.command, action.args, action.cwd, label, false, action.failOnOutput)
   console.log(`[okf] ${action.seam}: ${action.command}`)
   return run(action.command, [], action.cwd, `${action.seam} hook`, true)
 }

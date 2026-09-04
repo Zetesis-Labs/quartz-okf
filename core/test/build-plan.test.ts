@@ -93,6 +93,18 @@ test("the stale plugin links and the transpilation cache are purged before insta
   assert.ok(install.actions.some((a) => a.kind === "run" && a.args.includes("--from-config")))
 })
 
+// Quartz currently exits zero after reporting that one or more plugin builds failed. The
+// toolkit must treat that summary as fatal or it can publish a site without a component.
+test("a plugin build failure reported by Quartz fails the toolkit build", () => {
+  const { steps } = buildPlan(layout())
+  const action = steps[at(steps, "plugin install")].actions.find(
+    (candidate) => candidate.kind === "run" && candidate.args.includes("--from-config"),
+  )
+
+  assert.equal(action?.kind, "run")
+  if (action?.kind === "run") assert.match(action.failOnOutput ?? "", /failed/)
+})
+
 test("the corpus comes from the declared directory", () => {
   const { steps } = buildPlan(layout())
   const corpus = steps[at(steps, "corpus")]

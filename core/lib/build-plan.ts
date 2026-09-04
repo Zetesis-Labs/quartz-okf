@@ -6,7 +6,7 @@ export const PLUGINS = ["quartz-okf", "quartz-okf-explorer", "quartz-okf-panels"
 export type BuildAction =
   | { kind: "remove"; path: string }
   | { kind: "copy"; from: string; to: string }
-  | { kind: "run"; command: string; args: string[]; cwd: string }
+  | { kind: "run"; command: string; args: string[]; cwd: string; failOnOutput?: string }
   | { kind: "hook"; seam: Seam; command: string; cwd: string }
   /** Give every assembled note the date of its last commit; see `corpus-dates.ts`. */
   | { kind: "stamp"; content: string }
@@ -137,7 +137,14 @@ function installStep(layout: BuildLayout): BuildStep {
     actions: [
       ...PLUGINS.map((plugin) => ({ kind: "remove" as const, path: join(layout.cache, ".quartz/plugins", plugin) })),
       { kind: "remove", path: join(layout.cache, ".quartz-cache") },
-      { kind: "run", command: "npx", args: ["quartz", "plugin", "install", "--from-config", "--concurrency", "2"], cwd: layout.cache },
+      {
+        kind: "run",
+        command: "npx",
+        args: ["quartz", "plugin", "install", "--from-config", "--concurrency", "2"],
+        cwd: layout.cache,
+        // Quartz v5 currently exits zero even when its summary reports failed builds.
+        failOnOutput: "\\b[1-9][0-9]* failed\\b",
+      },
     ],
   }
 }
