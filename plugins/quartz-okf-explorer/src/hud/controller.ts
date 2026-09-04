@@ -2,7 +2,7 @@ import { displayFor, modeById, modeGraphUrl } from "../../lib/display.ts"
 import { activateTab, closeTab, dockOpen, hideDock, openTab, pinTab } from "../../lib/dock.ts"
 import { carriedFocus, findNode, focusKeys, resolveFocus } from "../../lib/focus.ts"
 import { indexGraph } from "../../lib/model.ts"
-import { cutFragment } from "../../lib/note-cut.ts"
+import { focusTarget, withFocus } from "../../lib/note-focus.ts"
 import {
   backTo as backToLevel,
   currentKey,
@@ -507,18 +507,13 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
     const doc = await pageOf(path)
     const article = doc.querySelector("article") ?? doc.querySelector(".center")
     if (!article) throw new Error(t("dock.missing"))
-    if (fragment) {
-      const cut = cutFragment(doc, decodeURIComponent(fragment))
-      if (cut) {
-        const holder = doc.createElement("div")
-        holder.innerHTML = cut
-        disarm(holder)
-        return holder.innerHTML
-      }
-      console.warn(`[quartz-okf-explorer] nothing in ${path} answers to #${fragment}: showing the whole note`)
-    }
     disarm(article)
-    return article.innerHTML
+    if (!fragment) return article.innerHTML
+    const target = focusTarget(doc, decodeURIComponent(fragment))
+    if (!target) {
+      console.warn(`[quartz-okf-explorer] nothing in ${path} answers to #${fragment}: opening the note unfocused`)
+    }
+    return withFocus(target, () => article.innerHTML)
   }
 
   function loadNote(n: ViewNode): void {
