@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "preact/hooks"
 import { dockOpen } from "../../../lib/dock.ts"
-import { FOCUS_ATTRIBUTE } from "../../../lib/note-cut.ts"
+import { FOCUS_ATTRIBUTE } from "../../../lib/note-focus.ts"
 import { useHud } from "../context.ts"
 
 /** The reading dock: one note over the canvas — the site's own article, fetched — with pin, open and close. */
@@ -10,8 +10,9 @@ export function Dock() {
   const dock = state.dock.value
   const tab = dock.tabs.find((x) => x.id === dock.active)
   const content = tab ? state.dockContent.value.get(tab.id) : undefined
-  // The note arrives whole and the entry the reader asked for is marked inside it: without
-  // this the dock opens a catalogue at its first row and the reader scrolls looking.
+  // The note arrives whole — a catalogue entry is read among its neighbours — with the
+  // entry the reader asked for marked inside it: without this the dock opens at the top of
+  // a 100 KB page and the reader is the one who has to go looking.
   useEffect(() => {
     if (content?.kind !== "html") return
     body.current?.querySelector(`[${FOCUS_ATTRIBUTE}]`)?.scrollIntoView({ block: "center" })
