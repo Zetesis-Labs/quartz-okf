@@ -74,8 +74,16 @@ const DEFAULTS = {
 // `--highlight` is Quartz's own token, so the colour follows the site's theme.
 const ROW_STYLE = "tr[data-okf-node]:target{background:var(--highlight);scroll-margin-top:2rem}"
 
-function rowStyle(): HastNode {
-  return { type: "element", tagName: "style", properties: {}, children: [{ type: "text", value: ROW_STYLE }] }
+// Quartz's router restores the scroll position on load and on every `nav`, and that lands
+// on top of the browser's own jump to the fragment: without this, a link to a row opens its
+// note at the top and the reader is the one who goes looking.
+const ROW_SCROLL = `(function(){var go=function(){if(!location.hash)return;var el=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(el&&el.closest("[data-okf-catalog]"))el.scrollIntoView({block:"center"})};window.addEventListener("load",function(){setTimeout(go,120)});document.addEventListener("nav",function(){setTimeout(go,120)})})()`
+
+function rowAssets(): HastNode[] {
+  return [
+    { type: "element", tagName: "style", properties: {}, children: [{ type: "text", value: ROW_STYLE }] },
+    { type: "element", tagName: "script", properties: {}, children: [{ type: "text", value: ROW_SCROLL }] },
+  ]
 }
 
 /** The slice of a Quartz vfile this plugin reads. */
@@ -213,7 +221,7 @@ export const OkfTransformer = (userOptions?: OkfOptions) => {
           for (const problem of markCatalogRows(tree, rows)) {
             console.warn(`[okf] WARN: ${relPathOf(file)}: ${problem}`)
           }
-          tree.children = [...(tree.children ?? []), rowStyle()]
+          tree.children = [...(tree.children ?? []), ...rowAssets()]
         },
       ]
     },
