@@ -108,9 +108,19 @@ okf_rows: { id: Code, label: Name }
 
 The marker sits on the line above the table (blank lines allowed) and takes
 `type`, `id`, `ref`, `label`, `description`, `properties` (`Header` or `Header=key`,
+comma-separated), `set` (values that hold for every row of the table, `key=value`
 comma-separated), `pattern` (a regular expression over the identifier cell with named
 groups `id` and optional `label`) and `edge`. Note-wide defaults go in the frontmatter's
 `okf_rows` as one inline mapping; a marker's key wins over them.
+
+`set` says what the table itself asserts about all its rows — the level of a hierarchy,
+the state of a section — without a column repeating the same value on every line:
+
+```markdown
+<!-- okf:rows type=component set="level=component, rank=leaf" -->
+```
+
+A column with the same key wins over it, being the more specific of the two.
 
 Edges come from three places: every row is `Part of` its note unless the table says
 `edge=none` or another label; clauses after the keys apply to every row of the table
@@ -118,8 +128,11 @@ Edges come from three places: every row is `Part of` its note unless the table s
 header is one of the profile's `edgeLabels` declares that row's own edges.
 
 A table that declares `ref` instead of `id` annotates nodes declared elsewhere: its rows
-resolve to existing nodes, their `properties` are merged in, and the annotating note gains
-an edge (`edge` is required) to each. Creation is processed before annotation, corpus-wide.
+resolve to existing nodes, their `properties` are merged in (`set` included), and the
+annotating note gains an edge (`edge` is required) to each. With `description` it also
+rewrites what the node says it is — a catalogue defines an entry, and the note that uses
+it says what it means here. Creation is processed before annotation, corpus-wide; two
+annotations that disagree on a value are a build error naming both.
 
 Identity: `anchor` is the GitHub heading slug of the id — the same one Quartz derives for
 `[[note#ID]]` — so a wikilink with a fragment reaches the row, the rendered `<tr>` carries

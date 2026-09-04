@@ -248,7 +248,7 @@ export function validateAnnotations(documents: ValidatedDocument[], options: Val
     slugs.add(document.id)
     for (const row of document.rows ?? []) slugs.add(row.slug)
   }
-  const written = new Map<string, { value: unknown; path: string }>()
+  const taken = new Map<string, { value: unknown; path: string }>()
   const problems: AnnotationProblem[] = []
   const report = (path: string, entry: Violation | null): void => {
     if (entry) problems.push({ path, violation: entry })
@@ -267,8 +267,12 @@ export function validateAnnotations(documents: ValidatedDocument[], options: Val
         )
         continue
       }
-      for (const [key, value] of Object.entries(annotation.properties)) {
-        const previous = written.get(`${target}\n${key}`)
+      const written = {
+        ...annotation.properties,
+        ...(annotation.description ? { description: annotation.description } : {}),
+      }
+      for (const [key, value] of Object.entries(written)) {
+        const previous = taken.get(`${target}\n${key}`)
         if (previous && previous.value !== value) {
           report(
             document.path,
@@ -280,7 +284,7 @@ export function validateAnnotations(documents: ValidatedDocument[], options: Val
           )
           continue
         }
-        written.set(`${target}\n${key}`, { value, path: document.path })
+        taken.set(`${target}\n${key}`, { value, path: document.path })
       }
     }
   }

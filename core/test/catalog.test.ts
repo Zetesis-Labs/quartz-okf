@@ -250,3 +250,56 @@ test("a marker segment that is neither a key nor a clause fails the table", () =
   )
   assert.equal(rows.length, 0)
 })
+
+test("a table can state a value that holds for every one of its rows", () => {
+  const body = `<!-- okf:rows type=component id=Code label=Name set="level=component, rank=leaf" properties="Gloss=gloss" -->
+
+| Code | Name | Gloss |
+|---|---|---|
+| AC001 | Student Recruitment | Attracting students. |
+| AC002 | Agent Management | |
+`
+  const { rows, problems } = catalogsOf(source(body), {})
+  assert.deepEqual(problems, [])
+  assert.deepEqual(rows[0].properties, { level: "component", rank: "leaf", gloss: "Attracting students." })
+  // A row with nothing of its own still carries what its table states.
+  assert.deepEqual(rows[1].properties, { level: "component", rank: "leaf" })
+})
+
+test("a column wins over the value the table states for the same key", () => {
+  const body = `<!-- okf:rows type=component id=Code set="rank=leaf" properties="Rank=rank" -->
+
+| Code | Rank |
+|---|---|
+| AC001 | root |
+`
+  const { rows } = catalogsOf(source(body), {})
+  assert.equal(rows[0].properties?.rank, "root")
+})
+
+test("an unreadable `set` fails the table instead of dropping the value", () => {
+  const { problems } = catalogsOf(source('<!-- okf:rows type=component id=Code set="rank" -->\n\n| Code |\n|---|\n| AC001 |\n'), {})
+  assert.deepEqual(
+    problems.map((problem) => problem.code),
+    ["catalog/marker-invalid"],
+  )
+  assert.match(problems[0].message, /rank/)
+})
+
+test("an annotating table can state values and write the node's description", () => {
+  const body = `<!-- okf:rows ref=Code edge=About description=Comment set="reviewed=2026" properties="State=state" -->
+
+| Code | State | Comment |
+|---|---|---|
+| AC001 | core | Built in phase one. |
+`
+  const { annotations, problems } = catalogsOf({ id: "analysis/gap", body }, {})
+  assert.deepEqual(problems, [])
+  assert.deepEqual(annotations[0], {
+    ref: "AC001",
+    edge: "About",
+    description: "Built in phase one.",
+    properties: { reviewed: "2026", state: "core" },
+    table: 1,
+  })
+})

@@ -49,6 +49,20 @@ assert.deepEqual(built.edgeLabels, expected.edgeLabels, "the profile's edge labe
 const page = await fs.readFile(path.join(root, "public/concepts/graph.html"), "utf8")
 assert.ok(page.includes("[[concepts/format]]"), "the wikilink inside a code span was rewritten")
 
+// What a table states holds for every row of it, and an annotating note may say what an
+// entry means here — the catalogue's own wording is not always the useful one.
+const rows = built.nodes.filter((node) => (node as { row?: unknown }).row) as ({ slug: string; description?: string; properties?: Record<string, unknown> })[]
+assert.deepEqual(
+  rows.map((node) => node.properties?.rank),
+  ["mid", "leaf", "leaf"],
+  "the value each table states did not reach its rows",
+)
+assert.equal(
+  rows.find((node) => node.slug === "standards/arm#ac001")?.description,
+  "What this corpus decided to do with it.",
+  "the annotating note did not rewrite the entry's description",
+)
+
 // A row node promises a URL that lands on its row: the rendered page must carry the anchor.
 const catalogue = await fs.readFile(path.join(root, "public/standards/arm.html"), "utf8")
 assert.ok(catalogue.includes('data-okf-catalog'), "the catalogue table was not marked")

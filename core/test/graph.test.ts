@@ -346,3 +346,48 @@ test("an annotation merges its properties into the row and connects the annotati
     [{ source: "analysis/gap", target: "AC404", label: "About" }],
   )
 })
+
+test("an annotation may rewrite the description of the node it annotates", () => {
+  const documents = [
+    {
+      id: "standards/arm",
+      path: "standards/arm.md",
+      reserved: false,
+      frontmatter: { type: "report", title: "Catalogue" },
+      edges: [],
+      rows: [
+        {
+          id: "AC001",
+          anchor: "ac001",
+          slug: "standards/arm#ac001",
+          type: "technology",
+          title: "AC001 — Student Recruitment",
+          label: "AC001",
+          description: "The standard's own wording.",
+          properties: { rank: "leaf" },
+          edges: [],
+          table: 1,
+        },
+      ],
+    },
+    {
+      id: "analysis/gap",
+      path: "analysis/gap.md",
+      reserved: false,
+      frontmatter: { type: "report", title: "Gap" },
+      edges: [],
+      annotations: [
+        {
+          ref: "AC001",
+          edge: "About",
+          description: "What this project decided to do with it.",
+          properties: { state: "core" },
+          table: 1,
+        },
+      ],
+    },
+  ]
+  const row = buildGraph(documents).nodes.find((node) => node.slug === "standards/arm#ac001")
+  assert.equal(row?.description, "What this project decided to do with it.")
+  assert.deepEqual(row?.properties, { rank: "leaf", state: "core" })
+})

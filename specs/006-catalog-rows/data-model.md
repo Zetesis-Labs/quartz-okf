@@ -27,8 +27,13 @@ blank lines between them are allowed, prose is not.
 | `label` | Header of the column that names the row | none (title is the id alone) |
 | `description` | Header of the description column | none |
 | `properties` | Comma-separated headers; `Header=key` renames | none |
+| `set` | Values the table asserts for every row (`key=value`, comma-separated); a column with the same key wins | none |
 | `pattern` | Regular expression over the identifier cell with named groups `id` and optional `label` | none |
 | `edge` | Containment edge row → note (`none` suppresses it); for `ref` tables, the edge note → target | `Part of`; required for `ref` |
+
+On a `ref` table, `description` names the column whose text replaces the target node's
+description: the catalogue defines the entry, the note that uses it says what it means
+here.
 
 Note-level defaults, one inline mapping (the core's YAML subset):
 

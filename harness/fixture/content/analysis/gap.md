@@ -14,9 +14,9 @@ land on the row, which only holds if the toolkit's anchor is the one Quartz deri
 
 # Classification
 
-<!-- okf:rows ref=Code edge=About properties="State=state" -->
+<!-- okf:rows ref=Code edge=About description=Reading properties="State=state" -->
 
-| Code | State |
-|---|---|
-| AC001 | core |
-| AC002 | later |
+| Code | State | Reading |
+|---|---|---|
+| AC001 | core | What this corpus decided to do with it. |
+| AC002 | later | Left for a second pass. |

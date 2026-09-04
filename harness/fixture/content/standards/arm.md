@@ -15,7 +15,7 @@ own anchor in this page.
 
 # Capabilities
 
-<!-- okf:rows type=concept -->
+<!-- okf:rows type=concept set="rank=mid" -->
 
 | Code | Name |
 |---|---|
@@ -23,7 +23,7 @@ own anchor in this page.
 
 # Components
 
-<!-- okf:rows type=tool edge=none properties="Gloss=gloss"; Part of: [[AP001]] -->
+<!-- okf:rows type=tool edge=none set="rank=leaf" properties="Gloss=gloss"; Part of: [[AP001]] -->
 
 | Code | Name | Gloss | Uses |
 |---|---|---|---|
