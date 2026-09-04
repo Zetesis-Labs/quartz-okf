@@ -9,7 +9,7 @@ export interface HastNode {
   value?: string
 }
 
-type RowRef = Pick<CatalogRow, "id" | "anchor" | "slug" | "table">
+type RowRef = Pick<CatalogRow, "id" | "anchor" | "slug" | "table" | "identifier">
 
 function collect(node: HastNode, tagName: string, found: HastNode[] = []): HastNode[] {
   for (const child of node.children ?? []) {
@@ -22,6 +22,12 @@ function collect(node: HastNode, tagName: string, found: HastNode[] = []): HastN
 function textOf(node: HastNode): string {
   if (node.type === "text") return node.value ?? ""
   return (node.children ?? []).map(textOf).join("")
+}
+
+function identifierOf(row: HastNode, column: number): string | null {
+  const cells = (row.children ?? []).filter((child) => child.tagName === "td")
+  const cell = cells[column]
+  return cell ? textOf(cell).trim() : null
 }
 
 const isHeaderRow = (row: HastNode): boolean => (row.children ?? []).some((cell) => cell.tagName === "th")
@@ -46,7 +52,13 @@ export function markCatalogRows(tree: HastNode, rows: RowRef[]): string[] {
     let cursor = 0
     let marked = 0
     for (const row of group) {
-      const position = rendered.findIndex((candidate, at) => at >= cursor && textOf(candidate).includes(row.id))
+      const position = rendered.findIndex((candidate, at) => {
+        if (at < cursor) return false
+        if (row.identifier) {
+          return identifierOf(candidate, row.identifier.column) === row.identifier.text
+        }
+        return textOf(candidate).includes(row.id)
+      })
       if (position < 0) {
         problems.push(`table ${index}: no rendered row holds "${row.id}"`)
         continue
