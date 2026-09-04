@@ -39,7 +39,7 @@ export const explorer = {
 // The floors this corpus must clear; the smoke build fails below any of them.
 export const build = {
   verify: {
-    minNodes: 5,
+    minNodes: 8,
     minEdges: 8,
     pages: [{ glob: "concepts/*.html", min: 2 }],
   },
