@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { markCatalogRows, type HastNode } from "./anchors.ts"
 import type { ChildInput, FederatedGraph } from "../../lib/federation.ts"
 import { stringifyFrontmatter } from "../../lib/frontmatter.ts"
 import {
@@ -66,6 +67,14 @@ const DEFAULTS = {
   federationArtifacts: "okf-federation",
   loadFederation: null as OkfOptions["loadFederation"],
   subgraphsOutput: "static/okf-subgraphs",
+}
+
+// A row is reached by its anchor, so it must be visible when the browser lands on it;
+// `--highlight` is Quartz's own token, so the colour follows the site's theme.
+const ROW_STYLE = "tr[data-okf-node]:target{background:var(--highlight);scroll-margin-top:2rem}"
+
+function rowStyle(): HastNode {
+  return { type: "element", tagName: "style", properties: {}, children: [{ type: "text", value: ROW_STYLE }] }
 }
 
 /** The slice of a Quartz vfile this plugin reads. */
@@ -192,6 +201,18 @@ export const OkfTransformer = (userOptions?: OkfOptions) => {
             if (!tags.includes(tag)) file.data.frontmatter.tags = [...tags, tag]
           }
           file.data.okf = document
+        },
+      ]
+    },
+    htmlPlugins() {
+      return [
+        () => (tree: HastNode, file: QuartzFile) => {
+          const rows = file.data.okf?.rows ?? []
+          if (rows.length === 0) return
+          for (const problem of markCatalogRows(tree, rows)) {
+            console.warn(`[okf] WARN: ${relPathOf(file)}: ${problem}`)
+          }
+          tree.children = [...(tree.children ?? []), rowStyle()]
         },
       ]
     },
