@@ -82,6 +82,55 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
   edges); `derived` keeps its meaning.
 - `stats.federatedNodes` / `stats.federatedEdges`: what federation added. `notes` and
   `edges` keep counting everything.
+- Node `label`: short text the canvas draws when the title is too long to be a name.
+  Absent when it would repeat the title.
+- Node `row`: `{ note, anchor }` — this node is a row of a catalog table, so it lives
+  inside that note's page and its `url` carries the anchor (see Catalog rows).
+- `stats.rows`: how many nodes are catalog rows. `notes` keeps counting every node.
+
+# Catalog rows
+
+A note may hold a table whose rows are the real entities — a standard's catalogue, a
+register, an inventory. Marking the table turns every row into a node addressed inside
+the page, `<note-slug>#<anchor>`:
+
+```markdown
+---
+okf_rows: { id: Code, label: Name }
+---
+
+<!-- okf:rows type=component properties="Gloss=gloss" -->
+
+| Code | Name | Gloss | Uses |
+|---|---|---|---|
+| AC001 | Reader recruitment | Brings readers in. | [[tools/quartz]] |
+```
+
+The marker sits on the line above the table (blank lines allowed) and takes
+`type`, `id`, `ref`, `label`, `description`, `properties` (`Header` or `Header=key`,
+comma-separated), `pattern` (a regular expression over the identifier cell with named
+groups `id` and optional `label`) and `edge`. Note-wide defaults go in the frontmatter's
+`okf_rows` as one inline mapping; a marker's key wins over them.
+
+Edges come from three places: every row is `Part of` its note unless the table says
+`edge=none` or another label; clauses after the keys apply to every row of the table
+(`<!-- okf:rows type=component edge=none; Part of: [[AP001]] -->`); and a column whose
+header is one of the profile's `edgeLabels` declares that row's own edges.
+
+A table that declares `ref` instead of `id` annotates nodes declared elsewhere: its rows
+resolve to existing nodes, their `properties` are merged in, and the annotating note gains
+an edge (`edge` is required) to each. Creation is processed before annotation, corpus-wide.
+
+Identity: `anchor` is the GitHub heading slug of the id — the same one Quartz derives for
+`[[note#ID]]` — so a wikilink with a fragment reaches the row, the rendered `<tr>` carries
+`id="<anchor>"` and `data-okf-node="<slug>"`, and the bare id is registered as an alias
+(unresolved, naming every candidate, when two catalogs claim it).
+
+Problems are rules named after the table and row they come from, `error` by default:
+`catalog/marker-invalid`, `table-missing`, `type-missing`, `column-unknown`, `id-empty`,
+`id-duplicate`, `pattern-invalid`, `pattern-nomatch`, `anchor-collision`, `edge-required`,
+`ref-unresolved`, `property-conflict`. Row types and edge labels are checked against the
+consumer's profile like any other (`profile/type-closed`, `profile/edge-label-closed`).
 
 # Federation
 
