@@ -249,6 +249,14 @@
 /* The note in the dock is the site's own article: its styles come from the site. */
 .okf-note { font-family: var(--bodyFont, var(--hud-font)); color: var(--dark, var(--hud-fg)); }
 .okf-note h1:first-child { margin-top: 0; }
+/* A catalogue table is read whole; a wide one scrolls inside the dock, not out of it. */
+.okf-note table { border-collapse: collapse; }
+.okf-note :is(td, th) { padding: 0.3rem 0.5rem; vertical-align: top; }
+/* The entry the reader came for: the dock scrolls to it and it stays visible. */
+.okf-note [data-okf-focus] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
 
 @keyframes okf-fade { from { opacity: 0; } to { opacity: 1; } }
 

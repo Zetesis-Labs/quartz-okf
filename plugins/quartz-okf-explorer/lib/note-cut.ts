@@ -10,6 +10,8 @@ export interface CutElement {
   children: ArrayLike<CutElement>
   closest(selector: string): CutElement | null
   querySelector(selector: string): CutElement | null
+  setAttribute(name: string, value: string): void
+  removeAttribute(name: string): void
 }
 
 export interface CutDocument {
@@ -36,9 +38,18 @@ function sectionOf(heading: CutElement, level: number): string {
   return parts.join("")
 }
 
-function rowOf(row: CutElement): string {
-  const head = row.closest("table")?.querySelector("thead")
-  return `<table>${head?.outerHTML ?? ""}<tbody>${row.outerHTML}</tbody></table>`
+/** The attribute the dock scrolls to and paints: which row the reader came for. */
+export const FOCUS_ATTRIBUTE = "data-okf-focus"
+
+// A row on its own loses what makes a catalogue readable — the entries around it. The
+// table travels whole and the row is marked; the mark comes off right after, because the
+// page is cached and the next row of the same table would inherit it.
+function tableAround(row: CutElement): string {
+  const table = row.closest("table")
+  row.setAttribute(FOCUS_ATTRIBUTE, "")
+  const html = (table ?? row).outerHTML
+  row.removeAttribute(FOCUS_ATTRIBUTE)
+  return html
 }
 
 /** The page's fragment as its own document, or null when nothing answers to it. */
@@ -46,7 +57,7 @@ export function cutFragment(document: CutDocument, fragment: string): string | n
   const target = document.getElementById(fragment)
   if (!target) return null
   const row = target.closest("tr")
-  if (row) return rowOf(row)
+  if (row) return tableAround(row)
   const level = headingLevel(target)
   if (level !== null) return sectionOf(target, level)
   return target.outerHTML
