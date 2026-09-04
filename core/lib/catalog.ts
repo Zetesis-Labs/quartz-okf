@@ -263,8 +263,10 @@ function annotationsOf(
   const annotations: CatalogAnnotation[] = []
   for (const [position, cells] of catalog.rows.entries()) {
     const cell = cells[refColumn] ?? ""
-    const ref = cellTargets(cell)[0] ?? cellText(cell)
-    if (!ref) {
+    // One row may speak for several entries: an analysis often says the same of a handful
+    // of them, and repeating the row per entry would be writing for the tool.
+    const refs = cellTargets(cell)
+    if (refs.length === 0) {
       context.problems.push(problemAt(catalog, "catalog/id-empty", "the reference cell is empty", position + 1))
       continue
     }
@@ -274,13 +276,15 @@ function annotationsOf(
       if (value !== "") properties[spec.key] = value
     }
     const description = descriptionColumn >= 0 ? cellText(cells[descriptionColumn] ?? "") : ""
-    annotations.push({
-      ref,
-      edge,
-      ...(description ? { description } : {}),
-      properties,
-      table: catalog.index,
-    })
+    for (const ref of refs) {
+      annotations.push({
+        ref,
+        edge,
+        ...(description ? { description } : {}),
+        properties,
+        table: catalog.index,
+      })
+    }
   }
   return annotations
 }
