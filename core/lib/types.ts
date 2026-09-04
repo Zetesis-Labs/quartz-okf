@@ -97,6 +97,8 @@ export interface CatalogRow {
 export interface CatalogAnnotation {
   ref: string
   edge: string
+  /** What the annotating note says the target is; replaces the catalogue's own wording. */
+  description?: string
   properties: Record<string, unknown>
   table: number
 }

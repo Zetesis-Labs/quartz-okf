@@ -177,6 +177,23 @@ export function cellTargets(cell: string): string[] {
     .filter((token) => token !== "")
 }
 
+/** Values a table states for every one of its rows: `set="level=component, rank=leaf"`. */
+function statedValues(declaration: string | undefined, problems: string[]): Record<string, string> {
+  if (!declaration) return {}
+  const values: Record<string, string> = {}
+  for (const item of declaration.split(",")) {
+    const separator = item.indexOf("=")
+    const key = item.slice(0, separator).trim()
+    const value = item.slice(separator + 1).trim()
+    if (separator < 0 || !key || !value) {
+      problems.push(`cannot read \`set\` item "${item.trim()}"; write it as key=value`)
+      continue
+    }
+    values[key] = value
+  }
+  return values
+}
+
 interface PropertySpec {
   header: string
   key: string
@@ -228,8 +245,14 @@ function compilePattern(context: RowContext): RegExp | null | undefined {
   }
 }
 
-function annotationsOf(context: RowContext, specs: PropertySpec[], refColumn: number): CatalogAnnotation[] {
+function annotationsOf(
+  context: RowContext,
+  specs: PropertySpec[],
+  refColumn: number,
+  stated: Record<string, string>,
+): CatalogAnnotation[] {
   const { catalog, keys } = context
+  const descriptionColumn = keys.description ? catalog.header.indexOf(keys.description) : -1
   const edge = keys.edge
   if (!edge || edge === "none") {
     context.problems.push(
@@ -245,12 +268,19 @@ function annotationsOf(context: RowContext, specs: PropertySpec[], refColumn: nu
       context.problems.push(problemAt(catalog, "catalog/id-empty", "the reference cell is empty", position + 1))
       continue
     }
-    const properties: Record<string, unknown> = {}
+    const properties: Record<string, unknown> = { ...stated }
     for (const spec of specs) {
       const value = cellText(cells[spec.column] ?? "")
       if (value !== "") properties[spec.key] = value
     }
-    annotations.push({ ref, edge, properties, table: catalog.index })
+    const description = descriptionColumn >= 0 ? cellText(cells[descriptionColumn] ?? "") : ""
+    annotations.push({
+      ref,
+      edge,
+      ...(description ? { description } : {}),
+      properties,
+      table: catalog.index,
+    })
   }
   return annotations
 }
@@ -261,6 +291,7 @@ function rowsOf(
   options: CatalogOptions,
   idColumn: number,
   seen: Set<string>,
+  stated: Record<string, string>,
 ): CatalogRow[] {
   const { catalog, document, keys } = context
   const type = keys.type
@@ -312,7 +343,7 @@ function rowsOf(
     }
     seen.add(anchor)
 
-    const properties: Record<string, unknown> = {}
+    const properties: Record<string, unknown> = { ...stated }
     for (const spec of specs) {
       const value = cellText(cells[spec.column] ?? "")
       if (value !== "") properties[spec.key] = value
@@ -365,6 +396,12 @@ export function catalogsOf(document: CatalogSource, options: CatalogOptions = {}
       problems.push(problemAt(catalog, "catalog/marker-invalid", "declare either `id` (rows are nodes) or `ref` (rows annotate nodes)"))
       continue
     }
+    const markerProblems: string[] = []
+    const stated = statedValues(keys.set, markerProblems)
+    if (markerProblems.length > 0) {
+      problems.push(problemAt(catalog, "catalog/marker-invalid", markerProblems.join("; ")))
+      continue
+    }
     const columnProblems: string[] = []
     const specs = propertySpecs(keys.properties, catalog.header, columnProblems)
     const declared = (identifier ?? reference) as string
@@ -379,10 +416,10 @@ export function catalogsOf(document: CatalogSource, options: CatalogOptions = {}
       continue
     }
     if (reference) {
-      annotations.push(...annotationsOf(context, specs, column))
+      annotations.push(...annotationsOf(context, specs, column, stated))
       continue
     }
-    rows.push(...rowsOf(context, specs, options, column, seen))
+    rows.push(...rowsOf(context, specs, options, column, seen, stated))
   }
   return { rows, annotations, problems, tables: found.tables }
 }

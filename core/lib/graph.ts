@@ -182,6 +182,7 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
         continue
       }
       node.properties = { ...(node.properties ?? {}), ...annotation.properties }
+      if (annotation.description) node.description = annotation.description
       edges.push({
         source: document.id,
         target: node.slug,
