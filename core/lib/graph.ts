@@ -109,6 +109,7 @@ function rowNode(row: CatalogRow, document: ValidatedDocument): GraphNode {
     ...(row.description ? { description: row.description } : {}),
     path: document.path,
     aliases: [row.id],
+    tags: asArray(document.frontmatter?.tags).map(String),
     ...(row.properties ? { properties: { ...row.properties } } : {}),
     url: `/${document.id}#${row.anchor}`,
     row: { note: document.id, anchor: row.anchor },
@@ -140,11 +141,16 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
     const properties = projectProperties(frontmatter, profile)
     if (properties) node.properties = properties
     nodes.push(node)
+    const annotated = new Set(
+      (document.annotations ?? [])
+        .map((annotation) => resolve(annotation.ref))
+        .filter((target): target is string => Boolean(target)),
+    )
     for (const edge of document.edges ?? []) {
       const target = resolve(edge.target)
       // A link in the prose only speaks when it names an entry of a catalogue; reaching a
       // note is what prose does, and saying so would invent a relation nobody declared.
-      if (edge.fromBody && (!target || !rowSlugs.has(target))) continue
+      if (edge.fromBody && (!target || !rowSlugs.has(target) || annotated.has(target))) continue
       const graphEdge: GraphEdge = {
         source: document.id,
         target,

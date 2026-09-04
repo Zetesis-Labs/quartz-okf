@@ -308,6 +308,21 @@ test("frontmatter defaults reach the note's tables", () => {
   assert.equal(document.rows?.[0].title, "AC001 — Student Recruitment")
 })
 
+test("a row cannot take the suffixed anchor of a duplicate heading", () => {
+  const body = "# Alpha\n\n# Alpha\n\n<!-- okf:rows type=component id=Code -->\n\n| Code |\n|---|\n| alpha-1 |\n"
+  const document = validateDocument({
+    id: "standards/arm",
+    path: "standards/arm.md",
+    source: body,
+    body,
+    frontmatter: { type: "report", title: "t", description: "d" },
+    parseError: null,
+    reserved: false,
+  })
+  assert.ok(document.violations.some((violation) => violation.rule === "catalog/anchor-collision"))
+  assert.equal(document.rows?.length, 0)
+})
+
 const annotated = (id: string, annotations: unknown[]) => ({
   id,
   path: `${id}.md`,
@@ -348,10 +363,10 @@ test("an annotation that reaches no node, and two that disagree, are reported", 
   const problems = validateAnnotations([
     catalogue,
     annotated("analysis/gap", [
-      { ref: "AC001", edge: "About", properties: { state: "core" }, table: 1 },
-      { ref: "AC404", edge: "About", properties: { state: "core" }, table: 1 },
+      { ref: "AC001", edge: "About", properties: { state: "core" }, table: 1, row: 1 },
+      { ref: "AC404", edge: "About", properties: { state: "core" }, table: 1, row: 2 },
     ]),
-    annotated("analysis/other", [{ ref: "AC001", edge: "About", properties: { state: "integrate" }, table: 1 }]),
+    annotated("analysis/other", [{ ref: "AC001", edge: "About", properties: { state: "integrate" }, table: 1, row: 3 }]),
   ])
   assert.deepEqual(
     problems.map((problem) => [problem.path, problem.violation.rule]),
@@ -360,5 +375,7 @@ test("an annotation that reaches no node, and two that disagree, are reported", 
       ["analysis/other.md", "catalog/property-conflict"],
     ],
   )
+  assert.match(problems[0].violation.message, /table 1, row 2/)
+  assert.match(problems[1].violation.message, /table 1, row 3/)
   assert.match(problems[1].violation.message, /state/)
 })

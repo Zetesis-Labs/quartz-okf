@@ -12,6 +12,7 @@ const KEY_RE = /([A-Za-z_][\w-]*)=(?:"([^"]*)"|([^\s;]+))/g
 const CLAUSE_RE = /^\s*([^:=]+?)\s*:\s*(.+?)\s*$/
 const TABLE_DIVIDER_RE = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/
 const CELL_SPLIT_RE = /(?<!\\)\|/
+const MARKER_KEYS = new Set(["type", "id", "ref", "label", "description", "properties", "pattern", "edge", "set"])
 
 export interface MarkerDeclaration {
   keys: Record<string, string>
@@ -83,7 +84,15 @@ export function parseMarker(line: string): MarkerDeclaration | null {
   for (const segment of splitSegments(match[1])) {
     const pairs = [...segment.matchAll(KEY_RE)]
     if (pairs.length > 0) {
-      for (const pair of pairs) keys[pair[1]] = pair[2] ?? pair[3]
+      let cursor = 0
+      let unread = false
+      for (const pair of pairs) {
+        if (segment.slice(cursor, pair.index).trim() !== "") unread = true
+        keys[pair[1]] = pair[2] ?? pair[3]
+        cursor = (pair.index ?? 0) + pair[0].length
+      }
+      if (segment.slice(cursor).trim() !== "") unread = true
+      if (unread) unparsed.push(segment.trim())
       continue
     }
     const clause = segment.match(CLAUSE_RE)
@@ -283,6 +292,7 @@ function annotationsOf(
         ...(description ? { description } : {}),
         properties,
         table: catalog.index,
+        row: position + 1,
       })
     }
   }
@@ -372,6 +382,7 @@ function rowsOf(
       ...(Object.keys(properties).length > 0 ? { properties } : {}),
       edges,
       table: catalog.index,
+      identifier: { column: idColumn, text: cell },
     })
   }
   return rows
@@ -388,9 +399,14 @@ export function catalogsOf(document: CatalogSource, options: CatalogOptions = {}
   for (const catalog of found.catalogs) {
     const keys = { ...(options.defaults ?? {}), ...catalog.marker.keys }
     const context: RowContext = { document, catalog, keys, problems }
-    if (catalog.marker.unparsed.length > 0) {
+    const unknownKeys = Object.keys(keys).filter((key) => !MARKER_KEYS.has(key))
+    if (catalog.marker.unparsed.length > 0 || unknownKeys.length > 0) {
+      const details = [
+        ...(catalog.marker.unparsed.length > 0 ? [`cannot read: ${catalog.marker.unparsed.join("; ")}`] : []),
+        ...(unknownKeys.length > 0 ? [`unknown keys: ${unknownKeys.join(", ")}`] : []),
+      ]
       problems.push(
-        problemAt(catalog, "catalog/marker-invalid", `cannot read: ${catalog.marker.unparsed.join("; ")}`),
+        problemAt(catalog, "catalog/marker-invalid", details.join("; ")),
       )
       continue
     }

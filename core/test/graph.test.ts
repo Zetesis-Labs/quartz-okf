@@ -308,6 +308,7 @@ test("emits one node per catalog row, addressed inside its note's page", () => {
     description: "Attracting students.",
     path: "standards/arm.md",
     aliases: ["AC001"],
+    tags: ["standards"],
     properties: { gloss: "Leads to enrolment.", state: "core" },
     url: "/standards/arm#ac001",
     row: { note: "standards/arm", anchor: "ac001" },
@@ -440,4 +441,18 @@ Nos ocupa [[standards/arm#AC001]], y [[otra]] queda como prosa; [[standards/arm#
     "sólo el enlace que nombra una fila declara una relación",
   )
   assert.deepEqual(graph.unresolved, [], "un enlace de la prosa que no alcanza una fila no es un error")
+})
+
+test("an explicit annotation supersedes an inferred prose citation to the same row", () => {
+  const profile = { ...PROFILE, bodyLinks: "Cites" }
+  const documents = structuredClone(CATALOG)
+  documents[1].edges = [{ label: "Cites", target: "standards/arm#AC001", fromBody: true }]
+  const graph = buildGraph(documents, { profile })
+  assert.deepEqual(
+    graph.edges
+      .filter((edge) => edge.source === "analysis/gap" && edge.target === "standards/arm#ac001")
+      .map((edge) => edge.label),
+    ["About"],
+    "la relación explícita no debe pesar dos veces por estar también enlazada en la prosa",
+  )
 })

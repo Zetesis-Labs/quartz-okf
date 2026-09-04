@@ -58,10 +58,20 @@ function headingAnchorsOf(body: string): string[] {
   const lines = String(body).replaceAll("\r\n", "\n").split("\n")
   const fenced = fencedLineMask(lines)
   const anchors: string[] = []
+  const occurrences = new Map<string, number>()
   for (const [index, line] of lines.entries()) {
     if (fenced[index]) continue
     const heading = line.match(/^#{1,6}\s+(.+?)\s*$/)
-    if (heading) anchors.push(anchorSlug(heading[1]))
+    if (!heading) continue
+    const original = anchorSlug(heading[1])
+    let anchor = original
+    while (occurrences.has(anchor)) {
+      const next = (occurrences.get(original) ?? 0) + 1
+      occurrences.set(original, next)
+      anchor = `${original}-${next}`
+    }
+    occurrences.set(anchor, 0)
+    anchors.push(anchor)
   }
   return anchors
 }
@@ -253,7 +263,7 @@ export function validateAnnotations(documents: ValidatedDocument[], options: Val
     slugs.add(document.id)
     for (const row of document.rows ?? []) slugs.add(row.slug)
   }
-  const taken = new Map<string, { value: unknown; path: string }>()
+  const taken = new Map<string, { value: unknown; path: string; table: number; row?: number }>()
   const problems: AnnotationProblem[] = []
   const report = (path: string, entry: Violation | null): void => {
     if (entry) problems.push({ path, violation: entry })
@@ -266,7 +276,7 @@ export function validateAnnotations(documents: ValidatedDocument[], options: Val
           document.path,
           violation(
             "catalog/ref-unresolved",
-            `table ${annotation.table}: "${annotation.ref}" names no node of this corpus`,
+            `table ${annotation.table}${annotation.row ? `, row ${annotation.row}` : ""}: "${annotation.ref}" names no node of this corpus`,
             levels,
           ),
         )
@@ -283,13 +293,18 @@ export function validateAnnotations(documents: ValidatedDocument[], options: Val
             document.path,
             violation(
               "catalog/property-conflict",
-              `table ${annotation.table}: "${target}" already took ${key} = ${JSON.stringify(previous.value)} from ${previous.path}; this table writes ${JSON.stringify(value)}`,
+              `table ${annotation.table}${annotation.row ? `, row ${annotation.row}` : ""}: "${target}" already took ${key} = ${JSON.stringify(previous.value)} from ${previous.path}, table ${previous.table}${previous.row ? `, row ${previous.row}` : ""}; this table writes ${JSON.stringify(value)}`,
               levels,
             ),
           )
           continue
         }
-        taken.set(`${target}\n${key}`, { value, path: document.path })
+        taken.set(`${target}\n${key}`, {
+          value,
+          path: document.path,
+          table: annotation.table,
+          row: annotation.row,
+        })
       }
     }
   }
