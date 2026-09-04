@@ -178,6 +178,10 @@
       : "";
   }
 
+  // Un catálogo cuelga cientos de filas de su nota: listadas una a una, la vecindad deja de
+  // leerse. A partir de este número el grupo se pliega con su cuenta.
+  var FOLD_AT = 8;
+
   function section(title, groups, nodeMap, m) {
     var labels = Object.keys(groups).sort();
     if (!labels.length) return "";
@@ -186,9 +190,11 @@
       var label = labels[li];
       var items = groups[label];
       var chips = "";
+      var shown = 0;
       for (var ii = 0; ii < items.length; ii++) {
         var node = nodeMap[items[ii]];
         if (!node) continue;
+        shown += 1;
         var color = TYPE_COLOR[node.type] ? TYPE_COLOR[node.type][m] : "var(--gray)";
         chips +=
           '<a class="okf-blast-node" href="' +
@@ -201,7 +207,16 @@
           esc(node.title) +
           "</a>";
       }
-      if (chips) {
+      if (chips && shown > FOLD_AT) {
+        html +=
+          '<details class="okf-blast-rel okf-blast-fold"><summary class="okf-blast-label">' +
+          esc(label) +
+          " (" +
+          shown +
+          ')</summary><span class="okf-blast-targets">' +
+          chips +
+          "</span></details>";
+      } else if (chips) {
         html +=
           '<div class="okf-blast-rel"><span class="okf-blast-label">' +
           esc(label) +
