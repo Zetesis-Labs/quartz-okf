@@ -93,6 +93,21 @@
     gap: 0.2rem 0.5rem;
   }
 
+  // Un grupo plegado es un <details>: en fila (flex) el marcador y el resumen se
+  // descolocan, así que aquí manda el bloque.
+  .okf-blast-fold {
+    display: block;
+
+    > summary {
+      cursor: pointer;
+      min-width: 0;
+    }
+
+    > .okf-blast-targets {
+      margin-top: 0.25rem;
+    }
+  }
+
   .okf-blast-node {
     display: inline-flex;
     align-items: center;
