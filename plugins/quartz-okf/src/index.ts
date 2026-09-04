@@ -10,6 +10,7 @@ import {
   isReserved,
   mergeProfile,
   subgraphId,
+  validateAnnotations,
   validateDocument,
   validateFederationConfig,
 } from "../../lib/index.ts"
@@ -329,9 +330,17 @@ async function emitAll(context: BuildContext, content: Content, options: Resolve
     .filter((file) => !isMounted(file))
     .map((file) => file.data.okf ?? validateDocument(toDocument(file), { profile }))
 
-  const violations = documents.flatMap((document) =>
-    (document.violations ?? []).map((violation) => ({ file: document.path, ...violation })),
-  )
+  // Whether an annotating table reaches a node, and whether two of them disagree, is a
+  // question only the whole corpus answers: validating file by file would let it pass.
+  const violations = [
+    ...documents.flatMap((document) =>
+      (document.violations ?? []).map((violation) => ({ file: document.path, ...violation })),
+    ),
+    ...validateAnnotations(documents, { profile }).map((problem) => ({
+      file: problem.path,
+      ...problem.violation,
+    })),
+  ]
   const errors = violations.filter((violation) => violation.level === "error")
   for (const violation of violations) {
     const log = violation.level === "error" ? console.error : console.warn
