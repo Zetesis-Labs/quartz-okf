@@ -211,3 +211,34 @@ test("a remote that moved past the pinned ref is reported as a warning", async (
     warn.restore()
   }
 })
+
+test("an annotation that reaches no node fails the build instead of vanishing into unresolved", async () => {
+  const catalogue = note(
+    "standards/arm",
+    { type: "concept", okf_rows: { type: "technology", id: "Code", label: "Name" } },
+    "<!-- okf:rows -->\n\n| Code | Name |\n|---|---|\n| AC001 | Reader recruitment |\n",
+  )
+  const analysis = note(
+    "analysis/gap",
+    { type: "concept" },
+    '<!-- okf:rows ref=Code edge=About properties="State=state" -->\n\n| Code | State |\n|---|---|\n| AC001 | core |\n| AC404 | later |\n',
+  )
+  const logged = []
+  const wasError = console.error
+  console.error = (line) => logged.push(String(line))
+  try {
+    await assert.rejects(() => emitSite([catalogue, analysis]), /OKF conformance error/)
+  } finally {
+    console.error = wasError
+  }
+  assert.ok(
+    logged.some((line) => line.includes("catalog/ref-unresolved") && line.includes("AC404")),
+    "the build must name the rule and the annotation that reaches nothing",
+  )
+  const { graph } = await emitSite([catalogue, analysis], { strict: false })
+  assert.equal(graph.nodes.find((node) => node.slug === "standards/arm#ac001").properties.state, "core")
+  assert.deepEqual(
+    graph.unresolved.map((edge) => edge.target),
+    ["AC404"],
+  )
+})
