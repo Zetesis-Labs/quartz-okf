@@ -303,3 +303,20 @@ test("an annotating table can state values and write the node's description", ()
     table: 1,
   })
 })
+
+test("a reference cell naming several entries annotates every one of them", () => {
+  const body = `<!-- okf:rows ref=Códigos edge=About set="clasif=⬛" properties="Comentario=note" -->
+
+| Códigos | Comentario |
+|---|---|
+| AC009, AC010, AC008 | Un mismo apartado los cubre. |
+| AC118 | Sólo este. |
+`
+  const { annotations, problems } = catalogsOf({ id: "analysis/gap", body }, {})
+  assert.deepEqual(problems, [])
+  assert.deepEqual(
+    annotations.map((annotation) => annotation.ref),
+    ["AC009", "AC010", "AC008", "AC118"],
+  )
+  assert.deepEqual(annotations[1].properties, { clasif: "⬛", note: "Un mismo apartado los cubre." })
+})
