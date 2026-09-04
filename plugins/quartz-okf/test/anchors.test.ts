@@ -22,8 +22,8 @@ const table = (header, body) => ({
 const tree = (...tables) => ({ type: "root", children: tables })
 
 const ROWS = [
-  { id: "AC001", anchor: "ac001", slug: "standards/arm#ac001", table: 1 },
-  { id: "AC002", anchor: "ac002", slug: "standards/arm#ac002", table: 1 },
+  { id: "AC001", anchor: "ac001", slug: "standards/arm#ac001", table: 1, identifier: { column: 0, text: "AC001" } },
+  { id: "AC002", anchor: "ac002", slug: "standards/arm#ac002", table: 1, identifier: { column: 0, text: "AC002" } },
 ]
 
 test("marks the catalog table and gives every row its anchor", () => {
@@ -67,6 +67,20 @@ test("skips rows the core dropped and still anchors the ones that are there", ()
   assert.equal(body[1].properties.id, "ac002")
 })
 
+test("matches the identifier cell, not an id mentioned elsewhere in an earlier row", () => {
+  const document = tree(
+    table(["Code", "Name"], [
+      ["", "See AC002"],
+      ["AC002", "Agent Management"],
+    ]),
+  )
+  const problems = markCatalogRows(document, [ROWS[1]])
+  assert.deepEqual(problems, [])
+  const body = document.children[0].children[1].children
+  assert.equal(body[0].properties.id, undefined)
+  assert.equal(body[1].properties.id, "ac002")
+})
+
 test("reports a row it cannot find and a table that is not there, and writes neither", () => {
   const document = tree(table(["Code", "Name"], [["AC001", "Student Recruitment"]]))
   const problems = markCatalogRows(document, [
@@ -84,7 +98,7 @@ test("reports a row it cannot find and a table that is not there, and writes nei
 test("an identifier split by a pattern still finds its row", () => {
   const document = tree(table(["L2", "What"], [["BC002 Curriculum Planning", "Decides."]]))
   const problems = markCatalogRows(document, [
-    { id: "BC002", anchor: "bc002", slug: "standards/bcm#bc002", table: 1 },
+    { id: "BC002", anchor: "bc002", slug: "standards/bcm#bc002", table: 1, identifier: { column: 0, text: "BC002 Curriculum Planning" } },
   ])
   assert.deepEqual(problems, [])
   assert.equal(document.children[0].children[1].children[0].properties.id, "bc002")
