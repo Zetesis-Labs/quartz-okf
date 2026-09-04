@@ -1,7 +1,9 @@
 import path from "node:path"
+import { anchorSlug } from "./anchor.ts"
+import { catalogsOf } from "./catalog.ts"
 import { DEFAULT_RULE_LEVELS, PROFILE } from "./reference-profile.ts"
 import { buildResolver } from "./resolver.ts"
-import { parseTopologyEdges } from "./topology.ts"
+import { fencedLineMask, parseTopologyEdges } from "./topology.ts"
 import type { Document, Frontmatter, Profile, RuleLevel, TopologyEdge, ValidatedDocument, Violation } from "./types.ts"
 
 type Levels = Record<string, RuleLevel>
@@ -49,6 +51,26 @@ function validatePropertyGroups(
       )
     }
   }
+}
+
+/** The anchors the note's own headings take: a row may not answer to one of them. */
+function headingAnchorsOf(body: string): string[] {
+  const lines = String(body).replaceAll("\r\n", "\n").split("\n")
+  const fenced = fencedLineMask(lines)
+  const anchors: string[] = []
+  for (const [index, line] of lines.entries()) {
+    if (fenced[index]) continue
+    const heading = line.match(/^#{1,6}\s+(.+?)\s*$/)
+    if (heading) anchors.push(anchorSlug(heading[1]))
+  }
+  return anchors
+}
+
+function rowDefaults(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, String(item)]),
+  )
 }
 
 export function isReserved(filePath: string): boolean {
@@ -166,8 +188,29 @@ export function validateDocument(document: Document, options: ValidateOptions = 
   }
   validatePropertyGroups(frontmatter, profile, levels, add)
   const edges = parseTopologyEdges(document.body, profile.topologyHeading)
-  for (const edge of edges) {
-    if (!profile.edgeLabels.includes(edge.label)) {
+  const catalog = catalogsOf(
+    { id: document.id, body: document.body },
+    {
+      defaults: rowDefaults(frontmatter.okf_rows),
+      edgeLabels: profile.edgeLabels,
+      headingAnchors: headingAnchorsOf(document.body),
+    },
+  )
+  for (const problem of catalog.problems) add(violation(problem.code, problem.message, levels))
+  for (const type of new Set(catalog.rows.map((row) => row.type))) {
+    if (!profile.types.includes(type)) {
+      add(
+        violation(
+          "profile/type-closed",
+          `unknown row type "${type}"; allowed: ${profile.types.join(", ")}`,
+          levels,
+        ),
+      )
+    }
+  }
+  const checkLabels = (candidates: TopologyEdge[]): void => {
+    for (const edge of [...new Map(candidates.map((item) => [item.label, item])).values()]) {
+      if (profile.edgeLabels.includes(edge.label)) continue
       add(
         violation(
           "profile/edge-label-closed",
@@ -178,7 +221,70 @@ export function validateDocument(document: Document, options: ValidateOptions = 
       )
     }
   }
-  return { ...document, reserved, edges, violations }
+  checkLabels([
+    ...catalog.rows.flatMap((row) => row.edges),
+    ...catalog.annotations.map((annotation) => ({ label: annotation.edge, target: annotation.ref })),
+  ])
+  checkLabels(edges)
+  return { ...document, reserved, edges, violations, rows: catalog.rows, annotations: catalog.annotations }
+}
+
+export interface AnnotationProblem {
+  path: string
+  violation: Violation
+}
+
+/**
+ * What only the whole corpus can answer about annotating tables: whether each one reaches
+ * a node, and whether two of them write different values to the same property.
+ */
+export function validateAnnotations(documents: ValidatedDocument[], options: ValidateOptions = {}): AnnotationProblem[] {
+  const profile = options.profile ?? PROFILE
+  const levels: Levels = { ...profile.ruleLevels, ...(options.ruleLevels ?? {}) }
+  const resolve = buildResolver(documents)
+  const slugs = new Set<string>()
+  for (const document of documents) {
+    if (document.reserved || !document.frontmatter?.type) continue
+    slugs.add(document.id)
+    for (const row of document.rows ?? []) slugs.add(row.slug)
+  }
+  const written = new Map<string, { value: unknown; path: string }>()
+  const problems: AnnotationProblem[] = []
+  const report = (path: string, entry: Violation | null): void => {
+    if (entry) problems.push({ path, violation: entry })
+  }
+  for (const document of documents) {
+    for (const annotation of document.annotations ?? []) {
+      const target = resolve(annotation.ref)
+      if (!target || !slugs.has(target)) {
+        report(
+          document.path,
+          violation(
+            "catalog/ref-unresolved",
+            `table ${annotation.table}: "${annotation.ref}" names no node of this corpus`,
+            levels,
+          ),
+        )
+        continue
+      }
+      for (const [key, value] of Object.entries(annotation.properties)) {
+        const previous = written.get(`${target}\n${key}`)
+        if (previous && previous.value !== value) {
+          report(
+            document.path,
+            violation(
+              "catalog/property-conflict",
+              `table ${annotation.table}: "${target}" already took ${key} = ${JSON.stringify(previous.value)} from ${previous.path}; this table writes ${JSON.stringify(value)}`,
+              levels,
+            ),
+          )
+          continue
+        }
+        written.set(`${target}\n${key}`, { value, path: document.path })
+      }
+    }
+  }
+  return problems
 }
 
 function levelOf(rule: string, levels: Levels): RuleLevel {
@@ -233,6 +339,10 @@ export function validateDocuments(documents: Document[], options: ValidateOption
         })
       }
     }
+  }
+  for (const problem of validateAnnotations(validated, options)) {
+    const document = validated.find((item) => item.path === problem.path)
+    document?.violations.push(problem.violation)
   }
   const redundantLevel = levelOf("hygiene/redundant-inverse", levels)
   const inverseLabels = profile.inverseLabels ?? {}

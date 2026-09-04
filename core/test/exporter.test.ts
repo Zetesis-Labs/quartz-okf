@@ -86,3 +86,54 @@ service_tier: edge
     profile.propertyGroups,
   )
 })
+
+test("the bundle carries the same row nodes as a site, and links reach them", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "okf-rows-bundle-"))
+  const repo = path.join(root, "repo")
+  const output = path.join(root, "bundle")
+  await fs.mkdir(path.join(repo, "standards"), { recursive: true })
+  await fs.writeFile(
+    path.join(repo, "standards", "arm.md"),
+    `---
+type: concept
+title: The catalogue
+description: Entries are rows.
+okf_rows: { type: technology, id: Code, label: Name }
+---
+
+<!-- okf:rows -->
+
+| Code | Name |
+|---|---|
+| AC001 | Reader recruitment |
+`,
+  )
+  await fs.writeFile(
+    path.join(repo, "reading.md"),
+    `---
+type: concept
+title: Reading
+description: A note that cites one entry.
+---
+
+The entry [[standards/arm#AC001]] is where this starts.
+
+# Topology
+
+* **About**: [[standards/arm#AC001]]
+`,
+  )
+  const result = await exportBundle(repo, output)
+  const row = result.graph.nodes.find((node) => node.slug === "standards/arm#ac001")
+  assert.equal(row?.type, "technology")
+  assert.equal(row?.url, "/standards/arm#ac001")
+  assert.equal(result.graph.stats.rows, 1)
+  assert.ok(
+    result.graph.edges.some(
+      (edge) => edge.source === "reading" && edge.target === "standards/arm#ac001" && edge.label === "About",
+    ),
+    "a Topology target with a fragment must reach the row",
+  )
+  const bundled = await fs.readFile(path.join(output, "reading.md"), "utf8")
+  assert.ok(bundled.includes("(/standards/arm.md#ac001)"), "the bundled link lost its anchor")
+})

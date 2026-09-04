@@ -85,7 +85,9 @@ test("parses exported standard-link topology bullets like authored wikilinks", (
   ].join("\n")
   assert.deepEqual(
     parseTopologyEdges(doc).map((edge) => `${edge.label}:${edge.target}`),
-    ["Uses:docs/technologies/talos", "Uses:docs/technologies/zfs", "About:okf/okf-convention"],
+    // Since 006 a fragment is part of the target: it may address a row of that note, and
+    // the resolver falls back to the note itself when no row answers to it.
+    ["Uses:docs/technologies/talos", "Uses:docs/technologies/zfs", "About:okf/okf-convention#rules"],
   )
 })
 
@@ -111,4 +113,44 @@ test("convertWikilinks keeps digits outside code spans and restores every span i
   assert.equal(result.content, "v1.3 of 2026-06-17: `[[not-a-link]]` and `x = 42` then [a](/a) and 7 more.")
   assert.equal(result.converted, 1)
   assert.equal(result.unresolved, 0)
+})
+
+test("keeps the fragment of a wikilink so a row target survives parsing", () => {
+  const source = `# Topology
+
+* **Part of**: [[standards/arm#AC001]], [[standards/arm#AC002|Agents]]
+* **Uses**: [[tools/okf]]
+`
+  assert.deepEqual(parseTopologyEdges(source), [
+    { label: "Part of", target: "standards/arm#AC001", alias: undefined },
+    { label: "Part of", target: "standards/arm#AC002", alias: "Agents" },
+    { label: "Uses", target: "tools/okf", alias: undefined },
+  ])
+})
+
+test("keeps the fragment of an exported markdown link", () => {
+  const source = `# Topology
+
+* **Part of**: [AC001](/standards/arm.md#ac001)
+`
+  assert.deepEqual(parseTopologyEdges(source), [
+    { label: "Part of", target: "standards/arm#ac001", alias: "AC001" },
+  ])
+})
+
+test("converts a fragment-bearing wikilink into a link that lands on the row", () => {
+  const result = convertWikilinks("See [[arm#AC001]] and [[arm#AC002|AC002]].", (target) =>
+    target === "arm" ? "standards/arm.md" : null,
+  )
+  assert.equal(
+    result.content,
+    "See [arm](/standards/arm.md#ac001) and [AC002](/standards/arm.md#ac002).",
+  )
+  assert.equal(result.converted, 2)
+})
+
+test("an unresolved fragment-bearing wikilink keeps its fragment", () => {
+  const result = convertWikilinks("[[missing#AC001]]", () => null)
+  assert.equal(result.content, "[missing](/missing.md#ac001)")
+  assert.equal(result.unresolved, 1)
 })

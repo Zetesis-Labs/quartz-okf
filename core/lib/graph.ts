@@ -1,6 +1,7 @@
 import { PROFILE } from "./reference-profile.ts"
 import { buildResolver } from "./resolver.ts"
 import type {
+  CatalogRow,
   Frontmatter,
   GraphEdge,
   GraphNode,
@@ -99,12 +100,28 @@ export interface BuildGraphOptions {
   baseUrl?: string
 }
 
+function rowNode(row: CatalogRow, document: ValidatedDocument): GraphNode {
+  return {
+    slug: row.slug,
+    title: row.title,
+    ...(row.label && row.label !== row.title ? { label: row.label } : {}),
+    type: row.type,
+    ...(row.description ? { description: row.description } : {}),
+    path: document.path,
+    aliases: [row.id],
+    ...(row.properties ? { properties: { ...row.properties } } : {}),
+    url: `/${document.id}#${row.anchor}`,
+    row: { note: document.id, anchor: row.anchor },
+  }
+}
+
 export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOptions = {}): OkfGraph {
   const profile = options.profile ?? PROFILE
   const resolve = buildResolver(documents)
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
   const unresolved: UnresolvedEdge[] = []
+  let rows = 0
   for (const document of documents) {
     const type = document.frontmatter?.type
     if (document.reserved || !type) continue
@@ -136,6 +153,42 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
       }
       edges.push(graphEdge)
     }
+    for (const row of document.rows ?? []) {
+      rows += 1
+      nodes.push(rowNode(row, document))
+      for (const edge of row.edges) {
+        const target = resolve(edge.target)
+        const graphEdge: GraphEdge = {
+          source: row.slug,
+          target,
+          label: edge.label,
+          iri: profile.edgeIris[edge.label],
+        }
+        if (!target) {
+          graphEdge.targetRaw = edge.target
+          unresolved.push({ source: row.slug, target: edge.target, label: edge.label })
+        }
+        edges.push(graphEdge)
+      }
+    }
+  }
+  const bySlug = new Map(nodes.map((node) => [node.slug, node]))
+  for (const document of documents) {
+    for (const annotation of document.annotations ?? []) {
+      const target = resolve(annotation.ref)
+      const node = target ? bySlug.get(target) : undefined
+      if (!node) {
+        unresolved.push({ source: document.id, target: annotation.ref, label: annotation.edge })
+        continue
+      }
+      node.properties = { ...(node.properties ?? {}), ...annotation.properties }
+      edges.push({
+        source: document.id,
+        target: node.slug,
+        label: annotation.edge,
+        iri: profile.edgeIris[annotation.edge],
+      })
+    }
   }
   const derived = deriveInverseEdges(edges, profile)
   edges.push(...derived)
@@ -153,6 +206,7 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
     propertyGroups: graphPropertyGroups(profile),
     stats: {
       notes: nodes.length,
+      ...(rows > 0 ? { rows } : {}),
       edges: edges.length,
       declaredEdges: edges.length - derived.length,
       derivedEdges: derived.length,

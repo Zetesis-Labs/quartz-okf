@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { validateDocument, validateDocuments } from "../lib/rules.ts"
+import { validateAnnotations, validateDocument, validateDocuments } from "../lib/rules.ts"
 import { PROFILE } from "../lib/reference-profile.ts"
 
 test("separates core, profile, and hygiene violations", () => {
@@ -210,4 +210,155 @@ test("flags manually declared inverse pairs on both endpoints", () => {
       document.id,
     )
   }
+})
+
+const CATALOG_NOTE = `---
+type: report
+title: Catalogue
+---
+
+# Topology
+
+* **Part of**: [[standards]]
+
+# Entries
+
+<!-- okf:rows type=component id=Code label=Name -->
+
+| Code | Name |
+|---|---|
+| AC001 | Student Recruitment |
+| AC002 | Agent Management |
+`
+
+test("a catalog note carries its rows and their edges after validation", () => {
+  const document = validateDocument({
+    id: "standards/arm",
+    path: "standards/arm.md",
+    source: CATALOG_NOTE,
+    body: CATALOG_NOTE,
+    frontmatter: { type: "report", title: "Catalogue", description: "d" },
+    parseError: null,
+    reserved: false,
+  })
+  assert.deepEqual(
+    document.rows?.map((row) => row.slug),
+    ["standards/arm#ac001", "standards/arm#ac002"],
+  )
+  assert.deepEqual(document.rows?.[0].edges, [{ label: "Part of", target: "standards/arm" }])
+  assert.deepEqual(document.violations, [])
+})
+
+test("catalog problems become violations at the profile's levels", () => {
+  const body = "<!-- okf:rows type=component id=Missing -->\n\n| Code |\n|---|\n| AC001 |\n"
+  const document = validateDocument({
+    id: "standards/arm",
+    path: "standards/arm.md",
+    source: body,
+    body,
+    frontmatter: { type: "report", title: "t", description: "d" },
+    parseError: null,
+    reserved: false,
+  })
+  const violation = document.violations.find((item) => item.rule === "catalog/column-unknown")
+  assert.equal(violation?.level, "error")
+  assert.match(violation?.message ?? "", /table 1/)
+  assert.equal(document.rows?.length, 0)
+})
+
+test("a row type outside the profile and an unknown row edge are profile violations", () => {
+  const body = [
+    "<!-- okf:rows type=nonesuch id=Code edge=Invents -->",
+    "",
+    "| Code |",
+    "|---|",
+    "| AC001 |",
+  ].join("\n")
+  const document = validateDocument({
+    id: "standards/arm",
+    path: "standards/arm.md",
+    source: body,
+    body,
+    frontmatter: { type: "report", title: "t", description: "d" },
+    parseError: null,
+    reserved: false,
+  })
+  const rules = document.violations.map((item) => item.rule)
+  assert.ok(rules.includes("profile/type-closed"))
+  assert.ok(rules.includes("profile/edge-label-closed"))
+})
+
+test("frontmatter defaults reach the note's tables", () => {
+  const body = "<!-- okf:rows -->\n\n| Code | Name |\n|---|---|\n| AC001 | Student Recruitment |\n"
+  const document = validateDocument({
+    id: "standards/arm",
+    path: "standards/arm.md",
+    source: body,
+    body,
+    frontmatter: {
+      type: "report",
+      title: "t",
+      description: "d",
+      okf_rows: { type: "component", id: "Code", label: "Name" },
+    },
+    parseError: null,
+    reserved: false,
+  })
+  assert.deepEqual(document.violations, [])
+  assert.equal(document.rows?.[0].title, "AC001 — Student Recruitment")
+})
+
+const annotated = (id: string, annotations: unknown[]) => ({
+  id,
+  path: `${id}.md`,
+  source: "",
+  body: "",
+  frontmatter: { type: "report", title: id, description: "d" },
+  parseError: null,
+  reserved: false,
+  edges: [],
+  violations: [],
+  annotations,
+})
+
+test("an annotation that reaches no node, and two that disagree, are reported", () => {
+  const catalogue = {
+    id: "standards/arm",
+    path: "standards/arm.md",
+    source: "",
+    body: "",
+    frontmatter: { type: "report", title: "Catalogue", description: "d" },
+    parseError: null,
+    reserved: false,
+    edges: [],
+    violations: [],
+    rows: [
+      {
+        id: "AC001",
+        anchor: "ac001",
+        slug: "standards/arm#ac001",
+        type: "concept",
+        title: "AC001",
+        label: "AC001",
+        edges: [],
+        table: 1,
+      },
+    ],
+  }
+  const problems = validateAnnotations([
+    catalogue,
+    annotated("analysis/gap", [
+      { ref: "AC001", edge: "About", properties: { state: "core" }, table: 1 },
+      { ref: "AC404", edge: "About", properties: { state: "core" }, table: 1 },
+    ]),
+    annotated("analysis/other", [{ ref: "AC001", edge: "About", properties: { state: "integrate" }, table: 1 }]),
+  ])
+  assert.deepEqual(
+    problems.map((problem) => [problem.path, problem.violation.rule]),
+    [
+      ["analysis/gap.md", "catalog/ref-unresolved"],
+      ["analysis/other.md", "catalog/property-conflict"],
+    ],
+  )
+  assert.match(problems[1].violation.message, /state/)
 })

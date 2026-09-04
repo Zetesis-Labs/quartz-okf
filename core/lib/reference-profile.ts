@@ -94,6 +94,18 @@ export const DEFAULT_RULE_LEVELS: Readonly<Record<string, RuleLevel>> = Object.f
   "hygiene/unresolved-edge": "off",
   "hygiene/redundant-inverse": "warn",
   "hygiene/knowledge-edges-recommended": "warn",
+  "catalog/marker-invalid": "error",
+  "catalog/table-missing": "error",
+  "catalog/type-missing": "error",
+  "catalog/column-unknown": "error",
+  "catalog/id-empty": "error",
+  "catalog/id-duplicate": "error",
+  "catalog/pattern-invalid": "error",
+  "catalog/pattern-nomatch": "error",
+  "catalog/anchor-collision": "error",
+  "catalog/edge-required": "error",
+  "catalog/ref-unresolved": "error",
+  "catalog/property-conflict": "error",
 })
 
 export const PROFILE: Profile = Object.freeze({
