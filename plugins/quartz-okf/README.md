@@ -142,7 +142,9 @@ Identity: `anchor` is the GitHub heading slug of the id — the same one Quartz 
 A corpus may declare `profile.bodyLinks` (an edge label): then a link **in the prose** to a
 catalogue row — `[[standards/arm#AC001]]` — becomes an edge with that label. Links to notes
 stay prose: relations between notes are declared in `# Topology`, never guessed from a
-paragraph. A row link that reaches no row is prose too, not an error.
+paragraph. A row link that reaches no row is prose too, not an error. If the same note
+also annotates that row through a `ref` table, the explicit annotation is authoritative
+and the inferred prose edge is omitted for that source-target pair.
 
 The explorer's modes may declare `types`, the node types they are about: a mode that shows a
 standard leaves out the notes that read it, without the reader filtering by hand.

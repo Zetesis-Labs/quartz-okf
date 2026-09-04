@@ -5,11 +5,11 @@
 **Status**: Draft
 **Input**: User description: "A note may hold a table whose rows are the real
 entities — a standard's catalogue, a register, an inventory. Each row should be a node of
-the graph, addressable inside its page, linkable from other notes, readable on its own in
+the graph, addressable inside its page, linkable from other notes, focusable in context in
 the explorer, and annotatable from tables in other notes. Today one consumer (Singular
 Solving's HERM corpus) builds this by hand with 380 lines of Python outside the toolkit;
-the explorer then opens the whole page for every row because the toolkit never knew a
-node could be part of a page. The feature belongs to the toolkit so every consumer gets
+the explorer then cannot focus the relevant row because the toolkit never knew a node
+could be part of a page. The feature belongs to the toolkit so every consumer gets
 it and the Python goes away." Research and decisions: [research.md](research.md).
 
 ## User Scenarios & Testing *(mandatory)*
@@ -65,16 +65,17 @@ derived inverse, and `stats.rows = 3`. Run the same through the exporter and com
 
 A reader clicks a row node in the explorer, follows a `[[standards/arm#AC001]]` link
 from another note, or opens a shared URL ending in `#ac001`. The page scrolls to that
-row and highlights it. In the explorer, opening the node in the dock shows *that row* —
-its table's header and the row — not the whole page; opening a second row of the same
-page does not download the page again.
+row and highlights it. In the explorer, opening the node in the dock keeps the complete
+note as reading context, scrolls to and highlights that row; opening a second row of the
+same page does not download the page again.
 
 **Why this priority**: a node whose URL lands on a 109 KB page is not addressable; the
 feature is not usable without it, and it is the bug that started this spec.
 
 **Independent Test**: on the fixture build, assert the rendered page carries `<tr
 id="ac001" data-okf-node="standards/arm#ac001">`; in the explorer open two rows of the
-same note and observe one fetch of the page and a dock that shows one row each time.
+same note and observe one fetch of the page and a complete dock article whose focused
+row changes each time.
 
 **Acceptance Scenarios**:
 
@@ -87,10 +88,10 @@ same note and observe one fetch of the page and a dock that shows one row each t
 3. **Given** a URL with a row fragment, **When** opened directly or reached through the
    site's SPA navigation, **Then** the row is scrolled into view and visibly highlighted.
 4. **Given** the explorer's dock opening a row node, **When** the page is fetched,
-   **Then** the dock shows the table's `<thead>` and that `<tr>` only, titled with the
-   node's title; **When** the fragment names a heading, the dock shows that heading's
-   section; **When** the fragment matches nothing, the dock shows the whole article and
-   logs a warning naming the URL.
+   **Then** the dock shows the whole article, marks that `<tr>` and scrolls it into view;
+   **When** the fragment names a heading, the whole article is shown with that heading
+   focused; **When** the fragment matches nothing, the dock shows the article unfocused
+   and logs a warning naming the URL.
 5. **Given** two row nodes of the same page opened in turn, **When** the second opens,
    **Then** no second request for the page is made.
 6. **Given** a row anchor that would equal a heading anchor of the same note, **When**
@@ -220,9 +221,9 @@ folded.
   counts rows.
 - Federation: a child's row nodes travel like any other node; their `url` becomes
   `/<mount>/<note>#<anchor>` through the existing rewrite; `preview` may select rows.
-- Non-strict mode: every problem above is logged naming file, rule, table and row (the
-  machinery the profile's rule levels already provide) and the offending table
-  contributes no nodes; the build goes on.
+- Non-strict mode: every problem above is logged naming file, rule, table and row where
+  one exists (the machinery the profile's rule levels already provides). Invalid
+  declarations omit their table; row-local problems omit that row; the build goes on.
 
 ## Requirements *(mandatory)*
 
@@ -238,7 +239,8 @@ folded.
   (header of the identifier column; required for creating tables), `ref` (header of the
   column naming an existing node; makes the table an annotation), `label` (header of the
   column that names the row), `description` (header of the description column),
-  `properties` (comma-separated headers, each optionally `Header=key`), `pattern`
+  `properties` (comma-separated headers, each optionally `Header=key`), `set`
+  (comma-separated `key=value` properties asserted for every row), `pattern`
   (regular expression with named groups `id` and optional `label` applied to the
   identifier cell's plain text), `edge` (label of the containment edge from row to note
   for `id` tables — default `Part of`, `none` to suppress; the annotation edge for `ref`
@@ -265,7 +267,9 @@ folded.
 - **FR-007**: Annotation (`ref`) tables: each row resolves its ref cell to an existing
   node; the declared `properties` are merged into that node; an edge with the table's
   `edge` goes from the annotating note to the node. Creation tables are processed before
-  annotation tables corpus-wide.
+  annotation tables corpus-wide. When the annotating note also links that row in prose,
+  the explicit annotation edge is authoritative and the inferred `bodyLinks` edge is
+  omitted for that source-target pair.
 - **FR-008**: Validation problems are rules with a code, a level and a message naming
   file, table position and row: `catalog/marker-invalid`, `catalog/table-missing`,
   `catalog/column-unknown`, `catalog/id-empty`, `catalog/id-duplicate`,
@@ -293,8 +297,8 @@ folded.
   `note#ID` resolves to the row node when it exists (else to the note, as today), and
   `convertWikilinks` writes `/note.md#anchor`.
 - **FR-013**: The explorer's dock MUST fetch and cache pages by path, and with a fragment
-  MUST show only the anchored row (table header + row) or heading section; an unmatched
-  fragment shows the whole article and logs a warning naming the URL.
+  MUST show the whole article while marking and scrolling to the anchored row or heading;
+  an unmatched fragment shows the article unfocused and logs a warning naming the URL.
 - **FR-014**: The explorer MUST match `?focus=` values and search queries against node
   aliases in addition to id, url, title and label.
 - **FR-015**: The neighbourhood panel MUST fold any edge-label group with more than eight
@@ -334,8 +338,8 @@ folded.
   `herm-linker.py`, the anchor script of `inject-sidebar.py` and both `herm-*graph.json`
   artifacts deleted; its explorer reads the site's own graph, and every one of the 420
   entries is a row node whose URL lands on its row.
-- **SC-002**: Opening a row node in the dock shows one table row; opening any number of
-  rows of the same page performs one page fetch.
+- **SC-002**: Opening a row node in the dock shows its complete note with that row focused;
+  opening any number of rows of the same page performs one page fetch.
 - **SC-003**: `[[note#ID]]` written in any note reaches the row in the rendered site and
   yields a resolved edge when written in Topology — with no consumer code.
 - **SC-004**: Every failure path in FR-008 is exercised by a test and names file, table
@@ -352,9 +356,9 @@ folded.
   sentences work but produce long anchors.
 - A row's page is the note that holds its table; rows have no page of their own.
 - The first consumer accepts rewriting its 29 BCM L1 capabilities from bold paragraphs
-  into tables, adding a clean state column to its gap analysis, and declaring `Cites`
-  in Topology (or generating them with its reduced linker) — the citation regex is its
-  vocabulary, not the engine's.
+  into tables and adding a clean state column to its gap analysis. Links to catalog rows
+  may become `Cites` through `profile.bodyLinks`; recognition of bare codes remains the
+  consumer's vocabulary, not the engine's.
 - Short `[[ID]]` wikilinks *rendered by Quartz* stay out of scope (Quartz resolves links
   per file with no corpus index); qualified `[[note#ID]]` is the supported spelling for
   links, while `[[ID]]` works in Topology because the resolver is corpus-wide.

@@ -21,8 +21,9 @@ What the build proves:
   `href="../standards/arm#ac001"` — the anchor Quartz derives and the one the toolkit
   writes are the same string, which is what the whole feature rests on.
 
-Open the site (`--serve`) and check the reading dock: clicking a row node shows that row,
-not the whole catalogue, and opening a second row of the same note performs no new fetch.
+Open the site (`--serve`) and check the reading dock: clicking a row node keeps the whole
+catalogue visible, focuses that row, and opening a second row of the same note performs no
+new fetch.
 
 ## Adopt it in a corpus
 

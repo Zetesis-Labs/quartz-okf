@@ -79,6 +79,9 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
 - `quartz-okf-panels` y `quartz-graph-okf` dependen de los tipos de Quartz
   (`@quartz-community/*`) que solo existen en el consumidor: su `tsc` no forma parte del
   gate del repo; los verifica el build del consumidor.
+- Quartz v5 puede terminar `plugin install` con código cero aunque su resumen diga que un
+  plugin falló. `okf build` trata cualquier recuento no nulo de `failed` como fatal: un
+  componente ausente no puede llegar a publicación como build verde.
 - El campo `site` de `okf-graph.json` es un **título**, no una URL (el emitter usa
   `pageTitle`, el exporter `branding.site`).
 - `package-lock.json` está ignorado: CI y local usan `npm install`, no `npm ci`.

@@ -168,11 +168,11 @@ This replaces the consumer's gap-analysis parser and generalises it: any note th
 a table *about* catalog entries enriches them. Ordered after all `id` tables so a row can
 be annotated in the same build that creates it.
 
-**D8 — The reading dock cuts to the anchored fragment, from knowledge, not guessing.**
-With a fragment: a row (`[data-okf-node]`) is shown as its table's `<thead>` plus that
-`<tr>`; a heading is shown as its section up to the next heading of equal or higher
-level; an unknown anchor falls back to the whole article with a console warning. Pages
-are fetched and cached by path, so the 141 rows of one note share one download.
+**D8 — The reading dock focuses the anchored fragment without discarding context.**
+With a fragment, the complete article remains visible: the row containing the anchor or
+the anchored heading is temporarily marked so the dock scrolls to and paints it. An
+unknown anchor leaves the article unfocused and emits a console warning. Pages are
+fetched and cached by path, so every row of one note shares one download.
 
 **D9 — Additive contract.** Node `label` (short text the canvas draws; defaults to
 `title`), node `row { note, anchor }` marker (a tool can tell rows from notes without a
@@ -186,10 +186,10 @@ them are rows. Nothing existing changes meaning (Constitution VII).
 gains a test that pins `/mount/note#anchor` and that `preview` may select rows.
 
 **D11 — Out of scope, with the reason.**
-- *Citations inferred from prose* (a bare `AC001` in a paragraph becoming an edge): that
-  is a domain regex; the engine reads edges from Topology only. The consumer keeps a
-  linkifier if it wants one, and declares `Cites` in Topology (the reference profile
-  already carries the label).
+- *Citations inferred from bare prose* (an unlinked `AC001` in a paragraph becoming an
+  edge): that is a domain regex and remains a consumer concern. A real link to a catalog
+  row may become `profile.bodyLinks`; if the same note explicitly annotates that row,
+  the annotation wins and the inferred edge is omitted.
 - *Short `[[ID]]` wikilinks rendered by Quartz*: OFM resolves them per file and has no
   corpus index at parse time; a pre-parse index step is a follow-up. Qualified
   `[[note#ID]]` works today with no toolkit change and is what the spec relies on.
