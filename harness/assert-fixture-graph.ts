@@ -49,4 +49,21 @@ assert.deepEqual(built.edgeLabels, expected.edgeLabels, "the profile's edge labe
 const page = await fs.readFile(path.join(root, "public/concepts/graph.html"), "utf8")
 assert.ok(page.includes("[[concepts/format]]"), "the wikilink inside a code span was rewritten")
 
+// A row node promises a URL that lands on its row: the rendered page must carry the anchor.
+const catalogue = await fs.readFile(path.join(root, "public/standards/arm.html"), "utf8")
+assert.ok(catalogue.includes('data-okf-catalog'), "the catalogue table was not marked")
+assert.ok(catalogue.includes('id="ac001"'), "the row anchor was not written")
+assert.ok(
+  catalogue.includes('data-okf-node="standards/arm#ac001"'),
+  "the row does not name the node it stands for",
+)
+
+// The whole design rests on one equality: the anchor the toolkit writes is the one Quartz
+// derives for `[[note#ID]]`. A build is the only place that can prove it.
+const analysis = await fs.readFile(path.join(root, "public/analysis/gap.html"), "utf8")
+assert.ok(
+  analysis.includes('href="../standards/arm#ac001"'),
+  "a wikilink with a fragment does not point at the row's anchor",
+)
+
 console.log(`[okf] fixture graph as expected: ${nodes.length} nodes, ${edges.length} edges`)

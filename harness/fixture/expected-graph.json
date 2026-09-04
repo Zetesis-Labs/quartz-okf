@@ -1,6 +1,11 @@
 {
   "nodes": [
     {
+      "slug": "analysis/gap",
+      "type": "concept",
+      "title": "What the catalogue means here"
+    },
+    {
       "slug": "concepts/format",
       "type": "concept",
       "title": "Open Knowledge Format"
@@ -16,6 +21,26 @@
       "title": "The okf-graph/v1 document"
     },
     {
+      "slug": "standards/arm",
+      "type": "source",
+      "title": "The small catalogue"
+    },
+    {
+      "slug": "standards/arm#ac001",
+      "type": "tool",
+      "title": "AC001 — Reader recruitment"
+    },
+    {
+      "slug": "standards/arm#ac002",
+      "type": "tool",
+      "title": "AC002 — Reader retention"
+    },
+    {
+      "slug": "standards/arm#ap001",
+      "type": "concept",
+      "title": "AP001 — Reader attraction"
+    },
+    {
       "slug": "tools/okf",
       "type": "tool",
       "title": "quartz-okf"
@@ -28,6 +53,21 @@
   ],
   "edges": [
     [
+      "analysis/gap",
+      "About",
+      "standards/arm"
+    ],
+    [
+      "analysis/gap",
+      "About",
+      "standards/arm#ac001"
+    ],
+    [
+      "analysis/gap",
+      "About",
+      "standards/arm#ac002"
+    ],
+    [
       "concepts/format",
       "Cites",
       "sources/spec"
@@ -36,6 +76,11 @@
       "concepts/format",
       "Contains",
       "concepts/graph"
+    ],
+    [
+      "concepts/format",
+      "Contains",
+      "standards/arm"
     ],
     [
       "concepts/graph",
@@ -53,6 +98,46 @@
       "concepts/format"
     ],
     [
+      "standards/arm#ac001",
+      "Part of",
+      "standards/arm#ap001"
+    ],
+    [
+      "standards/arm#ac001",
+      "Uses",
+      "tools/quartz"
+    ],
+    [
+      "standards/arm#ac002",
+      "Part of",
+      "standards/arm#ap001"
+    ],
+    [
+      "standards/arm#ap001",
+      "Contains",
+      "standards/arm#ac001"
+    ],
+    [
+      "standards/arm#ap001",
+      "Contains",
+      "standards/arm#ac002"
+    ],
+    [
+      "standards/arm#ap001",
+      "Part of",
+      "standards/arm"
+    ],
+    [
+      "standards/arm",
+      "Contains",
+      "standards/arm#ap001"
+    ],
+    [
+      "standards/arm",
+      "Part of",
+      "concepts/format"
+    ],
+    [
       "tools/okf",
       "About",
       "concepts/format"
@@ -65,14 +150,20 @@
     [
       "tools/quartz",
       "Used by",
+      "standards/arm#ac001"
+    ],
+    [
+      "tools/quartz",
+      "Used by",
       "tools/okf"
     ]
   ],
   "stats": {
-    "notes": 5,
-    "edges": 8,
-    "declaredEdges": 6,
-    "derivedEdges": 2,
+    "notes": 10,
+    "rows": 3,
+    "edges": 21,
+    "declaredEdges": 14,
+    "derivedEdges": 7,
     "unresolvedEdges": 0
   },
   "types": [
