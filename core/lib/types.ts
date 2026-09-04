@@ -36,6 +36,11 @@ export interface Profile {
   inverseLabels: Readonly<Record<string, string>>
   knowledgeLabels: readonly string[]
   topologyHeading: string
+  /**
+   * Label for the links the prose makes to catalogue rows. Declared, never assumed: a
+   * corpus that leaves it unset keeps relations to what `# Topology` says.
+   */
+  bodyLinks?: string
   ruleLevels: Readonly<Record<string, RuleLevel>>
 }
 
@@ -69,6 +74,8 @@ export interface TopologyEdge {
   label: string
   target: string
   alias?: string
+  /** Derived from a link in the prose, not declared in `# Topology`. */
+  fromBody?: boolean
 }
 
 export interface Violation {
@@ -260,6 +267,8 @@ export interface ExplorerMode {
   legendTitle?: string
   /** `"*"` (default) or the edge labels this mode keeps. */
   edges?: "*" | string[]
+  /** The node types this mode is about; every other type stays out of it. */
+  types?: string[]
   /** Another document this mode asks about, instead of the shared one. */
   graph?: string
   sourceType?: string

@@ -16,11 +16,15 @@ export function buildView(model: HudModel, display: HudDisplay, mode: ExplorerMo
   const N = model.nodes
   const wanted = mode.edges === "*" || !mode.edges ? null : new Set(Array.isArray(mode.edges) ? mode.edges : [mode.edges])
 
+  // A mode may be about part of the corpus — the standard, not the notes that read it —
+  // and then an edge with one end outside those types is not its business either.
+  const about = mode.types?.length ? new Set(mode.types) : null
   let kept: HudEdge[] = []
   for (const e of model.edges) {
     if (wanted && !wanted.has(e.k)) continue
     if (mode.sourceType && N.get(e.s)?.type !== mode.sourceType) continue
     if (mode.targetType && N.get(e.t)?.type !== mode.targetType) continue
+    if (about && (!about.has(N.get(e.s)?.type ?? "") || !about.has(N.get(e.t)?.type ?? ""))) continue
     kept.push(e)
   }
   const edgeCounts: Record<string, number> = {}

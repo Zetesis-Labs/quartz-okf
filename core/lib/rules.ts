@@ -3,7 +3,7 @@ import { anchorSlug } from "./anchor.ts"
 import { catalogsOf } from "./catalog.ts"
 import { DEFAULT_RULE_LEVELS, PROFILE } from "./reference-profile.ts"
 import { buildResolver } from "./resolver.ts"
-import { fencedLineMask, parseTopologyEdges } from "./topology.ts"
+import { fencedLineMask, parseBodyLinks, parseTopologyEdges } from "./topology.ts"
 import type { Document, Frontmatter, Profile, RuleLevel, TopologyEdge, ValidatedDocument, Violation } from "./types.ts"
 
 type Levels = Record<string, RuleLevel>
@@ -188,6 +188,11 @@ export function validateDocument(document: Document, options: ValidateOptions = 
   }
   validatePropertyGroups(frontmatter, profile, levels, add)
   const edges = parseTopologyEdges(document.body, profile.topologyHeading)
+  if (profile.bodyLinks) {
+    for (const target of parseBodyLinks(document.body, profile.topologyHeading)) {
+      edges.push({ label: profile.bodyLinks, target, fromBody: true })
+    }
+  }
   const catalog = catalogsOf(
     { id: document.id, body: document.body },
     {

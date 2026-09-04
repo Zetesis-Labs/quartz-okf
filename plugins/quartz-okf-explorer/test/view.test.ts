@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 import { indexGraph } from "../lib/model.ts"
+import { baseDisplay } from "../lib/display.ts"
 import { buildView } from "../lib/view.ts"
 import { RAW_ROOT } from "./fixtures.ts"
 
@@ -76,4 +77,31 @@ test("adjacency and index are built over the visible nodes only", () => {
   assert.equal(view.idx.get("topics/it"), undefined)
   assert.equal(view.idx.get("org").title, "The organisation")
   assert.notEqual(view.idx.get("org"), model.nodes.get("org"))
+})
+
+test("a mode may declare which node types it is about", () => {
+  const model = indexGraph({
+    nodes: [
+      { slug: "arm", type: "arm" },
+      { slug: "arm/ac001", type: "arm" },
+      { slug: "nota", type: "concept" },
+      { slug: "otra", type: "report" },
+    ],
+    edges: [
+      { source: "arm/ac001", target: "arm", label: "Part of" },
+      { source: "nota", target: "arm/ac001", label: "Cites" },
+      { source: "nota", target: "otra", label: "About" },
+    ],
+  })
+  const display = baseDisplay({}, (k) => k)
+  const todo = buildView(model, display, { id: "todo", label: "Todo", edges: "*" })
+  assert.deepEqual(todo.nodes.map((n) => n.id).sort(), ["arm", "arm/ac001", "nota", "otra"])
+
+  const soloEstandar = buildView(model, display, { id: "tax", label: "Tax", edges: "*", types: ["arm"] })
+  assert.deepEqual(soloEstandar.nodes.map((n) => n.id).sort(), ["arm", "arm/ac001"])
+  assert.deepEqual(
+    soloEstandar.links.map((l) => [l.source, l.target]),
+    [["arm/ac001", "arm"]],
+    "una arista con un extremo fuera de los tipos del modo no entra",
+  )
 })

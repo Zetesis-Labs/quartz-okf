@@ -391,3 +391,53 @@ test("an annotation may rewrite the description of the node it annotates", () =>
   assert.equal(row?.description, "What this project decided to do with it.")
   assert.deepEqual(row?.properties, { rank: "leaf", state: "core" })
 })
+
+test("a link in the prose to a row is a citation; one to a note is just prose", () => {
+  const profile = { ...PROFILE, bodyLinks: "Cites" }
+  const body = `# Análisis
+
+Nos ocupa [[standards/arm#AC001]], y [[otra]] queda como prosa; [[standards/arm#AC404]] no existe.
+`
+  const documents = [
+    {
+      id: "standards/arm",
+      path: "standards/arm.md",
+      reserved: false,
+      frontmatter: { type: "report", title: "Catálogo" },
+      edges: [],
+      rows: [
+        {
+          id: "AC001",
+          anchor: "ac001",
+          slug: "standards/arm#ac001",
+          type: "technology",
+          title: "AC001",
+          label: "AC001",
+          edges: [],
+          table: 1,
+        },
+      ],
+    },
+    { id: "otra", path: "otra.md", reserved: false, frontmatter: { type: "concept", title: "Otra" }, edges: [] },
+    {
+      id: "analisis",
+      path: "analisis.md",
+      reserved: false,
+      frontmatter: { type: "report", title: "Análisis" },
+      body,
+      source: body,
+      edges: [
+        { label: "Cites", target: "standards/arm#AC001", fromBody: true },
+        { label: "Cites", target: "otra", fromBody: true },
+        { label: "Cites", target: "standards/arm#AC404", fromBody: true },
+      ],
+    },
+  ]
+  const graph = buildGraph(documents, { profile })
+  assert.deepEqual(
+    graph.edges.filter((e) => e.source === "analisis").map((e) => e.target),
+    ["standards/arm#ac001"],
+    "sólo el enlace que nombra una fila declara una relación",
+  )
+  assert.deepEqual(graph.unresolved, [], "un enlace de la prosa que no alcanza una fila no es un error")
+})
