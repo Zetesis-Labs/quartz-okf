@@ -84,6 +84,39 @@ export function wikilinkRefs(value: string): WikilinkRef[] {
   }))
 }
 
+/**
+ * The links the prose makes to a row of a catalogue. A link to a note is prose — the
+ * relations between notes are declared in `# Topology`, not guessed from a paragraph — but
+ * a link that names an entry of a catalogue is unambiguous: it cites that entry.
+ */
+export function parseBodyLinks(source: string, heading = "Topology"): string[] {
+  const lines = source.replaceAll("\r\n", "\n").split("\n")
+  const fenced = fencedLineMask(lines)
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const headingRe = new RegExp(`^(#{1,6})\\s+${escaped}\\s*$`, "i")
+  const targets: string[] = []
+  let inTopology = false
+  for (const [index, line] of lines.entries()) {
+    if (fenced[index]) continue
+    if (headingRe.test(line)) {
+      inTopology = true
+      continue
+    }
+    if (inTopology && /^#{1,6}\s+/.test(line)) inTopology = false
+    if (inTopology) continue
+    const value = line.replace(/`[^`\n]*`/g, "")
+    for (const link of wikilinkRefs(value)) {
+      if (link.target.includes("#")) targets.push(link.target)
+    }
+    for (const link of value.matchAll(MARKDOWN_LINK_RE)) {
+      if (link.index > 0 && value[link.index - 1] === "!") continue
+      const target = markdownLinkTarget(link[2])
+      if (target?.includes("#")) targets.push(target)
+    }
+  }
+  return [...new Set(targets)]
+}
+
 export function parseTopologyEdges(source: string, heading = "Topology"): TopologyEdge[] {
   const edges: TopologyEdge[] = []
   for (const line of extractSection(source, heading, true)) {

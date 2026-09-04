@@ -139,6 +139,14 @@ Identity: `anchor` is the GitHub heading slug of the id — the same one Quartz 
 `id="<anchor>"` and `data-okf-node="<slug>"`, and the bare id is registered as an alias
 (unresolved, naming every candidate, when two catalogs claim it).
 
+A corpus may declare `profile.bodyLinks` (an edge label): then a link **in the prose** to a
+catalogue row — `[[standards/arm#AC001]]` — becomes an edge with that label. Links to notes
+stay prose: relations between notes are declared in `# Topology`, never guessed from a
+paragraph. A row link that reaches no row is prose too, not an error.
+
+The explorer's modes may declare `types`, the node types they are about: a mode that shows a
+standard leaves out the notes that read it, without the reader filtering by hand.
+
 Problems are rules named after the table and row they come from, `error` by default:
 `catalog/marker-invalid`, `table-missing`, `type-missing`, `column-unknown`, `id-empty`,
 `id-duplicate`, `pattern-invalid`, `pattern-nomatch`, `anchor-collision`, `edge-required`,

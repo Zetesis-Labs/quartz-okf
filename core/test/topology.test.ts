@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { convertWikilinks, parseTopologyEdges } from "../lib/topology.ts"
+import { convertWikilinks, parseBodyLinks, parseTopologyEdges } from "../lib/topology.ts"
 
 test("parses multiple typed edge segments from one prose bullet", () => {
   const source = `# Topology
@@ -153,4 +153,31 @@ test("an unresolved fragment-bearing wikilink keeps its fragment", () => {
   const result = convertWikilinks("[[missing#AC001]]", () => null)
   assert.equal(result.content, "[missing](/missing.md#ac001)")
   assert.equal(result.unresolved, 1)
+})
+
+test("reads the body's links to rows, and leaves the rest of the prose alone", () => {
+  const source = `---
+type: report
+---
+
+# Topology
+
+* **About**: [[standards/arm]]
+
+# Análisis
+
+El componente [[standards/arm#AC001]] es el que nos ocupa, y también
+[AC002](/standards/arm.md#ac002). La nota [[otra-nota]] no declara nada, ni
+\`[[standards/arm#AC999]]\` dentro de código, ni lo de abajo:
+
+\`\`\`markdown
+[[standards/arm#AC998]]
+\`\`\`
+
+Repetir [[standards/arm#AC001]] no añade una segunda relación.
+`
+  assert.deepEqual(parseBodyLinks(source), [
+    "standards/arm#AC001",
+    "standards/arm#ac002",
+  ])
 })

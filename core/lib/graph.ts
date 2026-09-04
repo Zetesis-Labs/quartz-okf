@@ -118,6 +118,7 @@ function rowNode(row: CatalogRow, document: ValidatedDocument): GraphNode {
 export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOptions = {}): OkfGraph {
   const profile = options.profile ?? PROFILE
   const resolve = buildResolver(documents)
+  const rowSlugs = new Set(documents.flatMap((document) => (document.rows ?? []).map((row) => row.slug)))
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
   const unresolved: UnresolvedEdge[] = []
@@ -141,6 +142,9 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
     nodes.push(node)
     for (const edge of document.edges ?? []) {
       const target = resolve(edge.target)
+      // A link in the prose only speaks when it names an entry of a catalogue; reaching a
+      // note is what prose does, and saying so would invent a relation nobody declared.
+      if (edge.fromBody && (!target || !rowSlugs.has(target))) continue
       const graphEdge: GraphEdge = {
         source: document.id,
         target,
