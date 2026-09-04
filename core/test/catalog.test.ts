@@ -105,6 +105,7 @@ test("catalogsOf builds one row per line with its identity, title and properties
     properties: { gloss: "Attracting students.", Vendors: "Slate" },
     edges: [{ label: "Part of", target: "standards/arm" }],
     table: 1,
+    identifier: { column: 0, text: "AC001" },
   })
   // An empty property cell contributes nothing rather than an empty string.
   assert.deepEqual(rows[1].properties, { gloss: "Recruitment agents." })
@@ -226,8 +227,8 @@ test("catalogsOf turns a ref table into annotations of nodes declared elsewhere"
   assert.deepEqual(problems, [])
   assert.equal(rows.length, 0)
   assert.deepEqual(annotations, [
-    { ref: "AC001", edge: "About", properties: { state: "core", note: "Built in phase one." }, table: 1 },
-    { ref: "standards/arm#AC002", edge: "About", properties: { state: "integrate", note: "Bought." }, table: 1 },
+    { ref: "AC001", edge: "About", properties: { state: "core", note: "Built in phase one." }, table: 1, row: 1 },
+    { ref: "standards/arm#AC002", edge: "About", properties: { state: "integrate", note: "Bought." }, table: 1, row: 2 },
   ])
 })
 
@@ -249,6 +250,17 @@ test("a marker segment that is neither a key nor a clause fails the table", () =
     ["catalog/marker-invalid"],
   )
   assert.equal(rows.length, 0)
+})
+
+test("a marker rejects trailing garbage and unknown keys instead of ignoring them", () => {
+  for (const marker of [
+    "<!-- okf:rows type=component id=Code nonsense -->",
+    "<!-- okf:rows type=component id=Code typo=value -->",
+  ]) {
+    const { problems, rows } = catalogsOf(source(`${marker}\n\n| Code |\n|---|\n| AC001 |\n`), {})
+    assert.deepEqual(problems.map((problem) => problem.code), ["catalog/marker-invalid"])
+    assert.equal(rows.length, 0)
+  }
 })
 
 test("a table can state a value that holds for every one of its rows", () => {
@@ -301,6 +313,7 @@ test("an annotating table can state values and write the node's description", ()
     description: "Built in phase one.",
     properties: { reviewed: "2026", state: "core" },
     table: 1,
+    row: 1,
   })
 })
 

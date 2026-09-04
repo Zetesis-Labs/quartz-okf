@@ -98,6 +98,8 @@ export interface CatalogRow {
   edges: TopologyEdge[]
   /** 1-based position of its table among the note's tables. */
   table: number
+  /** Source cell used by the HTML pass to find this exact row after Markdown rendering. */
+  identifier?: { column: number; text: string }
 }
 
 /** A row of a `ref` table: it enriches a node declared elsewhere. */
@@ -108,6 +110,8 @@ export interface CatalogAnnotation {
   description?: string
   properties: Record<string, unknown>
   table: number
+  /** 1-based position within the table body, for corpus-wide diagnostics. */
+  row?: number
 }
 
 /** What a catalog could not do; `rules.ts` gives it a level and a file. */

@@ -71,8 +71,13 @@ export function buildResolver(documents: ResolvableDocument[]): Resolver {
     const indexMatch = exact.get(`${normalized}/index`)
     if (indexMatch) return indexMatch
     const aliasMatch = aliases.get(normalized)
+    if (!normalized.includes("/")) {
+      const shortMatch = short.get(normalized)
+      if ((aliases.has(normalized) && !aliasMatch) || (short.has(normalized) && !shortMatch)) return null
+      if (aliasMatch && shortMatch && aliasMatch !== shortMatch) return null
+      return aliasMatch ?? shortMatch ?? null
+    }
     if (aliasMatch) return aliasMatch
-    if (!normalized.includes("/")) return short.get(normalized) ?? null
     return null
   }
   return (target) => {

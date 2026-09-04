@@ -87,3 +87,26 @@ test("a bare id claimed by two catalogs is ambiguous, and the qualified forms st
   assert.equal(resolve("standards/arm#AC001"), "standards/arm#ac001")
   assert.equal(resolve("standards/other#AC001"), "standards/other#ac001")
 })
+
+test("a row alias colliding with a note's short name is ambiguous", () => {
+  const resolve = buildResolver([
+    ...CATALOG_DOCS,
+    note("guides/AC001"),
+  ])
+  assert.equal(resolve("AC001"), null)
+  assert.equal(resolve("guides/AC001"), "guides/AC001")
+  assert.equal(resolve("standards/arm#AC001"), "standards/arm#ac001")
+})
+
+test("an already ambiguous row alias stays ambiguous when a note has that short name", () => {
+  const resolve = buildResolver([
+    ...CATALOG_DOCS,
+    {
+      ...note("standards/other"),
+      rows: [{ id: "AC001", anchor: "ac001", slug: "standards/other#ac001" }],
+    },
+    note("guides/AC001"),
+  ])
+
+  assert.equal(resolve("AC001"), null)
+})
