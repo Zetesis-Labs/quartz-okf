@@ -96,3 +96,17 @@ export function frameFor(points: { x?: number; y?: number }[], rect: Rect, { pad
   const k = Math.max(minScale, Math.min(maxScale, (vw - pad) / w, (vh - pad) / h))
   return { k, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, vx: rect.x0 + vw / 2, vy: rect.y0 + vh / 2 }
 }
+
+/**
+ * What to frame so that `node` sits at the centre and its whole `hood` is in view: the
+ * corners of a square around the node reaching its farthest neighbour. Framing the hood's
+ * own box put the node at its edge whenever the neighbours lie to one side, as they do in
+ * a tree.
+ */
+export function aroundNode(node: { x?: number; y?: number }, hood: { x?: number; y?: number }[]): { x: number; y: number }[] {
+  const x = node.x ?? 0
+  const y = node.y ?? 0
+  let reach = 0
+  for (const point of hood) reach = Math.max(reach, Math.hypot((point.x ?? 0) - x, (point.y ?? 0) - y))
+  return [{ x: x - reach, y: y - reach }, { x: x + reach, y: y + reach }]
+}
