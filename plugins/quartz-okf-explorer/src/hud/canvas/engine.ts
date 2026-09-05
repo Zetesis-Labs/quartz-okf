@@ -7,6 +7,7 @@ import "d3-transition"
 import { zoom as d3zoom, zoomIdentity, type D3ZoomEvent, type ZoomTransform } from "d3-zoom"
 import { drawnAlone, inViewport, labelIsBold, labelText, labelVisible, linkAlpha, nodeAlpha, viewportOf } from "../../../lib/canvas-rules.ts"
 import { fillOf, sizeOf } from "../../../lib/style.ts"
+import { centroidOf, hierarchyOf, radialLayout, treeOf, type Placement } from "../../../lib/tree.ts"
 import type { ExplorerEmitConfig, ExplorerMode, HudDisplay, View, ViewLink, ViewNode } from "../../../lib/types.ts"
 import { frameFor, visibleRect, wheelStep, type Rect, type ScreenRect } from "../../../lib/viewport.ts"
 import { drawDots, drawVignette } from "./ground.ts"
@@ -55,7 +56,7 @@ export interface Engine {
   setView(view: View, ctx: ViewContext): void
   draw(): void
   requestDraw(): void
-  fit(nodes?: ViewNode[] | null, scale?: number | null, opts?: FitOptions): void
+  fit(points?: { x?: number; y?: number }[] | null, scale?: number | null, opts?: FitOptions): void
   resetCamera(): void
   transform(): ZoomTransform
   animateTo(t: ZoomTransform): void
@@ -104,6 +105,9 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
   let freeRects: () => FreeRects = () => ({})
   const portals = new Map<string, HTMLElement>()
   const disposers: (() => void)[] = []
+  let pinned = new Map<string, { x: number; y: number }>()
+  let depthRing = new Map<string, number>()
+  const warned = new Set<string>()
 
   const sizeOfNode = (n: ViewNode): number => sizeOf(n, { radius: cfg.radius, mode })
   const fillOfNode = (n: ViewNode): string =>
@@ -158,21 +162,72 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
       if (n.fx != null) n.fx += dx
       if (n.fy != null) n.fy += dy
     }
+    for (const pin of pinned.values()) {
+      pin.x += dx
+      pin.y += dy
+    }
   }
 
   const linkForce = (l: ViewLink) => (LINKS[l.kind] ? { ...LINK_DEF, ...LINKS[l.kind] } : LINK_DEF)
-  function ringOf(n: ViewNode): number | null {
+  function typeRing(n: ViewNode): number | null {
     if (!RING) return null
     const f = RING.byType[n.type]
     return f == null ? null : f * Math.min(W, H) * 0.5 * (RING.scale ?? 0.94)
   }
+  // A node of the hierarchy keeps its depth ring; the type ring is for the rest.
+  const ringOf = (n: ViewNode): number | null => depthRing.get(n.id) ?? typeRing(n)
+  const ringStrength = (n: ViewNode): number => (depthRing.has(n.id) ? 0.8 : ringOf(n) == null ? 0 : (RING?.strength ?? 0.7))
 
-  // New nodes are born around the centre of the canvas (d3's spiral, but here and not at
-  // the origin); the ones already placed keep their spot, so a mode change adjusts the
-  // drawing instead of flying in again from a corner.
-  function seed(nodes: ViewNode[], previous: View | null): number {
+  const named = (ids: string[]): string => ids.slice(0, 3).join(", ") + (ids.length > 3 ? ` and ${ids.length - 3} more` : "")
+
+  function warnOnce(message: string): void {
+    if (warned.has(message)) return
+    warned.add(message)
+    console.warn(message)
+  }
+
+  // What the mode's tree fixes on the canvas, and whether it is pinned there or only held
+  // on its ring. Every way the declared edge falls short of a tree is said once.
+  function placementsFor(view: View, m: ExplorerMode): { placed: Map<string, Placement>; pin: boolean } {
+    const none = { placed: new Map<string, Placement>(), pin: false }
+    const tree = treeOf(m)
+    if (!tree) return none
+    const where = `[quartz-okf-explorer] mode "${m.id}"`
+    const hierarchy = hierarchyOf(view.nodes, view.links, tree.edge)
+    if (!hierarchy || hierarchy.roots.length === 0) {
+      const cycle = hierarchy ? ` (${hierarchy.cyclic.length} in a cycle)` : ""
+      warnOnce(`${where}: no hierarchy under "${tree.edge}" among the nodes on screen${cycle}; drawn as a force graph`)
+      return none
+    }
+    if (hierarchy.shared.length) {
+      warnOnce(`${where}: ${hierarchy.shared.length} node(s) have several parents under "${tree.edge}" (${named(hierarchy.shared)}); each is placed under the first`)
+    }
+    if (hierarchy.cyclic.length) {
+      warnOnce(`${where}: ${hierarchy.cyclic.length} node(s) form a cycle under "${tree.edge}" (${named(hierarchy.cyclic)}) and are left loose`)
+    }
+    let leaf = 0
+    for (const n of view.nodes) {
+      if (hierarchy.depth.has(n.id) && !hierarchy.children.has(n.id)) leaf = Math.max(leaf, sizeOfNode(n))
+    }
+    const { positions } = radialLayout(hierarchy, { cx: W / 2, cy: H / 2, spacing: 2 * leaf + 10 })
+    return { placed: positions, pin: tree.layout !== "rings" }
+  }
+
+  // A pinned node takes its place. One already on screen keeps its spot, so a mode change
+  // adjusts the drawing instead of flying in again. A new one starts at its place on the
+  // rings, next to what it touches, or around the centre (d3's spiral, here and not at the
+  // origin).
+  function seed(nodes: ViewNode[], previous: View | null, placed: Map<string, Placement>, adj: Map<string, Set<string>>, pin: boolean): number {
     let fresh = 0
+    const place = (n: ViewNode, at: { x: number; y: number }): void => {
+      n.x = at.x
+      n.y = at.y
+      n.vx = 0
+      n.vy = 0
+    }
     nodes.forEach((n, i) => {
+      const at = placed.get(n.id)
+      if (at && pin) return place(n, at)
       const p = previous?.idx.get(n.id)
       if (p && p.x != null) {
         n.x = p.x
@@ -181,11 +236,14 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
         n.vy = p.vy || 0
         return
       }
+      if (at) return place(n, at)
+      fresh++
+      const near = centroidOf([...(adj.get(n.id) ?? [])].flatMap((id) => placed.get(id) ?? []))
+      if (near) return place(n, near)
       const r = 10 * Math.sqrt(0.5 + i)
       const a = i * Math.PI * (3 - Math.sqrt(5))
       n.x = W / 2 + r * Math.cos(a)
       n.y = H / 2 + r * Math.sin(a)
-      fresh++
     })
     return fresh
   }
@@ -203,7 +261,21 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
     display = vc.display
     mode = vc.mode
     graph = view
-    const fresh = seed(view.nodes, previous)
+    const { placed, pin } = placementsFor(view, vc.mode)
+    pinned = new Map()
+    depthRing = new Map()
+    const fresh = seed(view.nodes, previous, placed, view.adj, pin)
+    for (const n of view.nodes) {
+      const at = placed.get(n.id)
+      if (!at) continue
+      if (pin) {
+        n.fx = at.x
+        n.fy = at.y
+        pinned.set(n.id, { x: at.x, y: at.y })
+      } else {
+        depthRing.set(n.id, at.radius)
+      }
+    }
     sim?.stop()
     sim = forceSimulation<ViewNode>(view.nodes)
       .force(
@@ -218,14 +290,13 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
       .force("y", forceY<ViewNode>(H / 2).strength(LAYOUT.gravity ?? 0.05))
       .force("collide", forceCollide<ViewNode>((d) => sizeOfNode(d) + 2.5))
       .stop()
-    // Radial share-out: each type settles on its own ring; the eye reads from the inside out.
-    if (RING) {
-      sim.force(
-        "radial",
-        forceRadial<ViewNode>((n) => ringOf(n) ?? 0, W / 2, H / 2).strength((n) => (ringOf(n) == null ? 0 : (RING.strength ?? 0.7))),
-      )
+    // Radial share-out: each type, or each depth of the tree, settles on its own ring; the
+    // eye reads from the inside out.
+    if (RING || depthRing.size) {
+      sim.force("radial", forceRadial<ViewNode>((n) => ringOf(n) ?? 0, W / 2, H / 2).strength(ringStrength))
     }
-    const fromScratch = fresh > view.nodes.length / 2
+    const free = view.nodes.length - pinned.size
+    const fromScratch = fresh > free / 2
     // With inherited positions the simulation starts already tempered: it adjusts, it does not reorder.
     if (!fromScratch) sim.alpha(0.3)
     prewarm(sim, fromScratch ? { untilAlpha: 0.12, maxTicks: 300 } : { untilAlpha: 0.2, maxTicks: 30 })
@@ -487,8 +558,8 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
     return visibleRect({ width: W, height: H, stack: fr.stack ?? null, north: fr.north ?? null, dock: fr.dock ?? null })
   }
 
-  function fit(nodes?: ViewNode[] | null, scale?: number | null, { instant = false, enter = false }: FitOptions = {}): void {
-    const set = nodes && nodes.length ? nodes : graph ? graph.nodes : []
+  function fit(points?: { x?: number; y?: number }[] | null, scale?: number | null, { instant = false, enter = false }: FitOptions = {}): void {
+    const set = points && points.length ? points : graph ? graph.nodes : []
     // On entering, the layout still opens a little as it settles: it is given room.
     const f = frameFor(set, rectVisible(), { pad: enter ? 72 : 40, maxScale: scale || 2.4 })
     if (!f || !canvas) return
@@ -549,8 +620,11 @@ export function createEngine(cfg: ExplorerEmitConfig, reader: EngineReader): Eng
       canvas?.classList.remove("dragging")
       if (!e.active) sim?.alphaTarget(0)
       if (e.subject) {
-        e.subject.node.fx = null
-        e.subject.node.fy = null
+        // A node of a pinned tree goes back to its place: the drawing is the truth and the
+        // drag was a look behind it.
+        const pin = pinned.get(e.subject.node.id)
+        e.subject.node.fx = pin?.x ?? null
+        e.subject.node.fy = pin?.y ?? null
       }
     })
 

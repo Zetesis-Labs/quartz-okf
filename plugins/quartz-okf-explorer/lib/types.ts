@@ -11,9 +11,10 @@ import type {
   RadiusOptions,
   RowMarker,
   SubgraphMarker,
+  TreeOptions,
 } from "../../lib/types.ts"
 
-export type { Display, ExplorerMode, ExplorerOptions, RadiusOptions, RowMarker, SubgraphMarker }
+export type { Display, ExplorerMode, ExplorerOptions, RadiusOptions, RowMarker, SubgraphMarker, TreeOptions }
 
 /** `vars` is anything `fill()` can read a path from: a flat bag or a node. */
 export type Translator = (key: string, vars?: unknown) => string
