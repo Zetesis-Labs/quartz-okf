@@ -99,6 +99,13 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   Quartz deriva para `[[nota#ID]]`: si una se mueve, el enlace deja de aterrizar y lo
   detecta el smoke build (`analysis/gap.html` del fixture). El id crudo queda como alias,
   así que colisiona igual que un nombre corto de nota.
+- Un modo con `tree: "<etiqueta>"` (008) se dibuja como árbol radial: `lib/tree.ts`
+  lee solo los enlaces de esa etiqueta, elige la orientación con menos nodos de varios
+  padres, y coloca anillos por profundidad con sectores proporcionales a las hojas. Los
+  nodos del árbol van fijados con `fx/fy` y vuelven a su sitio al soltar un arrastre;
+  `layout: "rings"` los deja libres sobre su anillo con un `forceRadial` que gana al de
+  tipo. Lo que no está en el árbol nace en el centroide de lo que toca. Ningún fallo es
+  mudo: sin jerarquía, varios padres o ciclo son un `console.warn` por modo.
 - Un subgrafo declara su **fuente**: `path` (un corpus del mismo código) o `repo` +
   `ref` (git a un commit). Un path local en `repo` sigue valiendo. La deriva
   (`ref-drift`/`ref-behind`) solo existe para git. `okf.config.ts` se lee antes que
