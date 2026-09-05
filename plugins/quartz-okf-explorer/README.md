@@ -252,6 +252,35 @@ export const explorer = {
 Without `layout`/`radius` the graph falls back to in-degree sizing and uniform springs,
 which suits a corpus with no declared hierarchy.
 
+### Trees
+
+A hierarchy is not a spring network: a standard's taxonomy, an organisation chart or a
+catalogue of catalogues reads as rings, not as a tangle tuned by hand. A mode names the
+relation that gives it its shape and the explorer draws it as a radial tree:
+
+```js
+modes: [
+  { id: "tax", label: "Taxonomy", edges: ["Part of"], tree: "Part of" },
+  { id: "mentions", label: "Mentions", edges: "*", tree: { edge: "Part of", layout: "rings" } },
+]
+```
+
+- The root sits at the centre; each depth takes a ring; leaves are evenly spaced on the
+  outer ring; siblings stay side by side in the order the corpus gives them, inside their
+  parent's sector. Nothing is tuned: the spacing comes from the drawn sizes.
+- `layout: "radial"` (default) pins the tree. Dragging a node shows what is behind it and
+  the node returns when released. `layout: "rings"` keeps the rings by depth but lets the
+  nodes move along them, so springs and cross-links still shape the drawing.
+- Nodes on screen outside the hierarchy — the notes that cite entries — are born at the
+  centroid of what they touch and settle freely; `charge`, `gravity` and `layout.link`
+  keep applying to them.
+- The edge may be declared from either side of its pair (`Part of` or `Contains`); only
+  the links whose label is the declared one are read, derived inverses included.
+- The console says, once per mode, when the relation forms no hierarchy on screen (drawn
+  as a force graph), when nodes have several parents (placed under the first) or when a
+  cycle exists (its nodes are left loose). Every node stays on screen: the layout hides
+  nothing.
+
 ## Subgraphs
 
 When the site federates other corpora (see `@zetesis/quartz-okf` → Federation) the graph
