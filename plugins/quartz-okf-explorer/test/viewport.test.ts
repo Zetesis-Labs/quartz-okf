@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { frameFor, visibleRect, wheelStep } from "../lib/viewport.ts"
+import { frameFor, visibleRect, wheelStep, aroundNode } from "../lib/viewport.ts"
 
 test("wheelStep treats a line-mode wheel (Firefox) as one notch, sign only", () => {
   assert.equal(wheelStep({ deltaMode: 1, deltaY: 3, ctrlKey: false }), -0.2)
@@ -54,4 +54,11 @@ test("frameFor centres the points' box in the rect at the largest scale that fit
   assert.equal(frameFor([{ x: 0, y: 0 }, { x: 10000, y: 0 }], v).k, 0.15)
   assert.equal(frameFor([{ x: 5, y: 5 }], v, { maxScale: 1.2 }).k, 1.2)
   assert.equal(frameFor([], v), null)
+})
+
+test("aroundNode frames a square centred on the node that reaches its farthest neighbour", () => {
+  const node = { x: 100, y: 100 }
+  const hood = [node, { x: 130, y: 100 }, { x: 100, y: 60 }]
+  assert.deepEqual(aroundNode(node, hood), [{ x: 60, y: 60 }, { x: 140, y: 140 }])
+  assert.deepEqual(aroundNode(node, [node]), [{ x: 100, y: 100 }, { x: 100, y: 100 }])
 })

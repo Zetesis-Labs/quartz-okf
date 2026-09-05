@@ -20,6 +20,7 @@ import { nextScope, scopesFor, searchAcross } from "../../lib/search.ts"
 import type { ExplorerEmitConfig, HudDisplay, HudModel, RawGraph, SearchGraph, SearchRow, Translator, ViewNode } from "../../lib/types.ts"
 import type { ExplorerUrlState } from "../../lib/url-state.ts"
 import { buildView } from "../../lib/view.ts"
+import { aroundNode } from "../../lib/viewport.ts"
 import { baseDisplay } from "../../lib/display.ts"
 import type { Engine } from "./canvas/engine.ts"
 import type { HudState, TabContent } from "./state.ts"
@@ -457,14 +458,16 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
   // Selecting does not move the camera; `zoomTo` moves it only when the reader asked for it.
   function select(n: ViewNode, zoomTo = false, { instant = false }: { instant?: boolean } = {}): void {
     state.selected.value = n
-    if (zoomTo) frame(n, { instant })
+    // The selection card joins the stack on the next render and shrinks the free hole the
+    // frame is centred in: framing waits for it, or the node lands under the card on a phone.
+    if (zoomTo) requestAnimationFrame(() => frame(n, { instant }))
   }
 
   function frame(n: ViewNode, { instant = false } = {}): void {
     const view = state.view.value
     if (!view) return
     const hood = [n, ...[...(view.adj.get(n.id) || [])].map((id) => view.idx.get(id)).filter((x): x is ViewNode => Boolean(x))]
-    engine.fit(hood, 2.6, { instant })
+    engine.fit(aroundNode(n, hood), 2.6, { instant })
   }
 
   function deselect(): void {
