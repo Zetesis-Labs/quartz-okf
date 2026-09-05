@@ -264,6 +264,14 @@ export interface ExplorerScale {
   label: string
 }
 
+/** A mode drawn as a hierarchy: the edge that forms it and how firmly it is held. */
+export interface TreeOptions {
+  /** The edge whose links form the hierarchy, declared in either direction of the pair. */
+  edge: string
+  /** `radial` (default) pins the tree; `rings` keeps nodes free on their depth ring. */
+  layout?: "radial" | "rings"
+}
+
 export interface ExplorerMode {
   id: string
   label: string
@@ -271,6 +279,8 @@ export interface ExplorerMode {
   legendTitle?: string
   /** `"*"` (default) or the edge labels this mode keeps. */
   edges?: "*" | string[]
+  /** The relation that gives this mode its shape: the mode is drawn as a tree under it. */
+  tree?: string | TreeOptions
   /** The node types this mode is about; every other type stays out of it. */
   types?: string[]
   /** Another document this mode asks about, instead of the shared one. */
