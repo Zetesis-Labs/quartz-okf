@@ -63,6 +63,15 @@ assert.equal(
   "the annotating note did not rewrite the entry's description",
 )
 
+// A folder note is served as its folder's index. Quartz already collapses it, so here the
+// slug is the folder and no `url` is needed; the export keeps the authored path instead,
+// and that is where `siteUrlOf` speaks (see the federation tests). This pins the site half:
+// the fix must not start writing a url where the slug already is the page.
+const folder = built.nodes.find((node) => node.slug === "toolkit") as Node & { url?: string }
+assert.equal(folder.url, undefined, "a collapsed folder note needs no url of its own")
+await fs.access(path.join(root, "public/toolkit/index.html"))
+await assert.rejects(fs.access(path.join(root, "public/toolkit/toolkit.html")), "the authored path is not a page")
+
 // A row node promises a URL that lands on its row: the rendered page must carry the anchor.
 const catalogue = await fs.readFile(path.join(root, "public/standards/arm.html"), "utf8")
 assert.ok(catalogue.includes('data-okf-catalog'), "the catalogue table was not marked")
