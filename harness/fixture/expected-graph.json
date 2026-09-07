@@ -41,6 +41,11 @@
       "title": "AP001 — Reader attraction"
     },
     {
+      "slug": "toolkit",
+      "type": "concept",
+      "title": "The toolkit, as a folder"
+    },
+    {
       "slug": "tools/okf",
       "type": "tool",
       "title": "quartz-okf"
@@ -138,6 +143,11 @@
       "concepts/format"
     ],
     [
+      "toolkit",
+      "About",
+      "tools/okf"
+    ],
+    [
       "tools/okf",
       "About",
       "concepts/format"
@@ -159,10 +169,10 @@
     ]
   ],
   "stats": {
-    "notes": 10,
+    "notes": 11,
     "rows": 3,
-    "edges": 21,
-    "declaredEdges": 14,
+    "edges": 22,
+    "declaredEdges": 15,
     "derivedEdges": 7,
     "unresolvedEdges": 0
   },
