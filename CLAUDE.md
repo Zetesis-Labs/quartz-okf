@@ -106,6 +106,12 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   `layout: "rings"` los deja libres sobre su anillo con un `forceRadial` que gana al de
   tipo. Lo que no está en el árbol nace en el centroide de lo que toca. Ningún fallo es
   mudo: sin jerarquía, varios padres o ciclo son un `console.warn` por modo.
+- Una **nota de carpeta** (`dir/dir.md`) se sirve como el índice de su carpeta, no en su
+  ruta escrita. Quartz ya la colapsa, así que en el sitio su slug es `dir` y no hace falta
+  `url`; el export conserva la ruta escrita, y ahí `siteUrlOf` (`core/lib/graph.ts`) emite
+  `url: /dir/`. Sin eso, un consumidor que **federa** ese corpus monta `<mount>/dir/dir` y
+  la ficha del explorador y su `Open ↗` caen en un 404 (visto en el grafo del CERN,
+  2026-09-07). El montaje prefija la `url` publicada, no el slug.
 - Un subgrafo declara su **fuente**: `path` (un corpus del mismo código) o `repo` +
   `ref` (git a un commit). Un path local en `repo` sigue valiendo. La deriva
   (`ref-drift`/`ref-behind`) solo existe para git. `okf.config.ts` se lee antes que

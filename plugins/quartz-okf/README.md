@@ -86,6 +86,9 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
   Absent when it would repeat the title.
 - Node `row`: `{ note, anchor }` — this node is a row of a catalog table, so it lives
   inside that note's page and its `url` carries the anchor (see Catalog rows).
+- Node `url`: where the site serves the note, when that is not `/<slug>`. A folder note
+  (`dir/dir.md`) is served as its folder's index, so it publishes `/dir/`; federation
+  prefixes that url rather than the slug.
 - `stats.rows`: how many nodes are catalog rows. `notes` keeps counting every node.
 
 # Catalog rows
