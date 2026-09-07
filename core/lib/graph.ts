@@ -67,6 +67,18 @@ function graphPropertyGroups(profile: Profile): GraphPropertyGroup[] {
   }))
 }
 
+/**
+ * Where a site serves this note. Only a folder note needs saying: a renderer collapses
+ * `dir/dir.md` into the folder's index, so its authored path is a 404 and everything that
+ * reads `url` — the reading dock, `Open ↗`, a federated mount — would land there.
+ */
+function siteUrlOf(id: string): string | undefined {
+  const cut = id.lastIndexOf("/")
+  if (cut < 0) return undefined
+  const parent = id.slice(0, cut)
+  return parent.slice(parent.lastIndexOf("/") + 1) === id.slice(cut + 1) ? `/${parent}/` : undefined
+}
+
 export function deriveInverseEdges(edges: GraphEdge[], profile: Profile = PROFILE): GraphEdge[] {
   const inverseLabels = profile.inverseLabels ?? {}
   const edgeIris = profile.edgeIris ?? {}
@@ -136,6 +148,8 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
       description: frontmatter.description,
       path: document.path,
     }
+    const siteUrl = siteUrlOf(document.id)
+    if (siteUrl) node.url = siteUrl
     const aliases = asArray(frontmatter.aliases).map(String)
     if (aliases.length > 0) node.aliases = aliases
     const properties = projectProperties(frontmatter, profile)

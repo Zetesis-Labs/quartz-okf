@@ -87,6 +87,12 @@ export function validateFederationConfig(
   return problems
 }
 
+/**
+ * What a mount prefixes: the url the child published when it has one — a folder note is
+ * served at its folder, not at its slug — and the slug otherwise.
+ */
+const mounted = (node: GraphNode): string => String(node.url ?? node.slug).replace(/^\/+/, "")
+
 export function absolutiseChildGraph(childGraph: OkfGraph, urlBase: string | undefined, parentRef: FederatedFrom): OkfGraph {
   const base = String(urlBase ?? "").replace(/\/+$/, "")
   return {
@@ -94,7 +100,7 @@ export function absolutiseChildGraph(childGraph: OkfGraph, urlBase: string | und
     federatedFrom: parentRef,
     nodes: (childGraph.nodes ?? []).map(({ subgraph: _nested, ...node }) => ({
       ...node,
-      url: isAbsoluteUrl(node.url) ? node.url : `${base}/${node.slug}`,
+      url: isAbsoluteUrl(node.url) ? node.url : `${base}/${mounted(node)}`,
     })),
   }
 }
@@ -195,7 +201,7 @@ function federateEntry({ entry, id, child, portal, graph, profile, subgraphsPath
     ...node,
     slug: prefix(node.slug),
     federated: id,
-    url: isAbsoluteUrl(node.url) ? node.url : `${mount}/${node.slug}`,
+    url: isAbsoluteUrl(node.url) ? node.url : `${mount}/${mounted(node)}`,
   }))
   const edge = entry.edge ?? DEFAULT_EDGE
   const portalEdges: GraphEdge[] = open.map((node) =>

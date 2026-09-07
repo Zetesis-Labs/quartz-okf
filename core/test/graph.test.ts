@@ -456,3 +456,37 @@ test("an explicit annotation supersedes an inferred prose citation to the same r
     "la relación explícita no debe pesar dos veces por estar también enlazada en la prosa",
   )
 })
+
+test("a folder note publishes the url its site serves, not its authored path", () => {
+  const documents = [
+    {
+      id: "it-department/it-department",
+      path: "it-department/it-department.md",
+      reserved: false,
+      frontmatter: { type: "concept", title: "IT Department", aliases: ["it-department"] },
+      edges: [],
+    },
+    {
+      id: "it-department/strategy",
+      path: "it-department/strategy.md",
+      reserved: false,
+      frontmatter: { type: "concept", title: "Strategy" },
+      edges: [],
+    },
+    {
+      id: "units/it-department",
+      path: "units/it-department.md",
+      reserved: false,
+      frontmatter: { type: "concept", title: "A note that merely lives in a folder" },
+      edges: [],
+    },
+  ]
+  const graph = buildGraph(documents)
+  const folder = graph.nodes.find((node) => node.slug === "it-department/it-department")
+
+  // Quartz collapses a folder note into its folder's index; the authored path is a 404.
+  assert.equal(folder?.url, "/it-department/")
+  assert.equal(folder?.slug, "it-department/it-department", "the slug stays the authored identity")
+  assert.equal(graph.nodes.find((node) => node.slug === "it-department/strategy")?.url, undefined)
+  assert.equal(graph.nodes.find((node) => node.slug === "units/it-department")?.url, undefined)
+})
