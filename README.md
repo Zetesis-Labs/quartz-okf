@@ -104,6 +104,7 @@ Work is spec-driven ([Spec Kit](https://github.com/github/spec-kit)): features l
 under `specs/NNN-name/` and follow specify → plan → tasks → implement, under the
 rules of `.specify/memory/constitution.md`. `docs/METHODOLOGY.md` explains the flow,
 the git-as-truth / bundle-as-contract model and how consumers adopt a change.
+`docs/IDEAS.md` holds what is worth building but is not a feature yet.
 
 ## Status
 
