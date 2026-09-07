@@ -332,3 +332,15 @@ test("absolutiseChildGraph addresses every note under the mount and drops nested
   assert.deepEqual(copy.federatedFrom, { site: "https://cern.example", node: PORTAL })
   assert.equal(copy.source_head, "def456")
 })
+
+test("mounting a child prefixes the url it published, so a folder note keeps its folder form", () => {
+  const graph = childGraph()
+  graph.nodes[0].url = "/it-department/"
+
+  const copy = absolutiseChildGraph(graph, `/${ID}`, { site: "https://cern.example", node: PORTAL })
+  assert.equal(copy.nodes[0].url, `/${ID}/it-department/`)
+
+  const result = federateGraph(parentGraph(), { [ID]: { graph } }, federation(), profile)
+  const preview = result.graph.nodes.find((node) => node.slug === `${ID}/identity/sso`)
+  assert.equal(preview?.url, `/${ID}/it-department/`)
+})
