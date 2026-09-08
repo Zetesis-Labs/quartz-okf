@@ -106,6 +106,11 @@ export const DEFAULT_RULE_LEVELS: Readonly<Record<string, RuleLevel>> = Object.f
   "catalog/edge-required": "error",
   "catalog/ref-unresolved": "error",
   "catalog/property-conflict": "error",
+  "catalog/page-multiple": "error",
+  "catalog/page-unresolved": "error",
+  "catalog/page-duplicate": "error",
+  "catalog/page-self": "error",
+  "catalog/page-type-conflict": "error",
 })
 
 export const PROFILE: Profile = Object.freeze({

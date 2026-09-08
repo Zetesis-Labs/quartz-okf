@@ -2,7 +2,8 @@ import path from "node:path"
 import { anchorSlug } from "./anchor.ts"
 import { catalogsOf } from "./catalog.ts"
 import { DEFAULT_RULE_LEVELS, PROFILE } from "./reference-profile.ts"
-import { buildResolver } from "./resolver.ts"
+import { materializationsOf } from "./materialization.ts"
+import { buildBaseResolver, buildResolver } from "./resolver.ts"
 import { fencedLineMask, parseBodyLinks, parseTopologyEdges } from "./topology.ts"
 import type { Document, Frontmatter, Profile, RuleLevel, TopologyEdge, ValidatedDocument, Violation } from "./types.ts"
 
@@ -311,6 +312,19 @@ export function validateAnnotations(documents: ValidatedDocument[], options: Val
   return problems
 }
 
+export function validateMaterializations(
+  documents: ValidatedDocument[],
+  options: ValidateOptions = {},
+): AnnotationProblem[] {
+  const profile = options.profile ?? PROFILE
+  const levels: Levels = { ...profile.ruleLevels, ...(options.ruleLevels ?? {}) }
+  const index = materializationsOf(documents, buildBaseResolver(documents))
+  return index.problems.flatMap((problem) => {
+    const entry = violation(problem.code, problem.message, levels)
+    return entry ? [{ path: problem.path, violation: entry }] : []
+  })
+}
+
 function levelOf(rule: string, levels: Levels): RuleLevel {
   return levels[rule] ?? DEFAULT_RULE_LEVELS[rule] ?? "off"
 }
@@ -365,6 +379,10 @@ export function validateDocuments(documents: Document[], options: ValidateOption
     }
   }
   for (const problem of validateAnnotations(validated, options)) {
+    const document = validated.find((item) => item.path === problem.path)
+    document?.violations.push(problem.violation)
+  }
+  for (const problem of validateMaterializations(validated, options)) {
     const document = validated.find((item) => item.path === problem.path)
     document?.violations.push(problem.violation)
   }

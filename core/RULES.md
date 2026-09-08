@@ -46,6 +46,31 @@ These rules constrain what a consumer produces; they do not change permissive OK
 | `hygiene/redundant-inverse` | warn | A relation is declared on both endpoints; declare it once — the mirror is derived. |
 | `hygiene/knowledge-edges-recommended` | warn | A knowledge note (concept, decision, incident, runbook, report) should link its subjects with `About`/`Affects`. |
 
+# Catalog rules
+
+Catalog rules validate tables marked with `<!-- okf:rows … -->`. They are errors by
+default so strict builds never publish a partial or ambiguous catalog.
+
+| Rule | Default | Meaning |
+|---|---:|---|
+| `catalog/marker-invalid` | error | The marker is malformed, names an unknown key, or combines incompatible keys. |
+| `catalog/table-missing` | error | No Markdown table follows the marker. |
+| `catalog/type-missing` | error | A creating catalog has no row type. |
+| `catalog/column-unknown` | error | A configured id, label, description, property or page column is absent. |
+| `catalog/id-empty` | error | A creating row has no identifier. |
+| `catalog/id-duplicate` | error | Two rows in one note produce the same identifier. |
+| `catalog/pattern-invalid` | error | The identifier extraction pattern is invalid or lacks an `id` group. |
+| `catalog/pattern-nomatch` | error | A row's identifier cell does not match the declared pattern. |
+| `catalog/anchor-collision` | error | A row anchor collides with another row or heading in the note. |
+| `catalog/edge-required` | error | An annotating (`ref`) catalog declares no edge from its note. |
+| `catalog/ref-unresolved` | error | An annotation row reaches no existing node. |
+| `catalog/property-conflict` | error | Two annotations assign different values to the same node property. |
+| `catalog/page-multiple` | error | A materialized-page cell names more than one target. |
+| `catalog/page-unresolved` | error | A materialized-page target reaches no unambiguous note. |
+| `catalog/page-duplicate` | error | One physical page is claimed by more than one row. |
+| `catalog/page-self` | error | A row tries to use its containing catalog note as its page. |
+| `catalog/page-type-conflict` | error | A materialized page's type differs from the row type. |
+
 Consumer profiles may add stable rule identifiers and severities through
 declarative `propertyGroups` plus `ruleLevels`. The core executes those rules
 without owning their domain vocabulary.

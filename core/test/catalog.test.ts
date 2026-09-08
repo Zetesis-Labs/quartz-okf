@@ -111,6 +111,44 @@ test("catalogsOf builds one row per line with its identity, title and properties
   assert.deepEqual(rows[1].properties, { gloss: "Recruitment agents." })
 })
 
+test("a catalog may give selected rows one materialized page", () => {
+  const body = `<!-- okf:rows type=component id=Code label=Name page=Page -->
+
+| Code | Name | Page |
+|---|---|---|
+| AC001 | Student Recruitment | [[components/recruitment|Open]] |
+| AC002 | Agent Management | |
+`
+  const { rows, problems } = catalogsOf(source(body), {})
+
+  assert.deepEqual(problems, [])
+  assert.equal(rows[0].page, "components/recruitment")
+  assert.equal(rows[0].row, 1)
+  assert.equal(rows[1].page, undefined)
+  assert.equal(rows[1].row, undefined)
+})
+
+test("a materialized page cell names at most one target and belongs only to creating catalogs", () => {
+  const multiple = `<!-- okf:rows type=component id=Code page=Page -->
+
+| Code | Page |
+|---|---|
+| AC001 | [[one]], [[two]] |
+`
+  const annotation = `<!-- okf:rows ref=Code edge=About page=Page -->
+
+| Code | Page |
+|---|---|
+| AC001 | [[one]] |
+`
+
+  const invalidPage = catalogsOf(source(multiple))
+  assert.deepEqual(invalidPage.problems.map((problem) => problem.code), ["catalog/page-multiple"])
+  assert.equal(invalidPage.rows.length, 1)
+  assert.equal(invalidPage.rows[0].page, undefined)
+  assert.deepEqual(catalogsOf(source(annotation)).problems.map((problem) => problem.code), ["catalog/marker-invalid"])
+})
+
 test("catalogsOf takes note-level defaults and lets a marker override them", () => {
   const body = `<!-- okf:rows -->
 

@@ -8,7 +8,7 @@ export {
 } from "./federation.ts"
 export { sourceOf } from "./source.ts"
 export { buildResolver, conceptId } from "./resolver.ts"
-export { validateAnnotations, validateDocument, validateDocuments, isReserved } from "./rules.ts"
+export { validateAnnotations, validateDocument, validateDocuments, validateMaterializations, isReserved } from "./rules.ts"
 export { anchorSlug } from "./anchor.ts"
 export { catalogsOf, cellTargets, cellText, findCatalogs, parseMarker } from "./catalog.ts"
 export {

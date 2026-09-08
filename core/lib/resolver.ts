@@ -1,5 +1,6 @@
 import path from "node:path"
 import { anchorSlug } from "./anchor.ts"
+import { materializationsOf } from "./materialization.ts"
 import type { CatalogRow, Frontmatter } from "./types.ts"
 
 export interface ResolvableDocument {
@@ -7,7 +8,7 @@ export interface ResolvableDocument {
   path: string
   reserved?: boolean
   frontmatter?: Frontmatter | null
-  rows?: Pick<CatalogRow, "id" | "anchor" | "slug">[]
+  rows?: CatalogRow[]
 }
 
 export type Resolver = (target: string) => string | null
@@ -38,7 +39,7 @@ function aliasesOf(document: ResolvableDocument): string[] {
   return aliases ? [String(aliases)] : []
 }
 
-export function buildResolver(documents: ResolvableDocument[]): Resolver {
+export function buildBaseResolver(documents: ResolvableDocument[]): Resolver {
   const exact = new Map<string, string | null>()
   const aliases = new Map<string, string | null>()
   const short = new Map<string, string | null>()
@@ -91,5 +92,18 @@ export function buildResolver(documents: ResolvableDocument[]): Resolver {
       return rows.has(slug.toLowerCase()) ? slug : note
     }
     return resolveNote(String(target))
+  }
+}
+
+export function buildResolver(documents: ResolvableDocument[]): Resolver {
+  const resolve = buildBaseResolver(documents)
+  const identified = documents.filter(
+    (document): document is ResolvableDocument & { id: string } => typeof document.id === "string",
+  )
+  const materialized = materializationsOf(identified, resolve).byPage
+  return (target) => {
+    const resolved = resolve(target)
+    if (!resolved) return null
+    return materialized.get(resolved)?.row.slug ?? resolved
   }
 }

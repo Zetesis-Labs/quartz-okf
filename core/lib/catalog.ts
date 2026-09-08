@@ -11,8 +11,7 @@ const MARKER_RE = /^\s*<!--\s*okf:rows\b(.*?)-->\s*$/
 const KEY_RE = /([A-Za-z_][\w-]*)=(?:"([^"]*)"|([^\s;]+))/g
 const CLAUSE_RE = /^\s*([^:=]+?)\s*:\s*(.+?)\s*$/
 const TABLE_DIVIDER_RE = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/
-const CELL_SPLIT_RE = /(?<!\\)\|/
-const MARKER_KEYS = new Set(["type", "id", "ref", "label", "description", "properties", "pattern", "edge", "set"])
+const MARKER_KEYS = new Set(["type", "id", "ref", "label", "description", "properties", "pattern", "edge", "set", "page"])
 
 export interface MarkerDeclaration {
   keys: Record<string, string>
@@ -109,7 +108,31 @@ export function parseMarker(line: string): MarkerDeclaration | null {
 
 function splitRow(line: string): string[] {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "")
-  return trimmed.split(CELL_SPLIT_RE).map((cell) => cell.trim())
+  const cells: string[] = []
+  let cell = ""
+  let inWikilink = false
+  for (let index = 0; index < trimmed.length; index += 1) {
+    if (!inWikilink && trimmed.startsWith("[[", index)) {
+      inWikilink = true
+      cell += "[["
+      index += 1
+      continue
+    }
+    if (inWikilink && trimmed.startsWith("]]", index)) {
+      inWikilink = false
+      cell += "]]"
+      index += 1
+      continue
+    }
+    if (trimmed[index] === "|" && !inWikilink && trimmed[index - 1] !== "\\") {
+      cells.push(cell.trim())
+      cell = ""
+      continue
+    }
+    cell += trimmed[index]
+  }
+  cells.push(cell.trim())
+  return cells
 }
 
 const isTableLine = (line: string): boolean => /^\s*\|/.test(line)
@@ -317,6 +340,7 @@ function rowsOf(
   if (pattern === null) return []
   const labelColumn = keys.label ? catalog.header.indexOf(keys.label) : -1
   const descriptionColumn = keys.description ? catalog.header.indexOf(keys.description) : -1
+  const pageColumn = keys.page ? catalog.header.indexOf(keys.page) : -1
   const edgeColumns = catalog.header
     .map((name, column) => ({ name, column }))
     .filter((entry) => (options.edgeLabels ?? []).includes(entry.name))
@@ -371,6 +395,12 @@ function rowsOf(
       }
     }
     const description = descriptionColumn >= 0 ? cellText(cells[descriptionColumn] ?? "") : ""
+    const pageTargets = pageColumn >= 0 ? cellTargets(cells[pageColumn] ?? "") : []
+    if (pageTargets.length > 1) {
+      context.problems.push(
+        problemAt(catalog, "catalog/page-multiple", "the materialized page cell names more than one target", number),
+      )
+    }
     rows.push({
       id,
       anchor,
@@ -383,6 +413,7 @@ function rowsOf(
       edges,
       table: catalog.index,
       identifier: { column: idColumn, text: cell },
+      ...(pageTargets.length === 1 ? { page: pageTargets[0], row: number } : {}),
     })
   }
   return rows
@@ -416,6 +447,10 @@ export function catalogsOf(document: CatalogSource, options: CatalogOptions = {}
       problems.push(problemAt(catalog, "catalog/marker-invalid", "declare either `id` (rows are nodes) or `ref` (rows annotate nodes)"))
       continue
     }
+    if (reference && keys.page) {
+      problems.push(problemAt(catalog, "catalog/marker-invalid", "`page` belongs only to an `id` catalog"))
+      continue
+    }
     const markerProblems: string[] = []
     const stated = statedValues(keys.set, markerProblems)
     if (markerProblems.length > 0) {
@@ -429,6 +464,7 @@ export function catalogsOf(document: CatalogSource, options: CatalogOptions = {}
     if (column < 0) columnProblems.push(`no column "${declared}"`)
     if (keys.label && !catalog.header.includes(keys.label)) columnProblems.push(`no column "${keys.label}"`)
     if (keys.description && !catalog.header.includes(keys.description)) columnProblems.push(`no column "${keys.description}"`)
+    if (keys.page && !catalog.header.includes(keys.page)) columnProblems.push(`no column "${keys.page}"`)
     if (columnProblems.length > 0) {
       problems.push(
         problemAt(catalog, "catalog/column-unknown", `${columnProblems.join("; ")}; the table has: ${catalog.header.join(", ")}`),

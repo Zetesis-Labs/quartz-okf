@@ -100,6 +100,10 @@ export interface CatalogRow {
   table: number
   /** Source cell used by the HTML pass to find this exact row after Markdown rendering. */
   identifier?: { column: number; text: string }
+  /** Authored note that is the long-form representation of this row. */
+  page?: string
+  /** 1-based source row, retained when a page claim needs corpus-wide diagnostics. */
+  row?: number
 }
 
 /** A row of a `ref` table: it enriches a node declared elsewhere. */
@@ -143,6 +147,8 @@ export interface ValidatedDocument extends Document {
 export interface RowMarker {
   note: string
   anchor: string
+  /** Authored note that materializes this row, when one is declared. */
+  page?: string
 }
 
 export interface GraphNode {
