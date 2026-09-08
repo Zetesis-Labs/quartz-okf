@@ -17,6 +17,14 @@
       .replace(/\.html$/, "")
       .replace(/\/$/, "");
   }
+  function pageSlug(value) {
+    return simplifySlug(
+      String(value || "")
+        .split(/[?#]/)[0]
+        .replace(/^\/+/, "")
+        .replace(/\.html$/, ""),
+    );
+  }
 
   var TYPE_COLOR = {
     application: { light: "#a3459c", dark: "#c060b8" },
@@ -262,11 +270,17 @@
         return;
       }
       var nodeMap = {};
+      var current = null;
       for (var i = 0; i < graphData.nodes.length; i++) {
-        nodeMap[simplifySlug(graphData.nodes[i].slug)] = graphData.nodes[i];
+        var node = graphData.nodes[i];
+        var nodeSlug = simplifySlug(node.slug);
+        nodeMap[nodeSlug] = node;
+        if (nodeSlug === slug) current = node;
+        else if (!current && pageSlug(node.url) === slug) current = node;
       }
+      var graphSlug = current ? simplifySlug(current.slug) : slug;
       var m = mode();
-      var inGroups = group(graphData.edges, slug, "in");
+      var inGroups = group(graphData.edges, graphSlug, "in");
       var knowledgeGroups = {};
       for (var label in inGroups) {
         if (KNOWLEDGE[label]) {
@@ -276,10 +290,10 @@
           delete inGroups[label];
         }
       }
-      var out = section(t("panel.relations"), group(graphData.edges, slug, "out"), nodeMap, m);
+      var out = section(t("panel.relations"), group(graphData.edges, graphSlug, "out"), nodeMap, m);
       var inc = section(t("panel.referenced"), inGroups, nodeMap, m);
       var knowledge = section(t("panel.knowledge"), knowledgeGroups, nodeMap, m);
-      var properties = propertyPanel(nodeMap[slug], graphData.propertyGroups, t);
+      var properties = propertyPanel(current, graphData.propertyGroups, t);
       if (!properties && !out && !inc && !knowledge) {
         container.style.display = "none";
         return;
