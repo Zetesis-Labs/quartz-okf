@@ -3,6 +3,9 @@
 The per-note panel of the OKF graph: the note's typed relations, what points back at it,
 the knowledge attached to it, and the property groups its profile declares. It reads the
 graph the toolkit emits (`static/okf-graph.json`), so it says exactly what the graph says.
+On a physical page materialized for a catalog row, the page URL resolves back to that
+row: relations and properties are therefore the unified entity's, not an empty second
+note.
 
 ## In the site
 
