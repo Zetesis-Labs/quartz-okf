@@ -84,8 +84,13 @@ Local Quartz v5 adapter over the shared contract in `okf/lib/`. Validation, topo
   `edges` keep counting everything.
 - Node `label`: short text the canvas draws when the title is too long to be a name.
   Absent when it would repeat the title.
-- Node `row`: `{ note, anchor }` — this node is a row of a catalog table, so it lives
-  inside that note's page and its `url` carries the anchor (see Catalog rows).
+- Node `row`: `{ note, anchor, page? }` — this node is a row of a catalog table. Without
+  `page` its `url` carries the anchor inside the catalog note; with `page`, its `url`
+  opens the materialized page while its slug and identity remain the row's (see Catalog
+  rows).
+- A materialized page remains a physical document in exported bundle files and document
+  indexes. `row.page` maps that document to its canonical graph entity; `stats.notes`
+  counts graph nodes, including catalog rows, rather than Markdown files.
 - Node `url`: where the site serves the note, when that is not `/<slug>`. A folder note
   (`dir/dir.md`) is served as its folder's index, so it publishes `/dir/`; federation
   prefixes that url rather than the slug.
@@ -110,11 +115,38 @@ okf_rows: { id: Code, label: Name }
 ```
 
 The marker sits on the line above the table (blank lines allowed) and takes
-`type`, `id`, `ref`, `label`, `description`, `properties` (`Header` or `Header=key`,
+`type`, `id`, `ref`, `label`, `description`, `page`, `properties` (`Header` or `Header=key`,
 comma-separated), `set` (values that hold for every row of the table, `key=value`
 comma-separated), `pattern` (a regular expression over the identifier cell with named
 groups `id` and optional `label`) and `edge`. Note-wide defaults go in the frontmatter's
 `okf_rows` as one inline mapping; a marker's key wins over them.
+
+`page=<column>` lets selected rows have a full Markdown page without creating a second
+graph entity. The named column is optional per row: a blank cell keeps the catalog
+fragment URL, while one wikilink binds the row to that physical page:
+
+```markdown
+<!-- okf:rows type=component id=Code label=Name page=Page -->
+
+| Code | Name | Page |
+|---|---|---|
+| AC001 | Reader recruitment | [Open](/components/reader-recruitment) |
+| AC002 | Reader retention | |
+```
+
+The row remains canonical (`<catalog>#<anchor>`). The materialized page is suppressed as
+a separate graph node; resolving its path, short name, aliases or fragments reaches the
+row instead. The row owns its type, title, catalog properties and graph path. The page
+supplies the readable URL, description, tags, aliases and authored topology. Its outgoing
+edges and annotations therefore originate at the row. The page must have the same type,
+may back only one row, and may not be the catalog note itself. An invalid association is
+reported and, outside strict builds, falls back to two independent entities: the row keeps
+its catalog URL and the page remains a note.
+
+On Quartz sites that use `@quartz-community/unlisted-pages`, authors should normally set
+`unlisted: true` on the materialized page. Its HTML remains directly addressable through
+the row URL, while the filesystem explorer and ordinary search do not expose a second,
+storage-shaped hierarchy beside the catalog hierarchy.
 
 `set` says what the table itself asserts about all its rows — the level of a hierarchy,
 the state of a section — without a column repeating the same value on every line:
@@ -155,7 +187,8 @@ standard leaves out the notes that read it, without the reader filtering by hand
 Problems are rules named after the table and row they come from, `error` by default:
 `catalog/marker-invalid`, `table-missing`, `type-missing`, `column-unknown`, `id-empty`,
 `id-duplicate`, `pattern-invalid`, `pattern-nomatch`, `anchor-collision`, `edge-required`,
-`ref-unresolved`, `property-conflict`. Row types and edge labels are checked against the
+`ref-unresolved`, `property-conflict`, `page-multiple`, `page-unresolved`, `page-duplicate`,
+`page-self`, `page-type-conflict`. Row types and edge labels are checked against the
 consumer's profile like any other (`profile/type-closed`, `profile/edge-label-closed`).
 
 # Federation

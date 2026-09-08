@@ -12,6 +12,7 @@ import {
   subgraphId,
   validateAnnotations,
   validateDocument,
+  validateMaterializations,
   validateFederationConfig,
 } from "../../lib/index.ts"
 import type {
@@ -345,6 +346,10 @@ async function emitAll(context: BuildContext, content: Content, options: Resolve
       (document.violations ?? []).map((violation) => ({ file: document.path, ...violation })),
     ),
     ...validateAnnotations(documents, { profile }).map((problem) => ({
+      file: problem.path,
+      ...problem.violation,
+    })),
+    ...validateMaterializations(documents, { profile }).map((problem) => ({
       file: problem.path,
       ...problem.violation,
     })),
