@@ -112,6 +112,10 @@ SHA en su `okf/quartz-okf.ref` y aportan su vocabulario en `okf.config.mjs`.
   `url: /dir/`. Sin eso, un consumidor que **federa** ese corpus monta `<mount>/dir/dir` y
   la ficha del explorador y su `Open ↗` caen en un 404 (visto en el grafo del CERN,
   2026-09-07). El montaje prefija la `url` publicada, no el slug.
+- Una fila puede materializarse como página con `page=<columna>` (007): la fila sigue
+  siendo la identidad canónica y la nota física desaparece como segundo nodo. El `url`,
+  el resolver, el dock y los paneles abren la página, pero las relaciones salen de la
+  fila. Si la asociación es inválida, el modo no estricto conserva ambas por separado.
 - Un subgrafo declara su **fuente**: `path` (un corpus del mismo código) o `repo` +
   `ref` (git a un commit). Un path local en `repo` sigue valiendo. La deriva
   (`ref-drift`/`ref-behind`) solo existe para git. `okf.config.ts` se lee antes que

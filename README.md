@@ -53,6 +53,10 @@ The export is a conformant OKF v0.1 bundle plus `okf-graph.json` (typed
 nodes, labeled edges, `unresolved`), the executable `okf-profile.json`,
 `okf-manifest.json`, `llms.txt` and `llms-full.txt`.
 
+Marked Markdown tables act as catalogs: each row can be a graph node, and selected rows
+may point at a materialized Markdown page for long-form content without duplicating the
+entity in the graph.
+
 ### Profile-driven properties
 
 A consumer may extend the reference profile with flat authored fields,

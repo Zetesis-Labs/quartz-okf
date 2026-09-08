@@ -139,9 +139,10 @@ island reserves layout space. An island with nothing to say is not rendered.
 - **Dock** (right, under the bar; the whole width under 900px). Clicking a node opens its
   note — the site's own article, fetched like Quartz's popovers, scripts stripped — as the
   *temporary* note the next click replaces. `📍` pins it: it moves to the bar and comes back
-  on a click; `📌` unpins. A node that lives at a fragment, such as a catalog row, keeps
-  the complete note visible and focuses that fragment inside it. `Open ↗` navigates to the
-  page (and closes the explorer); `»` tucks the dock away, the pins stay.
+  on a click; `📌` unpins. A catalog row without its own page keeps the complete catalog
+  visible and focuses its fragment. A materialized row opens its physical page instead,
+  while the explorer still selects the row's canonical graph identity. `Open ↗` navigates
+  to that URL (and closes the explorer); `»` tucks the dock away, the pins stay.
   Static alias pages are followed through their immediate HTML refresh before extracting
   the article. Redirects stay on the fetched page's origin, stop after five hops, and keep
   an explicitly requested fragment. Loops and broken destinations appear as load errors.
