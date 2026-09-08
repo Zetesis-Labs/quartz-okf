@@ -71,6 +71,18 @@ const folder = built.nodes.find((node) => node.slug === "toolkit") as Node & { u
 assert.equal(folder.url, undefined, "a collapsed folder note needs no url of its own")
 await fs.access(path.join(root, "public/toolkit/index.html"))
 await assert.rejects(fs.access(path.join(root, "public/toolkit/toolkit.html")), "the authored path is not a page")
+const materialized = built.nodes.find((node) => node.slug === "standards/arm#ap001") as Node & {
+  url?: string
+  row?: { note: string; anchor: string; page?: string }
+}
+assert.equal(materialized.url, "/standards/reader-attraction", "the row does not open its authored page")
+assert.equal(materialized.row?.page, "standards/reader-attraction", "the row does not record its materialized page")
+assert.equal(
+  built.nodes.some((node) => node.slug === "standards/reader-attraction"),
+  false,
+  "the materialized page leaked into the graph as a second node",
+)
+await fs.access(path.join(root, "public/standards/reader-attraction.html"))
 
 // A row node promises a URL that lands on its row: the rendered page must carry the anchor.
 const catalogue = await fs.readFile(path.join(root, "public/standards/arm.html"), "utf8")
