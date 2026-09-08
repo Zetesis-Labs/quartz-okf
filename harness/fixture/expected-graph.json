@@ -28,17 +28,17 @@
     {
       "slug": "standards/arm#ac001",
       "type": "tool",
-      "title": "AC001 — Reader recruitment"
+      "title": "AC001 \u2014 Reader recruitment"
     },
     {
       "slug": "standards/arm#ac002",
       "type": "tool",
-      "title": "AC002 — Reader retention"
+      "title": "AC002 \u2014 Reader retention"
     },
     {
       "slug": "standards/arm#ap001",
       "type": "concept",
-      "title": "AP001 — Reader attraction"
+      "title": "AP001 \u2014 Reader attraction"
     },
     {
       "slug": "toolkit",
@@ -133,6 +133,11 @@
       "standards/arm"
     ],
     [
+      "standards/arm#ap001",
+      "Uses",
+      "tools/quartz"
+    ],
+    [
       "standards/arm",
       "Contains",
       "standards/arm#ap001"
@@ -165,15 +170,20 @@
     [
       "tools/quartz",
       "Used by",
+      "standards/arm#ap001"
+    ],
+    [
+      "tools/quartz",
+      "Used by",
       "tools/okf"
     ]
   ],
   "stats": {
     "notes": 11,
     "rows": 3,
-    "edges": 22,
-    "declaredEdges": 15,
-    "derivedEdges": 7,
+    "edges": 24,
+    "declaredEdges": 16,
+    "derivedEdges": 8,
     "unresolvedEdges": 0
   },
   "types": [

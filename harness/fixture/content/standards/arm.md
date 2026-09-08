@@ -15,11 +15,11 @@ own anchor in this page.
 
 # Capabilities
 
-<!-- okf:rows type=concept set="rank=mid" -->
+<!-- okf:rows type=concept set="rank=mid" page=Page -->
 
-| Code | Name |
-|---|---|
-| AP001 | Reader attraction |
+| Code | Name | Page |
+|---|---|---|
+| AP001 | Reader attraction | [[standards/reader-attraction]] |
 
 # Components
 
