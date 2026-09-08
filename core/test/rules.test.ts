@@ -379,3 +379,36 @@ test("an annotation that reaches no node, and two that disagree, are reported", 
   assert.match(problems[1].violation.message, /table 1, row 3/)
   assert.match(problems[1].violation.message, /state/)
 })
+
+test("corpus validation attaches invalid page claims to the catalog that made them", () => {
+  const catalogBody = `<!-- okf:rows type=component id=Code page=Page -->
+
+| Code | Page |
+|---|---|
+| AC001 | [[details/wrong]] |
+`
+  const documents = validateDocuments([
+    {
+      id: "standards/catalog",
+      path: "standards/catalog.md",
+      source: catalogBody,
+      body: catalogBody,
+      frontmatter: { type: "report", title: "Catalog", description: "d" },
+      parseError: null,
+      reserved: false,
+    },
+    {
+      id: "details/wrong",
+      path: "details/wrong.md",
+      source: "",
+      body: "",
+      frontmatter: { type: "decision", title: "Wrong", description: "d" },
+      parseError: null,
+      reserved: false,
+    },
+  ])
+
+  const violation = documents[0].violations.find((entry) => entry.rule === "catalog/page-type-conflict")
+  assert.equal(violation?.level, "error")
+  assert.match(violation?.message ?? "", /table 1, row 1/)
+})

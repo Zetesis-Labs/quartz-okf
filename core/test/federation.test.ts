@@ -344,3 +344,15 @@ test("mounting a child prefixes the url it published, so a folder note keeps its
   const preview = result.graph.nodes.find((node) => node.slug === `${ID}/identity/sso`)
   assert.equal(preview?.url, `/${ID}/it-department/`)
 })
+
+test("federation prefixes a materialized page URL instead of reconstructing it from the row slug", () => {
+  const graph = childGraph()
+  graph.nodes[0].url = "/details/sso"
+
+  const copy = absolutiseChildGraph(graph, `/${ID}`, { site: "https://cern.example", node: PORTAL })
+  assert.equal(copy.nodes[0].url, `/${ID}/details/sso`)
+
+  const result = federateGraph(parentGraph(), { [ID]: { graph } }, federation(), profile)
+  const preview = result.graph.nodes.find((node) => node.slug === `${ID}/identity/sso`)
+  assert.equal(preview?.url, `/${ID}/details/sso`)
+})

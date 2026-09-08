@@ -1,5 +1,7 @@
 import { PROFILE } from "./reference-profile.ts"
-import { buildResolver } from "./resolver.ts"
+import { anchorSlug } from "./anchor.ts"
+import { materializationsOf, type Materialization } from "./materialization.ts"
+import { buildBaseResolver, buildResolver } from "./resolver.ts"
 import type {
   CatalogRow,
   Frontmatter,
@@ -79,6 +81,12 @@ function siteUrlOf(id: string): string | undefined {
   return parent.slice(parent.lastIndexOf("/") + 1) === id.slice(cut + 1) ? `/${parent}/` : undefined
 }
 
+function materializedPageUrl(page: Materialization["page"], target: string | undefined): string {
+  const fragment = target?.slice(target.indexOf("#") + 1)
+  const url = siteUrlOf(page.id) ?? `/${page.id}`
+  return `${url}${target?.includes("#") && fragment ? `#${anchorSlug(fragment)}` : ""}`
+}
+
 export function deriveInverseEdges(edges: GraphEdge[], profile: Profile = PROFILE): GraphEdge[] {
   const inverseLabels = profile.inverseLabels ?? {}
   const edgeIris = profile.edgeIris ?? {}
@@ -112,24 +120,35 @@ export interface BuildGraphOptions {
   baseUrl?: string
 }
 
-function rowNode(row: CatalogRow, document: ValidatedDocument): GraphNode {
+function rowNode(row: CatalogRow, document: ValidatedDocument, materialized?: Materialization): GraphNode {
+  const page = materialized?.page
+  const aliases = [...new Set([row.id, ...asArray(page?.frontmatter?.aliases).map(String)])]
+  const tags = [
+    ...new Set([
+      ...asArray(document.frontmatter?.tags).map(String),
+      ...asArray(page?.frontmatter?.tags).map(String),
+    ]),
+  ]
   return {
     slug: row.slug,
     title: row.title,
     ...(row.label && row.label !== row.title ? { label: row.label } : {}),
     type: row.type,
-    ...(row.description ? { description: row.description } : {}),
+    ...(page?.frontmatter?.description || row.description
+      ? { description: String(page?.frontmatter?.description || row.description) }
+      : {}),
     path: document.path,
-    aliases: [row.id],
-    tags: asArray(document.frontmatter?.tags).map(String),
+    aliases,
+    tags,
     ...(row.properties ? { properties: { ...row.properties } } : {}),
-    url: `/${document.id}#${row.anchor}`,
-    row: { note: document.id, anchor: row.anchor },
+    url: page ? materializedPageUrl(page, row.page) : `/${document.id}#${row.anchor}`,
+    row: { note: document.id, anchor: row.anchor, ...(page ? { page: page.id } : {}) },
   }
 }
 
 export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOptions = {}): OkfGraph {
   const profile = options.profile ?? PROFILE
+  const materialized = materializationsOf(documents, buildBaseResolver(documents))
   const resolve = buildResolver(documents)
   const rowSlugs = new Set(documents.flatMap((document) => (document.rows ?? []).map((row) => row.slug)))
   const nodes: GraphNode[] = []
@@ -139,6 +158,8 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
   for (const document of documents) {
     const type = document.frontmatter?.type
     if (document.reserved || !type) continue
+    const pageBinding = materialized.byPage.get(document.id)
+    const source = pageBinding?.row.slug ?? document.id
     const frontmatter = document.frontmatter ?? {}
     const node: GraphNode = {
       slug: document.id,
@@ -154,7 +175,7 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
     if (aliases.length > 0) node.aliases = aliases
     const properties = projectProperties(frontmatter, profile)
     if (properties) node.properties = properties
-    nodes.push(node)
+    if (!pageBinding) nodes.push(node)
     const annotated = new Set(
       (document.annotations ?? [])
         .map((annotation) => resolve(annotation.ref))
@@ -166,20 +187,20 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
       // note is what prose does, and saying so would invent a relation nobody declared.
       if (edge.fromBody && (!target || !rowSlugs.has(target) || annotated.has(target))) continue
       const graphEdge: GraphEdge = {
-        source: document.id,
+        source,
         target,
         label: edge.label,
         iri: profile.edgeIris[edge.label],
       }
       if (!target) {
         graphEdge.targetRaw = edge.target
-        unresolved.push({ source: document.id, target: edge.target, label: edge.label })
+        unresolved.push({ source, target: edge.target, label: edge.label })
       }
       edges.push(graphEdge)
     }
     for (const row of document.rows ?? []) {
       rows += 1
-      nodes.push(rowNode(row, document))
+      nodes.push(rowNode(row, document, materialized.byRow.get(row.slug)))
       for (const edge of row.edges) {
         const target = resolve(edge.target)
         const graphEdge: GraphEdge = {
@@ -198,17 +219,18 @@ export function buildGraph(documents: ValidatedDocument[], options: BuildGraphOp
   }
   const bySlug = new Map(nodes.map((node) => [node.slug, node]))
   for (const document of documents) {
+    const source = materialized.byPage.get(document.id)?.row.slug ?? document.id
     for (const annotation of document.annotations ?? []) {
       const target = resolve(annotation.ref)
       const node = target ? bySlug.get(target) : undefined
       if (!node) {
-        unresolved.push({ source: document.id, target: annotation.ref, label: annotation.edge })
+        unresolved.push({ source, target: annotation.ref, label: annotation.edge })
         continue
       }
       node.properties = { ...(node.properties ?? {}), ...annotation.properties }
       if (annotation.description) node.description = annotation.description
       edges.push({
-        source: document.id,
+        source,
         target: node.slug,
         label: annotation.edge,
         iri: profile.edgeIris[annotation.edge],

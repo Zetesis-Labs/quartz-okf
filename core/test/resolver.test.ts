@@ -110,3 +110,37 @@ test("an already ambiguous row alias stays ambiguous when a note has that short 
 
   assert.equal(resolve("AC001"), null)
 })
+
+test("a materialized page and all its note names resolve to the row identity", () => {
+  const resolve = buildResolver([
+    {
+      id: "standards/arm",
+      path: "standards/arm.md",
+      frontmatter: { type: "report" },
+      rows: [
+        {
+          id: "AP012",
+          anchor: "ap012",
+          slug: "standards/arm#ap012",
+          type: "component",
+          title: "AP012",
+          label: "AP012",
+          edges: [],
+          table: 1,
+          page: "details/digital-identity",
+          row: 1,
+        },
+      ],
+    },
+    {
+      id: "details/digital-identity",
+      path: "details/digital-identity.md",
+      frontmatter: { type: "component", aliases: ["identity capability"] },
+    },
+  ])
+
+  assert.equal(resolve("details/digital-identity"), "standards/arm#ap012")
+  assert.equal(resolve("digital-identity"), "standards/arm#ap012")
+  assert.equal(resolve("identity capability"), "standards/arm#ap012")
+  assert.equal(resolve("details/digital-identity#reading"), "standards/arm#ap012")
+})

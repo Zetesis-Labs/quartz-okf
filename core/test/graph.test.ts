@@ -490,3 +490,143 @@ test("a folder note publishes the url its site serves, not its authored path", (
   assert.equal(graph.nodes.find((node) => node.slug === "it-department/strategy")?.url, undefined)
   assert.equal(graph.nodes.find((node) => node.slug === "units/it-department")?.url, undefined)
 })
+
+test("a materialized folder page keeps the site's folder URL and requested section", () => {
+  const graph = buildGraph([
+    {
+      id: "standards/catalog",
+      path: "standards/catalog.md",
+      frontmatter: { type: "report" },
+      rows: [{
+        id: "C001", anchor: "c001", slug: "standards/catalog#c001", type: "component",
+        title: "A capability", edges: [], table: 1, page: "details/capability/capability#Deep Dive",
+      }],
+    },
+    {
+      id: "details/capability/capability",
+      path: "details/capability/capability.md",
+      frontmatter: { type: "component" },
+    },
+  ])
+  assert.equal(graph.nodes.find((node) => node.slug === "standards/catalog#c001")?.url, "/details/capability/#deep-dive")
+})
+
+test("a materialized catalog row absorbs its page into one graph node", () => {
+  const documents = [
+    {
+      id: "standards/arm",
+      path: "standards/arm.md",
+      reserved: false,
+      frontmatter: { type: "report", title: "ARM", tags: ["standard"] },
+      edges: [],
+      rows: [
+        {
+          id: "AP012",
+          anchor: "ap012",
+          slug: "standards/arm#ap012",
+          type: "component",
+          title: "AP012 — Digital Identity",
+          label: "AP012",
+          description: "Catalog summary",
+          properties: { rank: "mid" },
+          edges: [{ label: "Part of", target: "standards/arm" }],
+          table: 1,
+          page: "details/digital-identity#Deep Dive",
+          row: 1,
+        },
+      ],
+    },
+    {
+      id: "details/digital-identity",
+      path: "details/digital-identity.md",
+      reserved: false,
+      frontmatter: {
+        type: "component",
+        title: "Digital Identity",
+        description: "Long-form reading",
+        tags: ["identity"],
+        aliases: ["identity capability"],
+      },
+      edges: [
+        { label: "About", target: "decisions/identity" },
+        { label: "Depends on", target: "missing/provider" },
+      ],
+    },
+    {
+      id: "decisions/identity",
+      path: "decisions/identity.md",
+      reserved: false,
+      frontmatter: { type: "decision", title: "Identity first" },
+      edges: [{ label: "About", target: "details/digital-identity" }],
+    },
+  ]
+  const graph = buildGraph(documents)
+  const row = graph.nodes.find((node) => node.slug === "standards/arm#ap012")
+
+  assert.equal(graph.nodes.some((node) => node.slug === "details/digital-identity"), false)
+  assert.deepEqual(row, {
+    slug: "standards/arm#ap012",
+    title: "AP012 — Digital Identity",
+    label: "AP012",
+    type: "component",
+    description: "Long-form reading",
+    path: "standards/arm.md",
+    aliases: ["AP012", "identity capability"],
+    tags: ["standard", "identity"],
+    properties: { rank: "mid" },
+    url: "/details/digital-identity#deep-dive",
+    row: { note: "standards/arm", anchor: "ap012", page: "details/digital-identity" },
+  })
+  assert.ok(
+    graph.edges.some(
+      (edge) =>
+        edge.source === "standards/arm#ap012" &&
+        edge.label === "About" &&
+        edge.target === "decisions/identity",
+    ),
+  )
+  assert.ok(
+    graph.edges.some(
+      (edge) =>
+        edge.source === "decisions/identity" &&
+        edge.label === "About" &&
+        edge.target === "standards/arm#ap012",
+    ),
+  )
+  assert.equal(graph.edges.some((edge) => edge.source === "details/digital-identity"), false)
+  assert.equal(graph.edges.some((edge) => edge.target === "details/digital-identity"), false)
+  assert.deepEqual(
+    graph.unresolved.find((edge) => edge.target === "missing/provider"),
+    { source: "standards/arm#ap012", target: "missing/provider", label: "Depends on" },
+  )
+})
+
+test("annotations authored by a materialized page use the row as their source", () => {
+  const documents = structuredClone(CATALOG)
+  documents[0].rows[0].page = "details/capability"
+  documents[0].rows[0].row = 1
+  documents.push({
+    id: "details/capability",
+    path: "details/capability.md",
+    reserved: false,
+    frontmatter: { type: "concept", title: "Capability" },
+    edges: [],
+    annotations: [
+      { ref: "AC001", edge: "About", properties: {}, table: 1, row: 1 },
+      { ref: "AC404", edge: "About", properties: {}, table: 1, row: 2 },
+    ],
+  })
+
+  const graph = buildGraph(documents)
+  assert.ok(
+    graph.edges.some(
+      (edge) => edge.source === "standards/arm#ap001" && edge.target === "standards/arm#ac001" && edge.label === "About",
+    ),
+  )
+  assert.equal(graph.edges.some((edge) => edge.source === "details/capability"), false)
+  assert.ok(
+    graph.unresolved.some(
+      (edge) => edge.source === "standards/arm#ap001" && edge.target === "AC404" && edge.label === "About",
+    ),
+  )
+})
