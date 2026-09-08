@@ -3,6 +3,7 @@ import { activateTab, closeTab, dockOpen, hideDock, openTab, pinTab } from "../.
 import { carriedFocus, findNode, focusKeys, resolveFocus } from "../../lib/focus.ts"
 import { indexGraph } from "../../lib/model.ts"
 import { focusTarget, withFocus } from "../../lib/note-focus.ts"
+import { resolveNotePage, type NotePage } from "../../lib/note-page.ts"
 import {
   backTo as backToLevel,
   currentKey,
@@ -492,13 +493,16 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
 
   // A page is fetched once however many of its rows are read: a catalog note answers for
   // hundreds of nodes, and each one used to re-download it.
-  const pages = new Map<string, Promise<Document>>()
-  function pageOf(path: string): Promise<Document> {
+  const pages = new Map<string, Promise<NotePage<Document>>>()
+  function pageOf(path: string): Promise<NotePage<Document>> {
     const known = pages.get(path)
     if (known) return known
     const pending = fetch(path).then(async (r) => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      return new DOMParser().parseFromString(await r.text(), "text/html")
+      const page = new DOMParser().parseFromString(await r.text(), "text/html")
+      const readable = page.querySelector("article") ?? page.querySelector(".center")
+      const refresh = readable ? null : page.querySelector('meta[http-equiv="refresh" i]')?.getAttribute("content") ?? null
+      return { page, url: r.url, refresh }
     })
     pending.catch(() => pages.delete(path))
     pages.set(path, pending)
@@ -506,15 +510,14 @@ export function createController({ cfg, t, state, engine, history, onClose }: Co
   }
 
   async function fetchNote(url: string): Promise<string> {
-    const [path, fragment] = url.split("#")
-    const doc = await pageOf(path)
+    const { page: doc, fragment } = await resolveNotePage(new URL(url, window.location.href).href, pageOf)
     const article = doc.querySelector("article") ?? doc.querySelector(".center")
     if (!article) throw new Error(t("dock.missing"))
     disarm(article)
     if (!fragment) return article.innerHTML
     const target = focusTarget(doc, decodeURIComponent(fragment))
     if (!target) {
-      console.warn(`[quartz-okf-explorer] nothing in ${path} answers to #${fragment}: opening the note unfocused`)
+      console.warn(`[quartz-okf-explorer] nothing in ${url} answers to #${fragment}: opening the note unfocused`)
     }
     return withFocus(target, () => article.innerHTML)
   }

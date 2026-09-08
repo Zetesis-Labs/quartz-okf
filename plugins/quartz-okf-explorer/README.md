@@ -142,6 +142,9 @@ island reserves layout space. An island with nothing to say is not rendered.
   on a click; `📌` unpins. A node that lives at a fragment, such as a catalog row, keeps
   the complete note visible and focuses that fragment inside it. `Open ↗` navigates to the
   page (and closes the explorer); `»` tucks the dock away, the pins stay.
+  Static alias pages are followed through their immediate HTML refresh before extracting
+  the article. Redirects stay on the fetched page's origin, stop after five hops, and keep
+  an explicitly requested fragment. Loops and broken destinations appear as load errors.
 - **Context menu** — right-click on a node: open, open in a new tab, pin, frame its
   neighbourhood, explore its subgraph, copy link; on the background: fit, clear. `Space` on
   the keyboard-focused node opens the same menu.
