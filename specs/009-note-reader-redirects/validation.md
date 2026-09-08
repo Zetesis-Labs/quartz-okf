@@ -1,5 +1,9 @@
 # Validation — 2026-09-08
 
+## Release preparation
+
+Rebased the fix onto current `origin/main` (`ec9dbef`). The rebased commit passes all 324 tests and all type checks in the devcontainer. Code review and silent-failure review found no blocking issues: failed fetches propagate to the dock and evict the page cache; redirect traversal rejects cycles, excessive hops and forbidden targets. The eight regressions cover the changed reader behavior; browser and static consumer checks below cover its integration.
+
 ## Toolkit checks
 
 The isolated `009-note-reader-redirects` worktree starts at `86f767b6c57fae987ff4eb57be4270fb213622a3`. The original toolkit checkout and its existing materialization changes were preserved.
